@@ -39,10 +39,11 @@ class GameManager:
                     if isinstance(entity, Unit):
                         entity.set_target(mouse_pos, target_entity)
 
+
     def update(self):
         for entity in self.entities:
             if isinstance(entity, Unit):
-                entity.update()
+                entity.update(self.entities)
                 
                 # Gathering Logic
                 if entity.state == "GATHERING":
@@ -50,20 +51,18 @@ class GameManager:
                     if entity.carry >= entity.max_carry:
                         entity.carry = entity.max_carry
                         # Return to base
-                        entity.set_target((self.base.x, self.base.y), self.base)
+                        entity.set_target(self.base.get_center(), self.base)
                 
                 # Depositing Logic
                 elif entity.state == "DEPOSITING":
                     self.resources += entity.carry
                     entity.carry = 0
-                    # Return to resource
-                    # We need to remember the resource. 
-                    # For simplicity, if we were gathering from a resource, we go back to it.
-                    # But unit.target_entity is currently the Base.
-                    # We need to store the "source" resource.
-                    # For now, let's just go idle to keep it simple or bounce back if we can.
-                    entity.state = "IDLE" 
-                    # To make it loop, we would need to store 'last_resource' in Unit.
+                    # Return to source resource if it exists
+                    if entity.source_resource and entity.source_resource in self.entities:
+                         entity.set_target(entity.source_resource.get_center(), entity.source_resource)
+                    else:
+                        entity.state = "IDLE"
+                        entity.source_resource = None
 
     def draw(self, screen):
         for entity in self.entities:
