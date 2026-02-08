@@ -7,6 +7,10 @@ class GameManager:
         self.entities = []
         self.selected_entities = []
         self.resources = 0
+        # Drag selection state
+        self.dragging = False
+        self.drag_start = None
+        self.drag_end = None
         # Initial entities
         self.base = Building(50, 250)
         self.entities.append(self.base)
@@ -19,14 +23,10 @@ class GameManager:
         if event.type == pygame.MOUSEBUTTONDOWN:
             mouse_pos = pygame.mouse.get_pos()
             
-            if event.button == 1: # Left click - Select
-                self.selected_entities.clear()
-                for entity in self.entities:
-                    if isinstance(entity, Unit) and entity.contains_point(mouse_pos):
-                        entity.selected = True
-                        self.selected_entities.append(entity)
-                    else:
-                        entity.selected = False
+            if event.button == 1: # Left click - Start drag or single select
+                self.dragging = True
+                self.drag_start = mouse_pos
+                self.drag_end = mouse_pos
             
             elif event.button == 3: # Right click - Move/Interact
                 target_entity = None
@@ -38,6 +38,43 @@ class GameManager:
                 for entity in self.selected_entities:
                     if isinstance(entity, Unit):
                         entity.set_target(mouse_pos, target_entity)
+        
+        elif event.type == pygame.MOUSEBUTTONUP:
+            if event.button == 1 and self.dragging:
+                self.dragging = False
+                # Select units within drag box
+                self.select_units_in_box()
+                self.drag_start = None
+                self.drag_end = None
+        
+        elif event.type == pygame.MOUSEMOTION:
+            if self.dragging:
+                self.drag_end = pygame.mouse.get_pos()
+    
+    def select_units_in_box(self):
+        if not self.drag_start or not self.drag_end:
+            return
+        
+        # Calculate selection box bounds
+        x1, y1 = self.drag_start
+        x2, y2 = self.drag_end
+        min_x = min(x1, x2)
+        max_x = max(x1, x2)
+        min_y = min(y1, y2)
+        max_y = max(y1, y2)
+        
+        # Clear previous selection
+        for entity in self.entities:
+            entity.selected = False
+        self.selected_entities.clear()
+        
+        # Select units within box
+        for entity in self.entities:
+            if isinstance(entity, Unit):
+                cx, cy = entity.get_center()
+                if min_x <= cx <= max_x and min_y <= cy <= max_y:
+                    entity.selected = True
+                    self.selected_entities.append(entity)
 
 
     def update(self):
@@ -67,6 +104,23 @@ class GameManager:
     def draw(self, screen):
         for entity in self.entities:
             entity.draw(screen)
+        
+        # Draw drag selection box
+        if self.dragging and self.drag_start and self.drag_end:
+            x1, y1 = self.drag_start
+            x2, y2 = self.drag_end
+            min_x = min(x1, x2)
+            max_x = max(x1, x2)
+            min_y = min(y1, y2)
+            max_y = max(y1, y2)
+            width = max_x - min_x
+            height = max_y - min_y
+            # Draw semi-transparent box
+            selection_surface = pygame.Surface((width, height), pygame.SRCALPHA)
+            selection_surface.fill((0, 255, 0, 50))  # Green with transparency
+            screen.blit(selection_surface, (min_x, min_y))
+            # Draw border
+            pygame.draw.rect(screen, GREEN, (min_x, min_y, width, height), 2)
         
         # Draw resource count
         font = pygame.font.SysFont(None, 36)
