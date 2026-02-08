@@ -3,7 +3,7 @@ import math
 from game.constants import *
 
 class Entity:
-    def __init__(self, x, y, color, size, class_name):
+    def __init__(self, x, y, color, size, class_name, image_path=None):
         self.x = x
         self.y = y
         self.color = color
@@ -11,12 +11,27 @@ class Entity:
         self.radius = size / 4 if class_name == "Building" else size / 3 # Assume circular for collision
         self.selected = False
         self.class_name = class_name
+        
+        # Load image if provided
+        self.image = None
+        if image_path:
+            try:
+                self.image = pygame.image.load(image_path)
+                self.image = pygame.transform.scale(self.image, (int(size), int(size)))
+            except Exception as e:
+                print(f"Warning: Could not load image {image_path}: {e}")
+                self.image = None
 
     def draw(self, screen):
         # Draw hitbox circle for visualization (optional but requested "surroundings")
         pygame.draw.circle(screen, (50, 50, 50), (int(self.x + self.size/2), int(self.y + self.size/2)), int(self.radius + 2), 1)
         
-        pygame.draw.rect(screen, self.color, (self.x, self.y, self.size, self.size))
+        # Draw image if available, otherwise draw colored rect
+        if self.image:
+            screen.blit(self.image, (int(self.x), int(self.y)))
+        else:
+            pygame.draw.rect(screen, self.color, (self.x, self.y, self.size, self.size))
+        
         if self.selected:
             pygame.draw.rect(screen, WHITE, (self.x, self.y, self.size, self.size), 2)
 
@@ -29,7 +44,7 @@ class Entity:
 
 class Unit(Entity):
     def __init__(self, x, y):
-        super().__init__(x, y, BLUE, UNIT_SIZE, "Unit")
+        super().__init__(x, y, BLUE, UNIT_SIZE, "Unit", "assets/unit.png")
         self.target_x = x
         self.target_y = y
         self.speed = UNIT_SPEED
@@ -104,9 +119,9 @@ class Unit(Entity):
 
 class Resource(Entity):
     def __init__(self, x, y):
-        super().__init__(x, y, YELLOW, RESOURCE_SIZE, "Resource")
+        super().__init__(x, y, YELLOW, RESOURCE_SIZE, "Resource", "assets/resource.png")
         self.amount = 100
 
 class Building(Entity):
     def __init__(self, x, y):
-        super().__init__(x, y, RED, 40, "Building")
+        super().__init__(x, y, RED, 40, "Building", "assets/mage_base.png")
