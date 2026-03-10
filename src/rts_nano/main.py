@@ -1,7 +1,7 @@
 import pygame
 import sys
-from game.constants import *
-from game.manager import GameManager
+from rts_nano.game.constants import *
+from rts_nano.game.manager import GameManager
 
 def main():
     pygame.init()
@@ -9,7 +9,24 @@ def main():
     pygame.display.set_caption("Simple RTS")
     clock = pygame.time.Clock()
     
-    game_manager = GameManager()
+
+    map_settings = {
+        "Blue": {
+            "unit": [(100, 100), (150, 150)],
+            "base": [(50, 250)],
+            },
+        "Red": {
+            "unit": [(700, 800)],
+            "base": [(750, 850)]
+            },
+        "Resources": {
+            "wood": [(300, 300), (400, 200)],
+            "cristal": [(350, 350)]
+        }
+    }
+
+
+    game_manager = GameManager(map_settings)
 
     running = True
     while running:

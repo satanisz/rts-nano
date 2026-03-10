@@ -8,3 +8,8 @@ wheels/
 
 # Virtual environments
 .venv
+
+/src/rts_nano/assets/*.xcf
+/src/rts_nano/assets/*.jpg
+/src/rts_nano/assets/*.png
+/src/rts_nano/game/assets/*.png

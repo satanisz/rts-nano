@@ -1,9 +1,30 @@
 import pygame
-from game.constants import *
-from game.entities import Unit, Resource, Building
+from rts_nano.game.constants import *
+from rts_nano.game.entities import Unit, Resource, Building
+
+
+    map_settings = {
+        "blue": {
+            "unit": [(100, 100), (150, 150)],
+            "base": [(50, 250)],
+            },
+        "red": {
+            "unit": [(700, 800)],
+            "base": [(750, 850)]
+            },
+        "resources": {
+            "wood": [(300, 300), (400, 200)],
+            "cristal": [(350, 350)],
+        "envirament" : [],
+        }
+    }
+
+
 
 class GameManager:
-    def __init__(self):
+    def __init__(self, map_settings):
+
+        self.map_settings: dict = map_settings  
         self.entities = []
         self.selected_entities = []
         self.resources = 0
@@ -11,7 +32,18 @@ class GameManager:
         self.dragging = False
         self.drag_start = None
         self.drag_end = None
+
+
+
+    def _load_mapp_settings(self)
         # Initial entities
+
+        for type_asset in self.map_settings:
+            for assets in type_asset:
+                for asset in type_asset[assets]:
+
+                    
+
         self.base = Building(50, 250)
         self.entities.append(self.base)
         self.entities.append(Unit(100, 100))
@@ -63,18 +95,30 @@ class GameManager:
         min_y = min(y1, y2)
         max_y = max(y1, y2)
         
+        # Check if this is a click (small drag) or a drag (box selection)
+        drag_distance = ((x2 - x1)**2 + (y2 - y1)**2) ** 0.5
+        is_click = drag_distance < 5  # Threshold in pixels
+        
         # Clear previous selection
         for entity in self.entities:
             entity.selected = False
         self.selected_entities.clear()
         
-        # Select units within box
-        for entity in self.entities:
-            if isinstance(entity, Unit):
-                cx, cy = entity.get_center()
-                if min_x <= cx <= max_x and min_y <= cy <= max_y:
+        if is_click:
+            # Single-click selection - select one unit at click position
+            for entity in self.entities:
+                if isinstance(entity, Unit) and entity.contains_point(self.drag_start):
                     entity.selected = True
                     self.selected_entities.append(entity)
+                    break  # Only select one unit on click
+        else:
+            # Box selection - select all units within box
+            for entity in self.entities:
+                if isinstance(entity, Unit):
+                    cx, cy = entity.get_center()
+                    if min_x <= cx <= max_x and min_y <= cy <= max_y:
+                        entity.selected = True
+                        self.selected_entities.append(entity)
 
 
     def update(self):

@@ -1,6 +1,10 @@
+import logging
 import pygame
 import math
-from game.constants import *
+from pathlib import Path
+from rts_nano.game.constants import *
+
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 class Entity:
     def __init__(self, x, y, color, size, class_name, image_path=None):
@@ -19,7 +23,7 @@ class Entity:
                 self.image = pygame.image.load(image_path)
                 self.image = pygame.transform.scale(self.image, (int(size), int(size)))
             except Exception as e:
-                print(f"Warning: Could not load image {image_path}: {e}")
+                logging.warning(f"Could not load image {image_path}: {e}")
                 self.image = None
 
     def draw(self, screen):
@@ -44,7 +48,7 @@ class Entity:
 
 class Unit(Entity):
     def __init__(self, x, y):
-        super().__init__(x, y, BLUE, UNIT_SIZE, "Unit", "assets/unit.png")
+        super().__init__(x, y, BLUE, UNIT_SIZE, "Unit", str(BASE_DIR / "assets" / "blue_unit.png"))
         self.target_x = x
         self.target_y = y
         self.speed = UNIT_SPEED
@@ -119,9 +123,9 @@ class Unit(Entity):
 
 class Resource(Entity):
     def __init__(self, x, y):
-        super().__init__(x, y, YELLOW, RESOURCE_SIZE, "Resource", "assets/resource.png")
+        super().__init__(x, y, YELLOW, RESOURCE_SIZE, "Resource", str(BASE_DIR / "assets" / "cristal.png"))
         self.amount = 100
 
 class Building(Entity):
     def __init__(self, x, y):
-        super().__init__(x, y, RED, 40, "Building", "assets/mage_base.png")
+        super().__init__(x, y, RED, 40, "Building", str(BASE_DIR / "assets" / "blue_base.png"))

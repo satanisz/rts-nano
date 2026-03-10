@@ -1,4 +1,7 @@
+import logging
 from PIL import Image, ImageDraw
+
+logging.basicConfig(level=logging.INFO)
 
 # Create resource image (15x15)
 resource_img = Image.new('RGBA', (15, 15), (0, 0, 0, 0))
@@ -8,8 +11,8 @@ draw = ImageDraw.Draw(resource_img)
 draw.polygon([(7, 2), (12, 7), (10, 13), (5, 13), (3, 7)], fill=(255, 215, 0), outline=(200, 170, 0))
 draw.polygon([(7, 2), (9, 5), (7, 8), (5, 5)], fill=(255, 255, 150))  # Highlight
 
-resource_img.save('assets/resource.png')
-print("Generated resource.png successfully!")
+resource_img.save('rts_nano/assets/cristal.png')
+logging.info('Generated cristal.png successfully!')
 
 # Create unit image (20x20)
 unit_img = Image.new('RGBA', (20, 20), (0, 0, 0, 0))
@@ -21,5 +24,5 @@ draw.ellipse([7, 5, 13, 11], fill=(100, 160, 255))  # Highlight
 draw.rectangle([7, 12, 9, 17], fill=(70, 130, 220))  # Left leg
 draw.rectangle([11, 12, 13, 17], fill=(70, 130, 220))  # Right leg
 
-unit_img.save('assets/unit.png')
-print("Generated unit.png successfully!")
+unit_img.save('rts_nano/assets/blue_unit.png')
+logging.info('Generated unit.png successfully!')
