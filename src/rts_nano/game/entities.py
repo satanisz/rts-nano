@@ -2,9 +2,16 @@ import logging
 import pygame
 import math
 from pathlib import Path
+from enum import Enum
 from rts_nano.game.constants import *
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+class TeamColor(str, Enum):
+    BLUE = "Blue"
+    RED = "Red"
+    GREY = "Grey"
+    RESOURCES = "Resources"
 
 class Entity:
     def __init__(self, x, y, color, size, class_name, image_path=None):
@@ -46,15 +53,27 @@ class Entity:
     def get_center(self):
         return self.x + self.size / 2, self.y + self.size / 2
 
+
+
+
 class Unit(Entity):
-    def __init__(self, x, y):
-        super().__init__(x, y, BLUE, UNIT_SIZE, "Unit", str(BASE_DIR / "assets" / "blue_unit.png"))
+    def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE):
+        if team == TeamColor.BLUE:
+            color = BLUE
+        elif team == TeamColor.RED:
+            color = RED
+        else:
+            color = GRAY
+        img_path = str(BASE_DIR / "assets" / f"{team.value.lower()}_unit.png")
+        super().__init__(x, y, color, UNIT_SIZE, "Unit", img_path)
+        self.team = team
         self.target_x = x
         self.target_y = y
         self.speed = UNIT_SPEED
         self.target_entity = None
         self.source_resource = None # For continuous harvesting
-        self.carry = 0
+        self.carry_wood = 0
+        self.carry_cristal = 0
         self.max_carry = 10
         self.state = "IDLE" # IDLE, MOVING, GATHERING, RETURNING, DEPOSITING
 
@@ -121,11 +140,49 @@ class Unit(Entity):
                 
                 # Update target if we are being pushed significantly? Maybe not needed for simple logic.
 
+
+class Knight(Unit):
+    def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE):
+        super().__init__(x, y, team)
+        self.speed = KNIGHT_SPEED
+        self.max_carry = KNIGHT_MAX_CARRY
+        self.image_path = str(BASE_DIR / "assets" / f"{team.value.lower()}_knight.png")
+
+class Archer(Unit):
+    def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE):
+        super().__init__(x, y, team)
+        self.speed = ARCHER_SPEED
+        self.max_carry = ARCHER_MAX_CARRY
+        self.image_path = str(BASE_DIR / "assets" / f"{team.value.lower()}_archer.png")
+
+class Mage(Unit):
+    def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE):
+        super().__init__(x, y, team)
+        self.speed = MAGE_SPEED
+        self.max_carry = MAGE_MAX_CARRY
+        self.image_path = str(BASE_DIR / "assets" / f"{team.value.lower()}_mage.png")
+
 class Resource(Entity):
-    def __init__(self, x, y):
-        super().__init__(x, y, YELLOW, RESOURCE_SIZE, "Resource", str(BASE_DIR / "assets" / "cristal.png"))
+    def __init__(self, x: int, y: int, name: str = "Resource", image_path: str | None = None):
+        super().__init__(x, y, YELLOW, RESOURCE_SIZE, name, image_path)
         self.amount = 100
 
+class Cristal(Resource):
+    def __init__(self, x: int, y: int):
+        super().__init__(x, y, "Cristal", str(BASE_DIR / "assets" / "cristal.png"))
+
+class Wood(Resource):
+    def __init__(self, x: int, y: int):
+        super().__init__(x, y, "Wood", str(BASE_DIR / "assets" / "wood.png"))
+
 class Building(Entity):
-    def __init__(self, x, y):
-        super().__init__(x, y, RED, 40, "Building", str(BASE_DIR / "assets" / "blue_base.png"))
+    def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE):
+        if team == TeamColor.BLUE:
+            color = BLUE
+        elif team == TeamColor.RED:
+            color = RED
+        else:
+            color = GRAY
+        img_path = str(BASE_DIR / "assets" / f"{team.value.lower()}_base.png")
+        super().__init__(x, y, color, 40, "Building", img_path)
+        self.team = team

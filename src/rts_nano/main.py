@@ -1,7 +1,11 @@
 import pygame
 import sys
+import json
+from pathlib import Path
 from rts_nano.game.constants import *
 from rts_nano.game.manager import GameManager
+
+BASE_DIR = Path(__file__).resolve().parent
 
 def main():
     pygame.init()
@@ -10,20 +14,11 @@ def main():
     clock = pygame.time.Clock()
     
 
-    map_settings = {
-        "Blue": {
-            "unit": [(100, 100), (150, 150)],
-            "base": [(50, 250)],
-            },
-        "Red": {
-            "unit": [(700, 800)],
-            "base": [(750, 850)]
-            },
-        "Resources": {
-            "wood": [(300, 300), (400, 200)],
-            "cristal": [(350, 350)]
-        }
-    }
+
+
+    settings_path = BASE_DIR / "maps" / "map_settings.json"
+    with open(settings_path, "r", encoding="utf-8") as f:
+        map_settings = json.load(f)
 
 
     game_manager = GameManager(map_settings)
@@ -40,7 +35,7 @@ def main():
         game_manager.update()
 
         # Draw
-        screen.fill(BLACK)
+        screen.fill(GRAY)
         game_manager.draw(screen)
         
         pygame.display.flip()
