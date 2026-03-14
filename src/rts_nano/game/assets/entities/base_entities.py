@@ -14,21 +14,33 @@ class TeamColor(str, Enum):
     RESOURCES = "Resources"
 
 class Entity:
-    def __init__(self, x, y, color, size, class_name, image_path=None):
+    def __init__(self, x, y, color, size, class_name):
         self.x = x
         self.y = y
         self.color = color
         self.size = size
         self.radius = size / 4 if class_name == "Building" else size / 3 # Assume circular for collision
         self.selected = False
+        self.life = 0
         self.class_name = class_name
-        
-        # Load image if provided
         self.image = None
+        
+    @classmethod
+    def get_team_color(cls, team: TeamColor) -> tuple[int, int, int]:
+        if team == TeamColor.BLUE:
+            return BLUE
+        elif team == TeamColor.RED:
+            return RED
+        elif team == TeamColor.GREY or team == TeamColor.RESOURCES:
+            return GRAY
+        else:
+            raise ValueError(f"Unknown team color: {team}")
+
+    def load_image(self, image_path):
         if image_path:
             try:
                 self.image = pygame.image.load(image_path)
-                self.image = pygame.transform.scale(self.image, (int(size), int(size)))
+                self.image = pygame.transform.scale(self.image, (int(self.size), int(self.size)))
             except Exception as e:
                 logging.warning(f"Could not load image {image_path}: {e}")
                 self.image = None
@@ -54,18 +66,22 @@ class Entity:
         return self.x + self.size / 2, self.y + self.size / 2
 
 
+class Resource(Entity):
+    def __init__(self, x: int, y: int, name: str = "Resource"):
+        super().__init__(x, y, YELLOW, RESOURCE_SIZE, name)
+        self.amount = 100
 
+class Building(Entity):
+    def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE):
+        color = Entity.get_team_color(team)
+        super().__init__(x, y, color, 40, "Building")
+        self.team = team
 
 class Unit(Entity):
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE):
-        if team == TeamColor.BLUE:
-            color = BLUE
-        elif team == TeamColor.RED:
-            color = RED
-        else:
-            color = GRAY
-        img_path = str(BASE_DIR / "assets" / f"{team.value.lower()}_unit.png")
-        super().__init__(x, y, color, UNIT_SIZE, "Unit", img_path)
+        color = Entity.get_team_color(team)
+        
+        super().__init__(x, y, color, UNIT_SIZE, "Unit")
         self.team = team
         self.target_x = x
         self.target_y = y
@@ -137,52 +153,3 @@ class Unit(Entity):
                 # Apply push
                 self.x += push_x
                 self.y += push_y
-                
-                # Update target if we are being pushed significantly? Maybe not needed for simple logic.
-
-
-class Knight(Unit):
-    def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE):
-        super().__init__(x, y, team)
-        self.speed = KNIGHT_SPEED
-        self.max_carry = KNIGHT_MAX_CARRY
-        self.image_path = str(BASE_DIR / "assets" / f"{team.value.lower()}_knight.png")
-
-class Archer(Unit):
-    def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE):
-        super().__init__(x, y, team)
-        self.speed = ARCHER_SPEED
-        self.max_carry = ARCHER_MAX_CARRY
-        self.image_path = str(BASE_DIR / "assets" / f"{team.value.lower()}_archer.png")
-
-class Mage(Unit):
-    def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE):
-        super().__init__(x, y, team)
-        self.speed = MAGE_SPEED
-        self.max_carry = MAGE_MAX_CARRY
-        self.image_path = str(BASE_DIR / "assets" / f"{team.value.lower()}_mage.png")
-
-class Resource(Entity):
-    def __init__(self, x: int, y: int, name: str = "Resource", image_path: str | None = None):
-        super().__init__(x, y, YELLOW, RESOURCE_SIZE, name, image_path)
-        self.amount = 100
-
-class Cristal(Resource):
-    def __init__(self, x: int, y: int):
-        super().__init__(x, y, "Cristal", str(BASE_DIR / "assets" / "cristal.png"))
-
-class Wood(Resource):
-    def __init__(self, x: int, y: int):
-        super().__init__(x, y, "Wood", str(BASE_DIR / "assets" / "wood.png"))
-
-class Building(Entity):
-    def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE):
-        if team == TeamColor.BLUE:
-            color = BLUE
-        elif team == TeamColor.RED:
-            color = RED
-        else:
-            color = GRAY
-        img_path = str(BASE_DIR / "assets" / f"{team.value.lower()}_base.png")
-        super().__init__(x, y, color, 40, "Building", img_path)
-        self.team = team
