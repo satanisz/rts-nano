@@ -113,7 +113,12 @@ class Unit(Entity):
             dy = self.target_y - self.y
             dist = math.sqrt(dx**2 + dy**2)
 
-            if dist < self.speed:
+            # Determine interaction distance
+            interaction_dist = self.speed
+            if self.target_entity:
+                interaction_dist = self.radius + self.target_entity.radius + 5 # 5 pixel tolerance
+
+            if dist < interaction_dist:
                 self.x = self.target_x
                 self.y = self.target_y
                 if self.target_entity:

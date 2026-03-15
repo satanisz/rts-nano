@@ -36,6 +36,27 @@ class ResourcesGroup:
         self.woods: list[Wood] = []
 
 
+class EntityFactory:
+    """Factory design pattern implementation for creating game entities."""
+    @staticmethod
+    def create_entity(asset_type: str, x: int, y: int, team: TeamColor) -> Entity:
+        match asset_type:
+            case "unit" | "peasant" | "peasent":
+                return Peasant(x, y, team=team)
+            case "knight":
+                return Knight(x, y, team=team)
+            case "archer":
+                return Archer(x, y, team=team)
+            case "mage":
+                return Mage(x, y, team=team)
+            case "base":
+                return Base(x, y, team=team)
+            case "wood":
+                return Wood(x, y)
+            case "cristal":
+                return Cristal(x, y)
+            case _:
+                raise ValueError(f"Unknown asset type: {asset_type}")
 
 
 class GameManager:
@@ -67,14 +88,23 @@ class GameManager:
             self.entities[category] = group
             
             for asset_type, coords in assets.items():
-                if asset_type == "peasent":
-                    group.peasents.extend([Peasant(x, y, team=category) for x, y in coords])
-                elif asset_type == "base":
-                    group.bases.extend([Base(x, y, team=category) for x, y in coords])
-                elif asset_type == "wood":
-                    self.resources.woods.extend([Wood(x, y) for x, y in coords])
-                elif asset_type == "cristal":
-                    self.resources.cristals.extend([Cristal(x, y) for x, y in coords])
+                for x, y in coords:
+                    entity = EntityFactory.create_entity(asset_type, x, y, category)
+                    match entity:
+                        case Peasant():
+                            group.peasents.append(entity)
+                        case Knight():
+                            group.knights.append(entity)
+                        case Archer():
+                            group.archers.append(entity)
+                        case Mage():
+                            group.mages.append(entity)
+                        case Base():
+                            group.bases.append(entity)
+                        case Wood():
+                            self.resources.woods.append(entity)
+                        case Cristal():
+                            self.resources.cristals.append(entity)
 
     def handle_input(self, event):
         if event.type == pygame.KEYDOWN:
