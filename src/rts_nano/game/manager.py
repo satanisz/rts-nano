@@ -83,13 +83,13 @@ class GameManager:
 
     def _load_map_settings(self) -> None:
         for category_str, assets in self.map_settings.items():
-            category = TeamColor(category_str)
-            group = EntitiesGroup(category)
-            self.entities[category] = group
+            team_color = TeamColor(category_str)
+            group = EntitiesGroup(team_color)
+            self.entities[team_color] = group
             
             for asset_type, coords in assets.items():
                 for x, y in coords:
-                    entity = EntityFactory.create_entity(asset_type, x, y, category)
+                    entity = EntityFactory.create_entity(asset_type, x, y, team_color)
                     match entity:
                         case Peasant():
                             group.peasents.append(entity)
@@ -196,8 +196,8 @@ class GameManager:
             
         all_ents = self.all_entities
         for entity in all_ents:
-            if isinstance(entity, Unit):
-                entity.update(all_ents)
+            if isinstance(entity, Peasant):
+                entity.harvest(all_ents)
                 
                 # Gathering Logic
                 if entity.state == "GATHERING":

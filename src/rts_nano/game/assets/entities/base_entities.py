@@ -106,34 +106,7 @@ class Unit(Entity):
 
         self.state = "MOVING"
 
-    def update(self, entities):
-        # Movement Logic
-        if self.state == "MOVING":
-            dx = self.target_x - self.x
-            dy = self.target_y - self.y
-            dist = math.sqrt(dx**2 + dy**2)
 
-            # Determine interaction distance
-            interaction_dist = self.speed
-            if self.target_entity:
-                interaction_dist = self.radius + self.target_entity.radius + 5 # 5 pixel tolerance
-
-            if dist < interaction_dist:
-                self.x = self.target_x
-                self.y = self.target_y
-                if self.target_entity:
-                    if isinstance(self.target_entity, Resource):
-                        self.state = "GATHERING"
-                    elif isinstance(self.target_entity, Building): # Base
-                        self.state = "DEPOSITING"
-                else:
-                    self.state = "IDLE"
-            else:
-                self.x += (dx / dist) * self.speed
-                self.y += (dy / dist) * self.speed
-        
-        # Collision Avoidance
-        self.resolve_collisions(entities)
 
     def resolve_collisions(self, entities):
         my_cx, my_cy = self.get_center()
