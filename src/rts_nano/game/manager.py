@@ -1,9 +1,8 @@
-from rts_nano.game.assets.entities.base_entities import Unit
-from rts_nano.game.assets.entities.base_entities import Entity
+from rts_nano.game.assets.entities.base_entities import Unit, Entity, Resource, Building
 from rts_nano.game.assets.entities import Peasant, Knight, Archer, Mage
 from rts_nano.game.assets.entities import Wood, Cristal, TeamColor
 from rts_nano.game.assets.entities import Base
-from dataclasses import field
+import math
 import pygame
 from rts_nano.game.constants import *
 
@@ -174,12 +173,12 @@ class GameManager:
         self.selected_entities.clear()
         
         if is_click:
-            # Single-click selection - select one unit at click position
-            for entity in self.all_entities:
-                if isinstance(entity, Unit) and entity.team == self.current_team and entity.contains_point(self.drag_start):
+            # Single-click selection - select one entity at click position
+            for entity in reversed(self.all_entities):
+                if entity.contains_point(self.drag_start):
                     entity.selected = True
                     self.selected_entities.append(entity)
-                    break  # Only select one unit on click
+                    break  # Only select one entity on click
         else:
             # Box selection - select all units within box
             for entity in self.all_entities:
@@ -221,8 +220,20 @@ class GameManager:
                                 elif isinstance(resource, Cristal) and resource in self.resources.cristals:
                                     self.resources.cristals.remove(resource)
                                 
-                                entity.source_resource = None
-                                entity.target_entity = None
+                                # Find new resource of same type around the depleted resource
+                                new_resource = None
+                                min_dist = HARVEST_SEARCH_RADIUS
+                                
+                                resource_list = self.resources.woods if is_wood else self.resources.cristals
+                                for r in resource_list:
+                                    if r is not resource and r.amount > 0:
+                                        dist = math.sqrt((r.x - resource.x)**2 + (r.y - resource.y)**2)
+                                        if dist < min_dist:
+                                            min_dist = dist
+                                            new_resource = r
+                                            
+                                entity.source_resource = new_resource
+                                entity.target_entity = new_resource
                                 
                         carry_amount = entity.carry_wood if is_wood else entity.carry_cristal        
                         if carry_amount >= entity.max_carry or (resource and resource.amount <= 0):
@@ -249,12 +260,59 @@ class GameManager:
                     entity.carry_wood = 0
                     entity.carry_cristal = 0
                     # Return to source resource if it exists
-                    if entity.source_resource and entity.source_resource in all_ents:
+                    if entity.source_resource and entity.source_resource in all_ents and entity.source_resource.amount > 0:
                          entity.set_target(entity.source_resource.get_center(), entity.source_resource)
                     else:
                         entity.state = "IDLE"
                         entity.source_resource = None
 
+
+    def draw_bottom_menu(self, screen):
+
+        
+        menu_rect = pygame.Rect(0, SCREEN_HEIGHT - BOTTOM_MENU_HEIGHT, SCREEN_WIDTH, BOTTOM_MENU_HEIGHT)
+        pygame.draw.rect(screen, (40, 40, 40), menu_rect)
+        pygame.draw.rect(screen, (200, 200, 200), menu_rect, 2) # border
+        
+        # Draw selected entities stats
+        if self.selected_entities:
+            start_x = 20
+            start_y = SCREEN_HEIGHT - BOTTOM_MENU_HEIGHT + 15
+            x_offset = 200
+            y_offset = 40
+            max_cols = (SCREEN_WIDTH - 40) // x_offset
+            
+            font_small = pygame.font.SysFont(None, 24)
+            for i, entity in enumerate(self.selected_entities):
+                col = i % max_cols
+                row = i // max_cols
+                if start_y + row * y_offset + y_offset > SCREEN_HEIGHT:
+                    break # Stop drawing if we run out of vertical space
+                
+                pos_x = start_x + col * x_offset
+                pos_y = start_y + row * y_offset
+                
+                # Render name
+                cls_name = type(entity).__name__
+                stats_texts = [f"{cls_name}"]
+                
+                if isinstance(entity, Unit):
+                    stats_texts.append(f"HP: {entity.life}/{entity.max_life}  ATK: {entity.attack_damage}")
+                elif isinstance(entity, Building):
+                    stats_texts.append(f"HP: {entity.life}/{entity.max_life}")
+                elif isinstance(entity, Resource):
+                    stats_texts.append(f"Amount: {entity.amount}")
+                
+                # Draw texts
+                for j, stat_text in enumerate(stats_texts):
+                    color = WHITE
+                    if j == 0 and hasattr(entity, 'team'):
+                        if entity.team == TeamColor.BLUE:
+                            color = (130, 130, 255)
+                        elif entity.team == TeamColor.RED:
+                            color = (255, 130, 130)
+                    text_surf = font_small.render(stat_text, True, color)
+                    screen.blit(text_surf, (pos_x, pos_y + j * 16))
     def draw(self, screen):
         for entity in self.all_entities:
             entity.draw(screen)
@@ -303,3 +361,7 @@ class GameManager:
             screen.blit(pause_text, text_rect)
             
         screen.blit(text, (10, 10))
+
+        self.draw_bottom_menu(screen)
+
+

@@ -16,7 +16,7 @@ def main():
 
 
 
-    settings_path = BASE_DIR / "maps" / "map_settings.json"
+    settings_path = BASE_DIR / "maps" / "map_settings_01.json"
     with open(settings_path, "r", encoding="utf-8") as f:
         map_settings = json.load(f)
 

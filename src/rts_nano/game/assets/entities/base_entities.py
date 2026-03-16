@@ -14,12 +14,12 @@ class TeamColor(str, Enum):
     RESOURCES = "Resources"
 
 class Entity:
-    def __init__(self, x, y, color, size, class_name):
+    def __init__(self, x, y, color, size, radius, class_name):
         self.x = x
         self.y = y
         self.color = color
         self.size = size
-        self.radius = size / 4 if class_name == "Building" else size / 3 # Assume circular for collision
+        self.radius = radius
         self.selected = False
         self.life = 0
         self.class_name = class_name
@@ -46,42 +46,46 @@ class Entity:
                 self.image = None
 
     def draw(self, screen):
-        # Draw hitbox circle for visualization (optional but requested "surroundings")
-        pygame.draw.circle(screen, (50, 50, 50), (int(self.x + self.size/2), int(self.y + self.size/2)), int(self.radius + 2), 1)
+        # Draw hitbox circle for visualization
+        pygame.draw.circle(screen, self.color, (int(self.x), int(self.y)), int(self.radius + 2), 1)
         
         # Draw image if available, otherwise draw colored rect
+        top_left_x = int(self.x - self.size / 2)
+        top_left_y = int(self.y - self.size / 2)
         if self.image:
-            screen.blit(self.image, (int(self.x), int(self.y)))
+            screen.blit(self.image, (top_left_x, top_left_y))
         else:
-            pygame.draw.rect(screen, self.color, (self.x, self.y, self.size, self.size))
+            pygame.draw.rect(screen, self.color, (top_left_x, top_left_y, self.size, self.size))
         
         if self.selected:
-            pygame.draw.rect(screen, WHITE, (self.x, self.y, self.size, self.size), 2)
+            pygame.draw.rect(screen, WHITE, (top_left_x, top_left_y, self.size, self.size), 2)
 
     def contains_point(self, pos):
         px, py = pos
-        return self.x <= px <= self.x + self.size and self.y <= py <= self.y + self.size
+        return self.x - self.size / 2 <= px <= self.x + self.size / 2 and self.y - self.size / 2 <= py <= self.y + self.size / 2
 
     def get_center(self):
-        return self.x + self.size / 2, self.y + self.size / 2
+        return self.x, self.y
 
 
 class Resource(Entity):
     def __init__(self, x: int, y: int, name: str = "Resource"):
-        super().__init__(x, y, YELLOW, RESOURCE_SIZE, name)
+        super().__init__(x, y, GRAY, RESOURCE_SIZE, RESOURCE_RADIUS, name)
         self.amount = 100
 
 class Building(Entity):
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE):
         color = Entity.get_team_color(team)
-        super().__init__(x, y, color, 40, "Building")
+        super().__init__(x, y, color, BUILDING_SIZE, BUILDING_RADIUS, "Building")
         self.team = team
+        self.max_life = 500
+        self.life = 500
 
 class Unit(Entity):
-    def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE):
+    def __init__(self, x: int, y: int, team: TeamColor, size: int, radius: float):
         color = Entity.get_team_color(team)
         
-        super().__init__(x, y, color, UNIT_SIZE, "Unit")
+        super().__init__(x, y, color, size, radius, "Unit")
         self.team = team
         self.target_x = x
         self.target_y = y
@@ -91,6 +95,11 @@ class Unit(Entity):
         self.carry_wood = 0
         self.carry_cristal = 0
         self.max_carry = 10
+        self.max_life = 0
+        self.life = 0
+        self.attack_damage = 0
+        self.attack_range = 0
+        self.attack_speed = 0
         self.state = "IDLE" # IDLE, MOVING, GATHERING, RETURNING, DEPOSITING
 
     def set_target(self, pos, target_entity=None):
