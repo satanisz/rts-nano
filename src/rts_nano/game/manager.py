@@ -1,15 +1,21 @@
-from rts_nano.game.assets.entities.base_entities import Unit, Entity, Resource, Building
-from rts_nano.game.assets.entities import Peasant, Knight, Archer, Mage
-from rts_nano.game.assets.entities import Wood, Cristal, TeamColor
-from rts_nano.game.assets.entities import Base
+"""Game state coordination, input handling, and rendering."""
+
 import math
+
 import pygame
+
+from rts_nano.game.assets.entities import Archer, Base, Cristal, Knight, Mage, Peasant, TeamColor, Wood
+from rts_nano.game.assets.entities.base_entities import Building, Entity, Resource, Unit
 from rts_nano.game.constants import *
 
 
-
-
 class EntitiesGroup:
+    """Store team-owned entities and collected resources.
+
+    Args:
+        name: Team associated with the entity collection.
+    """
+
     def __init__(self, name: TeamColor):
         self.name: TeamColor = name
         self.resources: dict[str, int] = {"wood": 0, "cristal": 0}
@@ -21,6 +27,7 @@ class EntitiesGroup:
 
     @property
     def all_entities(self) -> list[Entity]:
+        """Return all entities owned by the team."""
         all_ents: list[Entity] = []
         all_ents.extend(self.bases)
         all_ents.extend(self.peasents)
@@ -29,16 +36,34 @@ class EntitiesGroup:
         all_ents.extend(self.mages)
         return all_ents
 
+
 class ResourcesGroup:
+    """Store neutral resource nodes available on the map."""
+
     def __init__(self):
         self.cristals: list[Cristal] = []
         self.woods: list[Wood] = []
 
 
 class EntityFactory:
-    """Factory design pattern implementation for creating game entities."""
+    """Create game entities from map configuration values."""
+
     @staticmethod
     def create_entity(asset_type: str, x: int, y: int, team: TeamColor) -> Entity:
+        """Create an entity instance matching the requested asset type.
+
+        Args:
+            asset_type: Serialized asset type name.
+            x: Horizontal spawn position.
+            y: Vertical spawn position.
+            team: Team associated with the entity.
+
+        Returns:
+            Instantiated entity.
+
+        Raises:
+            ValueError: If the asset type is unknown.
+        """
         match asset_type:
             case "unit" | "peasant" | "peasent":
                 return Peasant(x, y, team=team)
@@ -59,33 +84,40 @@ class EntityFactory:
 
 
 class GameManager:
+    """Coordinate input, simulation, selection, and drawing.
+
+    Args:
+        map_settings: Mapping of team names to entity types and spawn positions.
+    """
+
     def __init__(self, map_settings: dict[str, dict[str, list[list[int]] | list[tuple[int, int]]]]):
-        self.map_settings = map_settings  
+        self.map_settings = map_settings
         self.entities: dict[TeamColor, EntitiesGroup] = {}
         self.resources: ResourcesGroup = ResourcesGroup()
         self.selected_entities: list[Entity] = []
         self.current_team: TeamColor = TeamColor.BLUE
-        # Drag selection state
         self.dragging: bool = False
         self.drag_start: tuple[int, int] | None = None
         self.drag_end: tuple[int, int] | None = None
         self.paused: bool = False
-        
+
         self._load_map_settings()
 
     @property
     def all_entities(self) -> list[Entity]:
+        """Return all active entities, including units, buildings, and resources."""
         ents = [entity for group in self.entities.values() for entity in group.all_entities]
         ents.extend(self.resources.woods)
         ents.extend(self.resources.cristals)
         return ents
 
     def _load_map_settings(self) -> None:
+        """Instantiate entities from the loaded map configuration."""
         for category_str, assets in self.map_settings.items():
             team_color = TeamColor(category_str)
             group = EntitiesGroup(team_color)
             self.entities[team_color] = group
-            
+
             for asset_type, coords in assets.items():
                 for x, y in coords:
                     entity = EntityFactory.create_entity(asset_type, x, y, team_color)
@@ -106,6 +138,11 @@ class GameManager:
                             self.resources.cristals.append(entity)
 
     def handle_input(self, event):
+        """Process keyboard and mouse input for team control and selection.
+
+        Args:
+            event: Pygame event to process.
+        """
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_TAB:
                 if self.current_team == TeamColor.BLUE:
@@ -122,13 +159,13 @@ class GameManager:
 
         elif event.type == pygame.MOUSEBUTTONDOWN:
             mouse_pos = pygame.mouse.get_pos()
-            
-            if event.button == 1: # Left click - Start drag or single select
+
+            if event.button == 1:
                 self.dragging = True
                 self.drag_start = mouse_pos
                 self.drag_end = mouse_pos
-            
-            elif event.button == 3: # Right click - Move/Interact
+
+            elif event.button == 3:
                 target_entity = None
                 for entity in self.all_entities:
                     if entity.contains_point(mouse_pos):
@@ -138,49 +175,43 @@ class GameManager:
                 for entity in self.selected_entities:
                     if isinstance(entity, Peasant):
                         entity.set_target(mouse_pos, target_entity)
-        
+
         elif event.type == pygame.MOUSEBUTTONUP:
             if event.button == 1 and self.dragging:
                 self.dragging = False
-                # Select units within drag box
                 self.select_units_in_box()
                 self.drag_start = None
                 self.drag_end = None
-        
-        elif event.type == pygame.MOUSEMOTION:
-            if self.dragging:
-                self.drag_end = pygame.mouse.get_pos()
-    
+
+        elif event.type == pygame.MOUSEMOTION and self.dragging:
+            self.drag_end = pygame.mouse.get_pos()
+
     def select_units_in_box(self):
+        """Select units inside the drag rectangle or under the click point."""
         if not self.drag_start or not self.drag_end:
             return
-        
-        # Calculate selection box bounds
+
         x1, y1 = self.drag_start
         x2, y2 = self.drag_end
         min_x = min(x1, x2)
         max_x = max(x1, x2)
         min_y = min(y1, y2)
         max_y = max(y1, y2)
-        
-        # Check if this is a click (small drag) or a drag (box selection)
-        drag_distance = ((x2 - x1)**2 + (y2 - y1)**2) ** 0.5
-        is_click = drag_distance < 5  # Threshold in pixels
-        
-        # Clear previous selection
+
+        drag_distance = ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
+        is_click = drag_distance < 5
+
         for entity in self.all_entities:
             entity.selected = False
         self.selected_entities.clear()
-        
+
         if is_click:
-            # Single-click selection - select one entity at click position
             for entity in reversed(self.all_entities):
                 if entity.contains_point(self.drag_start):
                     entity.selected = True
                     self.selected_entities.append(entity)
-                    break  # Only select one entity on click
+                    break
         else:
-            # Box selection - select all units within box
             for entity in self.all_entities:
                 if isinstance(entity, Unit) and entity.team == self.current_team:
                     cx, cy = entity.get_center()
@@ -188,70 +219,65 @@ class GameManager:
                         entity.selected = True
                         self.selected_entities.append(entity)
 
-
     def update(self):
+        """Advance game simulation, harvesting, and resource deposit logic."""
         if self.paused:
             return
-            
+
         all_ents = self.all_entities
         for entity in all_ents:
             if isinstance(entity, Peasant):
                 entity.harvest(all_ents)
-                
-                # Gathering Logic
+
                 if entity.state == "GATHERING":
                     resource = entity.target_entity or entity.source_resource
                     if isinstance(resource, (Wood, Cristal)):
                         is_wood = isinstance(resource, Wood)
-                        
+
                         if resource.amount > 0:
                             gathered = min(1, resource.amount)
                             resource.amount -= gathered
-                            
+
                             if is_wood:
                                 entity.carry_wood += gathered
                             else:
                                 entity.carry_cristal += gathered
-                            
+
                             if resource.amount <= 0:
-                                # Remove depleted resource
                                 if isinstance(resource, Wood) and resource in self.resources.woods:
                                     self.resources.woods.remove(resource)
                                 elif isinstance(resource, Cristal) and resource in self.resources.cristals:
                                     self.resources.cristals.remove(resource)
-                                
-                                # Find new resource of same type around the depleted resource
+
                                 new_resource = None
                                 min_dist = HARVEST_SEARCH_RADIUS
-                                
+
                                 resource_list = self.resources.woods if is_wood else self.resources.cristals
-                                for r in resource_list:
-                                    if r is not resource and r.amount > 0:
-                                        dist = math.sqrt((r.x - resource.x)**2 + (r.y - resource.y)**2)
+                                for replacement in resource_list:
+                                    if replacement is not resource and replacement.amount > 0:
+                                        dist = math.sqrt((replacement.x - resource.x) ** 2 + (replacement.y - resource.y) ** 2)
                                         if dist < min_dist:
                                             min_dist = dist
-                                            new_resource = r
-                                            
+                                            new_resource = replacement
+
                                 entity.source_resource = new_resource
                                 entity.target_entity = new_resource
-                                
-                        carry_amount = entity.carry_wood if is_wood else entity.carry_cristal        
-                        if carry_amount >= entity.max_carry or (resource and resource.amount <= 0):
+
+                        carry_amount = entity.carry_wood if is_wood else entity.carry_cristal
+                        if carry_amount >= entity.max_carry or resource.amount <= 0:
                             if is_wood and entity.carry_wood > entity.max_carry:
                                 entity.carry_wood = entity.max_carry
                             elif not is_wood and entity.carry_cristal > entity.max_carry:
                                 entity.carry_cristal = entity.max_carry
-                            
-                            # Find nearest base for this team
+
                             team_group = self.entities.get(entity.team)
                             team_bases = team_group.bases if team_group else []
                             if team_bases:
-                                nearest_base = min(team_bases, key=lambda b: (b.x - entity.x)**2 + (b.y - entity.y)**2)
+                                nearest_base = min(team_bases, key=lambda base: (base.x - entity.x) ** 2 + (base.y - entity.y) ** 2)
                                 entity.set_target(nearest_base.get_center(), nearest_base)
                             else:
                                 entity.state = "IDLE"
-                
-                # Depositing Logic
+
                 elif entity.state == "DEPOSITING":
                     team_group = self.entities.get(entity.team)
                     if team_group:
@@ -259,65 +285,68 @@ class GameManager:
                         team_group.resources["cristal"] += entity.carry_cristal
                     entity.carry_wood = 0
                     entity.carry_cristal = 0
-                    # Return to source resource if it exists
                     if entity.source_resource and entity.source_resource in all_ents and entity.source_resource.amount > 0:
-                         entity.set_target(entity.source_resource.get_center(), entity.source_resource)
+                        entity.set_target(entity.source_resource.get_center(), entity.source_resource)
                     else:
                         entity.state = "IDLE"
                         entity.source_resource = None
 
-
     def draw_bottom_menu(self, screen):
+        """Draw UI details for the current selection.
 
-        
+        Args:
+            screen: Pygame surface used for rendering.
+        """
         menu_rect = pygame.Rect(0, SCREEN_HEIGHT - BOTTOM_MENU_HEIGHT, SCREEN_WIDTH, BOTTOM_MENU_HEIGHT)
         pygame.draw.rect(screen, (40, 40, 40), menu_rect)
-        pygame.draw.rect(screen, (200, 200, 200), menu_rect, 2) # border
-        
-        # Draw selected entities stats
+        pygame.draw.rect(screen, (200, 200, 200), menu_rect, 2)
+
         if self.selected_entities:
             start_x = 20
             start_y = SCREEN_HEIGHT - BOTTOM_MENU_HEIGHT + 15
             x_offset = 200
             y_offset = 40
             max_cols = (SCREEN_WIDTH - 40) // x_offset
-            
+
             font_small = pygame.font.SysFont(None, 24)
             for i, entity in enumerate(self.selected_entities):
                 col = i % max_cols
                 row = i // max_cols
                 if start_y + row * y_offset + y_offset > SCREEN_HEIGHT:
-                    break # Stop drawing if we run out of vertical space
-                
+                    break
+
                 pos_x = start_x + col * x_offset
                 pos_y = start_y + row * y_offset
-                
-                # Render name
+
                 cls_name = type(entity).__name__
                 stats_texts = [f"{cls_name}"]
-                
+
                 if isinstance(entity, Unit):
                     stats_texts.append(f"HP: {entity.life}/{entity.max_life}  ATK: {entity.attack_damage}")
                 elif isinstance(entity, Building):
                     stats_texts.append(f"HP: {entity.life}/{entity.max_life}")
                 elif isinstance(entity, Resource):
                     stats_texts.append(f"Amount: {entity.amount}")
-                
-                # Draw texts
+
                 for j, stat_text in enumerate(stats_texts):
                     color = WHITE
-                    if j == 0 and hasattr(entity, 'team'):
+                    if j == 0 and hasattr(entity, "team"):
                         if entity.team == TeamColor.BLUE:
                             color = (130, 130, 255)
                         elif entity.team == TeamColor.RED:
                             color = (255, 130, 130)
                     text_surf = font_small.render(stat_text, True, color)
                     screen.blit(text_surf, (pos_x, pos_y + j * 16))
+
     def draw(self, screen):
+        """Draw world entities, selection state, HUD, and pause overlay.
+
+        Args:
+            screen: Pygame surface used for rendering.
+        """
         for entity in self.all_entities:
             entity.draw(screen)
-        
-        # Draw drag selection box
+
         if self.dragging and self.drag_start and self.drag_end:
             x1, y1 = self.drag_start
             x2, y2 = self.drag_end
@@ -327,41 +356,35 @@ class GameManager:
             max_y = max(y1, y2)
             width = max_x - min_x
             height = max_y - min_y
-            # Draw semi-transparent box
             selection_surface = pygame.Surface((width, height), pygame.SRCALPHA)
-            selection_surface.fill((0, 255, 0, 50))  # Green with transparency
+            selection_surface.fill((0, 255, 0, 50))
             screen.blit(selection_surface, (min_x, min_y))
-            # Draw border
             pygame.draw.rect(screen, GREEN, (min_x, min_y, width, height), 2)
-        
-        # Draw resource count
+
         font = pygame.font.SysFont(None, 36)
         team_group = self.entities.get(self.current_team)
         ui_color = BLUE if self.current_team == TeamColor.BLUE else RED
-        
+
         if team_group:
             res = team_group.resources
             num_buildings = len(team_group.bases)
-            # Sum up units, knights, archers, mages according to entities group
             num_units = len(team_group.peasents) + len(team_group.knights) + len(team_group.archers) + len(team_group.mages)
         else:
             res = {"wood": 0, "cristal": 0}
             num_buildings = 0
             num_units = 0
-            
+
         text = font.render(
             f"Team {self.current_team.value} | Wood: {res['wood']}   Cristal: {res['cristal']} | "
-            f"Buildings: {num_buildings}   Units: {num_units}", 
-            True, ui_color
+            f"Buildings: {num_buildings}   Units: {num_units}",
+            True,
+            ui_color,
         )
-            
+
         if self.paused:
             pause_text = font.render("- PAUSED -", True, WHITE)
             text_rect = pause_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
             screen.blit(pause_text, text_rect)
-            
+
         screen.blit(text, (10, 10))
-
         self.draw_bottom_menu(screen)
-
-

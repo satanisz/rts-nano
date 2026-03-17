@@ -1,3 +1,5 @@
+"""Unit entity implementations."""
+
 import math
 from rts_nano.game.assets.entities.base_entities import Building
 from rts_nano.game.assets.entities.base_entities import Resource
@@ -8,6 +10,14 @@ from rts_nano.game.constants import *
 BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
 
 class Peasant(Unit):
+    """Worker unit that can gather and deposit resources.
+
+    Args:
+        x: Horizontal center position.
+        y: Vertical center position.
+        team: Owning team.
+    """
+
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE):
         super().__init__(x, y, team, UNIT_SIZE, UNIT_RADIUS)
         self.speed = UNIT_SPEED
@@ -20,7 +30,15 @@ class Peasant(Unit):
         self.load_image(str(BASE_DIR / "assets" / f"{team.value.lower()}_peasant.png"))
 
     def harvest(self, entities):
-        # Movement Logic
+        """Advance the peasant toward its target and resolve interactions.
+
+        The unit enters gathering when it reaches a resource, depositing when
+        it reaches a building, or returns to idle after point movement. It also
+        performs basic collision avoidance against nearby entities.
+
+        Args:
+            entities: Entities used for collision resolution.
+        """
         if self.state == "MOVING":
             dx = self.target_x - self.x
             dy = self.target_y - self.y
@@ -28,29 +46,35 @@ class Peasant(Unit):
 
             interaction_dist = self.speed
             if self.target_entity:
-                interaction_dist = self.radius + self.target_entity.radius + 2 # Touch boundaries + 2 px tolerance
+                interaction_dist = self.radius + self.target_entity.radius + 2
 
             if dist < interaction_dist:
-                # Snap to exact target only if we are moving to a point, not an entity
                 if not self.target_entity:
                     self.x = self.target_x
                     self.y = self.target_y
-                    
+
                 if self.target_entity:
                     if isinstance(self.target_entity, Resource):
                         self.state = "GATHERING"
-                    elif isinstance(self.target_entity, Building): # Base
+                    elif isinstance(self.target_entity, Building):
                         self.state = "DEPOSITING"
                 else:
                     self.state = "IDLE"
             else:
                 self.x += (dx / dist) * self.speed
                 self.y += (dy / dist) * self.speed
-        
-        # Collision Avoidance
+
         self.resolve_collisions(entities)
 
 class Knight(Unit):
+    """Frontline melee unit.
+
+    Args:
+        x: Horizontal center position.
+        y: Vertical center position.
+        team: Owning team.
+    """
+
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE):
         super().__init__(x, y, team, KNIGHT_SIZE, KNIGHT_RADIUS)
         self.speed = KNIGHT_SPEED
@@ -63,6 +87,14 @@ class Knight(Unit):
         self.load_image(str(BASE_DIR / "assets" / f"{team.value.lower()}_knight.png"))
 
 class Archer(Unit):
+    """Ranged unit with moderate mobility.
+
+    Args:
+        x: Horizontal center position.
+        y: Vertical center position.
+        team: Owning team.
+    """
+
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE):
         super().__init__(x, y, team, ARCHER_SIZE, ARCHER_RADIUS)
         self.speed = ARCHER_SPEED
@@ -75,6 +107,14 @@ class Archer(Unit):
         self.load_image(str(BASE_DIR / "assets" / f"{team.value.lower()}_archer.png"))
 
 class Mage(Unit):
+    """Fragile ranged caster unit.
+
+    Args:
+        x: Horizontal center position.
+        y: Vertical center position.
+        team: Owning team.
+    """
+
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE):
         super().__init__(x, y, team, MAGE_SIZE, MAGE_RADIUS)
         self.speed = MAGE_SPEED
