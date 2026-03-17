@@ -5,7 +5,7 @@ from rts_nano.game.assets.entities.base_entities import Building
 from rts_nano.game.assets.entities.base_entities import Resource
 from pathlib import Path
 from rts_nano.game.assets.entities.base_entities import Unit, TeamColor
-from rts_nano.game.constants import *
+from rts_nano.game.constants import AttackType
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
 
@@ -18,15 +18,18 @@ class Peasant(Unit):
         team: Owning team.
     """
 
+    SIZE = 30
+    RADIUS = 10.0
+    DEFAULT_SPEED = 2.0
+    DEFAULT_MAX_CARRY = 10
+    DEFAULT_MAX_LIFE = 5
+    DEFAULT_ATTACK_DAMAGE = 3
+    DEFAULT_ATTACK_RANGE = 0
+    DEFAULT_ATTACK_SPEED = 1
+    DEFAULT_ATTACK_TYPE = AttackType.MELEE
+
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE):
-        super().__init__(x, y, team, UNIT_SIZE, UNIT_RADIUS)
-        self.speed = UNIT_SPEED
-        self.max_carry = UNIT_MAX_CARRY
-        self.max_life = UNIT_LIFE
-        self.life = UNIT_LIFE
-        self.attack_damage = UNIT_ATTACK_DAMAGE
-        self.attack_range = UNIT_ATTACK_RANGE
-        self.attack_speed = UNIT_ATTACK_SPEED
+        super().__init__(x, y, team, self.SIZE, self.RADIUS)
         self.load_image(str(BASE_DIR / "assets" / f"{team.value.lower()}_peasant.png"))
 
     def harvest(self, entities):
@@ -75,15 +78,18 @@ class Knight(Unit):
         team: Owning team.
     """
 
+    SIZE = 40
+    RADIUS = 13.0
+    DEFAULT_SPEED = 2.5
+    DEFAULT_MAX_CARRY = 3
+    DEFAULT_MAX_LIFE = 100
+    DEFAULT_ATTACK_DAMAGE = 10
+    DEFAULT_ATTACK_RANGE = 50
+    DEFAULT_ATTACK_SPEED = 1
+    DEFAULT_ATTACK_TYPE = AttackType.MELEE
+
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE):
-        super().__init__(x, y, team, KNIGHT_SIZE, KNIGHT_RADIUS)
-        self.speed = KNIGHT_SPEED
-        self.max_carry = KNIGHT_MAX_CARRY
-        self.max_life = KNIGHT_LIFE
-        self.life = KNIGHT_LIFE
-        self.attack_damage = KNIGHT_ATTACK_DAMAGE
-        self.attack_range = KNIGHT_ATTACK_RANGE
-        self.attack_speed = KNIGHT_ATTACK_SPEED
+        super().__init__(x, y, team, self.SIZE, self.RADIUS)
         self.load_image(str(BASE_DIR / "assets" / f"{team.value.lower()}_knight.png"))
 
 class Archer(Unit):
@@ -95,15 +101,18 @@ class Archer(Unit):
         team: Owning team.
     """
 
+    SIZE = 40
+    RADIUS = 13.0
+    DEFAULT_SPEED = 2.0
+    DEFAULT_MAX_CARRY = 2
+    DEFAULT_MAX_LIFE = 70
+    DEFAULT_ATTACK_DAMAGE = 5
+    DEFAULT_ATTACK_RANGE = 50
+    DEFAULT_ATTACK_SPEED = 1
+    DEFAULT_ATTACK_TYPE = AttackType.RANGED
+
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE):
-        super().__init__(x, y, team, ARCHER_SIZE, ARCHER_RADIUS)
-        self.speed = ARCHER_SPEED
-        self.max_carry = ARCHER_MAX_CARRY
-        self.max_life = ARCHER_LIFE
-        self.life = ARCHER_LIFE
-        self.attack_damage = ARCHER_ATTACK_DAMAGE
-        self.attack_range = ARCHER_ATTACK_RANGE
-        self.attack_speed = ARCHER_ATTACK_SPEED
+        super().__init__(x, y, team, self.SIZE, self.RADIUS)
         self.load_image(str(BASE_DIR / "assets" / f"{team.value.lower()}_archer.png"))
 
 class Mage(Unit):
@@ -115,13 +124,16 @@ class Mage(Unit):
         team: Owning team.
     """
 
+    SIZE = 40
+    RADIUS = 13.0
+    DEFAULT_SPEED = 1.5
+    DEFAULT_MAX_CARRY = 1
+    DEFAULT_MAX_LIFE = 30
+    DEFAULT_ATTACK_DAMAGE = 5
+    DEFAULT_ATTACK_RANGE = 50
+    DEFAULT_ATTACK_SPEED = 1
+    DEFAULT_ATTACK_TYPE = AttackType.RANGED
+
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE):
-        super().__init__(x, y, team, MAGE_SIZE, MAGE_RADIUS)
-        self.speed = MAGE_SPEED
-        self.max_carry = MAGE_MAX_CARRY
-        self.max_life = MAGE_LIFE
-        self.life = MAGE_LIFE
-        self.attack_damage = MAGE_ATTACK_DAMAGE
-        self.attack_range = MAGE_ATTACK_RANGE
-        self.attack_speed = MAGE_ATTACK_SPEED
+        super().__init__(x, y, team, self.SIZE, self.RADIUS)
         self.load_image(str(BASE_DIR / "assets" / f"{team.value.lower()}_mage.png"))

@@ -48,12 +48,24 @@ class ResourcesGroup:
 class EntityFactory:
     """Create game entities from map configuration values."""
 
-    @staticmethod
-    def create_entity(asset_type: str, x: int, y: int, team: TeamColor) -> Entity:
+    _TEAM_ENTITY_TYPES: dict[str, type[Entity]] = {
+        "peasant": Peasant,
+        "knight": Knight,
+        "archer": Archer,
+        "mage": Mage,
+        "base": Base,
+    }
+    _NEUTRAL_ENTITY_TYPES: dict[str, type[Entity]] = {
+        "wood": Wood,
+        "cristal": Cristal,
+    }
+
+    @classmethod
+    def create_entity(cls, asset_type: str, x: int, y: int, team: TeamColor) -> Entity:
         """Create an entity instance matching the requested asset type.
 
         Args:
-            asset_type: Serialized asset type name.
+            asset_type: Serialized concrete asset type name.
             x: Horizontal spawn position.
             y: Vertical spawn position.
             team: Team associated with the entity.
@@ -64,23 +76,15 @@ class EntityFactory:
         Raises:
             ValueError: If the asset type is unknown.
         """
-        match asset_type:
-            case "unit" | "peasant" | "peasent":
-                return Peasant(x, y, team=team)
-            case "knight":
-                return Knight(x, y, team=team)
-            case "archer":
-                return Archer(x, y, team=team)
-            case "mage":
-                return Mage(x, y, team=team)
-            case "base":
-                return Base(x, y, team=team)
-            case "wood":
-                return Wood(x, y)
-            case "cristal":
-                return Cristal(x, y)
-            case _:
-                raise ValueError(f"Unknown asset type: {asset_type}")
+        team_entity_type = cls._TEAM_ENTITY_TYPES.get(asset_type)
+        if team_entity_type is not None:
+            return team_entity_type(x, y, team=team)
+
+        neutral_entity_type = cls._NEUTRAL_ENTITY_TYPES.get(asset_type)
+        if neutral_entity_type is not None:
+            return neutral_entity_type(x, y)
+
+        raise ValueError(f"Unknown asset type: {asset_type}")
 
 
 class GameManager:

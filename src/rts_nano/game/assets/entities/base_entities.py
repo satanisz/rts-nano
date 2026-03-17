@@ -2,6 +2,7 @@
 
 import logging
 import math
+from abc import ABC
 from enum import Enum
 from pathlib import Path
 
@@ -21,7 +22,7 @@ class TeamColor(str, Enum):
     RESOURCES = "Resources"
 
 
-class Entity:
+class Entity(ABC):
     """Represent a drawable selectable object on the map.
 
     Args:
@@ -34,6 +35,8 @@ class Entity:
     """
 
     def __init__(self, x, y, color, size, radius, class_name):
+        if type(self) is Entity:
+            raise TypeError("Entity is an abstract base class and cannot be instantiated directly.")
         self.x = x
         self.y = y
         self.color = color
@@ -117,7 +120,7 @@ class Entity:
         return self.x, self.y
 
 
-class Resource(Entity):
+class Resource(Entity, ABC):
     """Represent a harvestable world resource.
 
     Args:
@@ -126,12 +129,18 @@ class Resource(Entity):
         name: Display name of the resource.
     """
 
+    SIZE = 15
+    RADIUS = 5.0
+    DEFAULT_AMOUNT = 100
+
     def __init__(self, x: int, y: int, name: str = "Resource"):
-        super().__init__(x, y, GRAY, RESOURCE_SIZE, RESOURCE_RADIUS, name)
-        self.amount = 100
+        if type(self) is Resource:
+            raise TypeError("Resource is an abstract base class and cannot be instantiated directly.")
+        super().__init__(x, y, GRAY, self.SIZE, self.RADIUS, name)
+        self.amount = self.DEFAULT_AMOUNT
 
 
-class Building(Entity):
+class Building(Entity, ABC):
     """Represent a stationary structure owned by a team.
 
     Args:
@@ -140,15 +149,21 @@ class Building(Entity):
         team: Owning team.
     """
 
+    SIZE = 40
+    RADIUS = 10.0
+    MAX_LIFE = 500
+
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE):
+        if type(self) is Building:
+            raise TypeError("Building is an abstract base class and cannot be instantiated directly.")
         color = Entity.get_team_color(team)
-        super().__init__(x, y, color, BUILDING_SIZE, BUILDING_RADIUS, "Building")
+        super().__init__(x, y, color, self.SIZE, self.RADIUS, "Building")
         self.team = team
-        self.max_life = 500
-        self.life = 500
+        self.max_life = self.MAX_LIFE
+        self.life = self.MAX_LIFE
 
 
-class Unit(Entity):
+class Unit(Entity, ABC):
     """Represent a moving controllable entity.
 
     Args:
@@ -159,7 +174,17 @@ class Unit(Entity):
         radius: Interaction radius used for collisions and selection.
     """
 
+    DEFAULT_SPEED = 0.0
+    DEFAULT_MAX_CARRY = 0
+    DEFAULT_MAX_LIFE = 0
+    DEFAULT_ATTACK_DAMAGE = 0
+    DEFAULT_ATTACK_RANGE = 0
+    DEFAULT_ATTACK_SPEED = 0
+    DEFAULT_ATTACK_TYPE = None
+
     def __init__(self, x: int, y: int, team: TeamColor, size: int, radius: float):
+        if type(self) is Unit:
+            raise TypeError("Unit is an abstract base class and cannot be instantiated directly.")
         color = Entity.get_team_color(team)
 
         super().__init__(x, y, color, size, radius, "Unit")
@@ -169,17 +194,18 @@ class Unit(Entity):
         self.prev_x = float(x)
         self.target_x = x
         self.target_y = y
-        self.speed = UNIT_SPEED
+        self.speed = self.DEFAULT_SPEED
         self.target_entity = None
         self.source_resource = None
         self.carry_wood = 0
         self.carry_cristal = 0
-        self.max_carry = 10
-        self.max_life = 0
-        self.life = 0
-        self.attack_damage = 0
-        self.attack_range = 0
-        self.attack_speed = 0
+        self.max_carry = self.DEFAULT_MAX_CARRY
+        self.max_life = self.DEFAULT_MAX_LIFE
+        self.life = self.DEFAULT_MAX_LIFE
+        self.attack_damage = self.DEFAULT_ATTACK_DAMAGE
+        self.attack_range = self.DEFAULT_ATTACK_RANGE
+        self.attack_speed = self.DEFAULT_ATTACK_SPEED
+        self.attack_type = self.DEFAULT_ATTACK_TYPE
         self.state = "IDLE"
 
     def draw(self, screen):
