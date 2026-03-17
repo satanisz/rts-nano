@@ -149,9 +149,10 @@ class Building(Entity, ABC):
         team: Owning team.
     """
 
-    SIZE = 40
-    RADIUS = 10.0
+    SIZE = 80
+    RADIUS = 20.0
     MAX_LIFE = 500
+    DEFAULT_SHIELD_MODIFIER = 0
 
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE):
         if type(self) is Building:
@@ -161,6 +162,7 @@ class Building(Entity, ABC):
         self.team = team
         self.max_life = self.MAX_LIFE
         self.life = self.MAX_LIFE
+        self.shield_modifier = self.DEFAULT_SHIELD_MODIFIER
 
 
 class Unit(Entity, ABC):
@@ -178,9 +180,11 @@ class Unit(Entity, ABC):
     DEFAULT_MAX_CARRY = 0
     DEFAULT_MAX_LIFE = 0
     DEFAULT_ATTACK_DAMAGE = 0
+    DEFAULT_ATTACK_MODIFIER = 0
     DEFAULT_ATTACK_RANGE = 0
     DEFAULT_ATTACK_SPEED = 0
     DEFAULT_ATTACK_TYPE = None
+    DEFAULT_SHIELD_MODIFIER = 0
 
     def __init__(self, x: int, y: int, team: TeamColor, size: int, radius: float):
         if type(self) is Unit:
@@ -203,9 +207,12 @@ class Unit(Entity, ABC):
         self.max_life = self.DEFAULT_MAX_LIFE
         self.life = self.DEFAULT_MAX_LIFE
         self.attack_damage = self.DEFAULT_ATTACK_DAMAGE
+        self.attack_modifier = self.DEFAULT_ATTACK_MODIFIER
         self.attack_range = self.DEFAULT_ATTACK_RANGE
         self.attack_speed = self.DEFAULT_ATTACK_SPEED
         self.attack_type = self.DEFAULT_ATTACK_TYPE
+        self.shield_modifier = self.DEFAULT_SHIELD_MODIFIER
+        self.attack_cooldown = 0
         self.state = "IDLE"
 
     def draw(self, screen):
@@ -255,6 +262,55 @@ class Unit(Entity, ABC):
         """Handle unit behavior after reaching its target entity or point."""
         self.state = "IDLE"
 
+    def _is_alive_entity(self, entity):
+        """Return whether an entity should still be considered alive."""
+        return entity is not None and getattr(entity, "life", 1) > 0
+
+    def _is_hostile_target(self, entity):
+        """Return whether the target belongs to an opposing team."""
+        return (
+            entity is not None
+            and hasattr(entity, "team")
+            and getattr(entity, "team") != self.team
+            and self._is_alive_entity(entity)
+        )
+
+    def _get_target_position(self):
+        """Return the current target position, following target entities."""
+        if self.target_entity and self._is_alive_entity(self.target_entity):
+            return self.target_entity.get_center()
+        return self.target_x, self.target_y
+
+    def _get_attack_distance(self, target):
+        """Return the maximum center-to-center distance for a valid hit."""
+        return self.attack_range + self.radius + getattr(target, "radius", 0)
+
+    def _is_in_attack_range(self, target):
+        """Return whether the current target is inside attack range."""
+        tx, ty = target.get_center()
+        dx = tx - self.x
+        dy = ty - self.y
+        return math.sqrt(dx**2 + dy**2) <= self._get_attack_distance(target)
+
+    def _attack(self, target):
+        """Apply damage to a hostile target when the cooldown has elapsed."""
+        if not self._is_hostile_target(target):
+            self.state = "IDLE"
+            return
+
+        if not self._is_in_attack_range(target):
+            self.state = "MOVING"
+            return
+
+        if self.attack_cooldown > 0:
+            self.state = "ATTACKING"
+            return
+
+        damage = max(0, self.attack_damage + self.attack_modifier - getattr(target, "shield_modifier", 0))
+        target.life -= damage
+        self.attack_cooldown = max(1, int(self.attack_speed * FPS))
+        self.state = "ATTACKING"
+
     def update(self, entities):
         """Advance unit movement and resolve collisions.
 
@@ -262,23 +318,44 @@ class Unit(Entity, ABC):
             entities: Entities used for movement interaction and collision
                 resolution.
         """
-        if self.state == "MOVING":
+        if self.attack_cooldown > 0:
+            self.attack_cooldown -= 1
+
+        if self.target_entity and not self._is_alive_entity(self.target_entity):
+            self.target_entity = None
+            self.state = "IDLE"
+
+        if self.state in {"MOVING", "ATTACKING"}:
+            self.target_x, self.target_y = self._get_target_position()
             dx = self.target_x - self.x
             dy = self.target_y - self.y
             dist = math.sqrt(dx**2 + dy**2)
 
             interaction_dist = self.speed
-            if self.target_entity:
+            if self.target_entity and self._is_hostile_target(self.target_entity):
+                interaction_dist = self._get_attack_distance(self.target_entity)
+            elif self.target_entity:
                 interaction_dist = self.radius + self.target_entity.radius + 2
 
             if dist < interaction_dist:
-                if not self.target_entity:
-                    self.x = self.target_x
-                    self.y = self.target_y
-                self._handle_target_reached()
+                if self.target_entity and self._is_hostile_target(self.target_entity):
+                    self._attack(self.target_entity)
+                else:
+                    if not self.target_entity:
+                        self.x = self.target_x
+                        self.y = self.target_y
+                    self._handle_target_reached()
             elif dist > 0:
+                self.state = "MOVING"
                 self.x += (dx / dist) * self.speed
                 self.y += (dy / dist) * self.speed
+            else:
+                if self.target_entity and self._is_hostile_target(self.target_entity):
+                    self._attack(self.target_entity)
+                else:
+                    self.x = self.target_x
+                    self.y = self.target_y
+                    self._handle_target_reached()
 
         self.resolve_collisions(entities)
 

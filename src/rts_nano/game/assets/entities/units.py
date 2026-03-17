@@ -24,9 +24,11 @@ class Peasant(Unit):
     DEFAULT_MAX_CARRY = 10
     DEFAULT_MAX_LIFE = 5
     DEFAULT_ATTACK_DAMAGE = 3
+    DEFAULT_ATTACK_MODIFIER = 0
     DEFAULT_ATTACK_RANGE = 0
     DEFAULT_ATTACK_SPEED = 1
     DEFAULT_ATTACK_TYPE = AttackType.MELEE
+    DEFAULT_SHIELD_MODIFIER = 0
 
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE):
         super().__init__(x, y, team, self.SIZE, self.RADIUS)
@@ -37,8 +39,10 @@ class Peasant(Unit):
         if self.target_entity:
             if isinstance(self.target_entity, Resource):
                 self.state = "GATHERING"
-            elif isinstance(self.target_entity, Building):
+            elif isinstance(self.target_entity, Building) and self.target_entity.team == self.team:
                 self.state = "DEPOSITING"
+            elif self._is_hostile_target(self.target_entity):
+                self.state = "ATTACKING"
             else:
                 self.state = "IDLE"
             return
@@ -60,9 +64,11 @@ class Knight(Unit):
     DEFAULT_MAX_CARRY = 3
     DEFAULT_MAX_LIFE = 100
     DEFAULT_ATTACK_DAMAGE = 10
+    DEFAULT_ATTACK_MODIFIER = 0
     DEFAULT_ATTACK_RANGE = 50
     DEFAULT_ATTACK_SPEED = 1
     DEFAULT_ATTACK_TYPE = AttackType.MELEE
+    DEFAULT_SHIELD_MODIFIER = 0
 
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE):
         super().__init__(x, y, team, self.SIZE, self.RADIUS)
@@ -83,9 +89,11 @@ class Archer(Unit):
     DEFAULT_MAX_CARRY = 2
     DEFAULT_MAX_LIFE = 70
     DEFAULT_ATTACK_DAMAGE = 5
+    DEFAULT_ATTACK_MODIFIER = 0
     DEFAULT_ATTACK_RANGE = 50
     DEFAULT_ATTACK_SPEED = 1
     DEFAULT_ATTACK_TYPE = AttackType.RANGED
+    DEFAULT_SHIELD_MODIFIER = 0
 
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE):
         super().__init__(x, y, team, self.SIZE, self.RADIUS)
@@ -106,9 +114,11 @@ class Mage(Unit):
     DEFAULT_MAX_CARRY = 1
     DEFAULT_MAX_LIFE = 30
     DEFAULT_ATTACK_DAMAGE = 5
+    DEFAULT_ATTACK_MODIFIER = 0
     DEFAULT_ATTACK_RANGE = 50
     DEFAULT_ATTACK_SPEED = 1
     DEFAULT_ATTACK_TYPE = AttackType.RANGED
+    DEFAULT_SHIELD_MODIFIER = 0
 
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE):
         super().__init__(x, y, team, self.SIZE, self.RADIUS)

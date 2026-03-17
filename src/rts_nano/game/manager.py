@@ -107,6 +107,20 @@ class GameManager:
 
         self._load_map_settings()
 
+    def _remove_dead_entities(self) -> None:
+        """Remove defeated units and buildings from the game state."""
+        removed_entities: set[int] = set()
+
+        for group in self.entities.values():
+            for attr_name in ("peasents", "knights", "archers", "mages", "bases"):
+                entities = getattr(group, attr_name)
+                alive_entities = [entity for entity in entities if entity.life > 0]
+                removed_entities.update(id(entity) for entity in entities if entity.life <= 0)
+                setattr(group, attr_name, alive_entities)
+
+        if removed_entities:
+            self.selected_entities = [entity for entity in self.selected_entities if id(entity) not in removed_entities]
+
     @property
     def all_entities(self) -> list[Entity]:
         """Return all active entities, including units, buildings, and resources."""
@@ -230,6 +244,9 @@ class GameManager:
 
         all_ents = self.all_entities
         for entity in all_ents:
+            if getattr(entity, "life", 1) <= 0:
+                continue
+
             if isinstance(entity, Unit):
                 entity.update(all_ents)
 
@@ -295,6 +312,8 @@ class GameManager:
                     else:
                         entity.state = "IDLE"
                         entity.source_resource = None
+
+        self._remove_dead_entities()
 
     def draw_bottom_menu(self, screen):
         """Draw UI details for the current selection.
