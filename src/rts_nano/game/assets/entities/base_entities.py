@@ -251,6 +251,37 @@ class Unit(Entity, ABC):
 
         self.state = "MOVING"
 
+    def _handle_target_reached(self):
+        """Handle unit behavior after reaching its target entity or point."""
+        self.state = "IDLE"
+
+    def update(self, entities):
+        """Advance unit movement and resolve collisions.
+
+        Args:
+            entities: Entities used for movement interaction and collision
+                resolution.
+        """
+        if self.state == "MOVING":
+            dx = self.target_x - self.x
+            dy = self.target_y - self.y
+            dist = math.sqrt(dx**2 + dy**2)
+
+            interaction_dist = self.speed
+            if self.target_entity:
+                interaction_dist = self.radius + self.target_entity.radius + 2
+
+            if dist < interaction_dist:
+                if not self.target_entity:
+                    self.x = self.target_x
+                    self.y = self.target_y
+                self._handle_target_reached()
+            elif dist > 0:
+                self.x += (dx / dist) * self.speed
+                self.y += (dy / dist) * self.speed
+
+        self.resolve_collisions(entities)
+
     def resolve_collisions(self, entities):
         """Push the unit away from overlapping entities.
 

@@ -177,7 +177,7 @@ class GameManager:
                         break
 
                 for entity in self.selected_entities:
-                    if isinstance(entity, Peasant):
+                    if isinstance(entity, Unit):
                         entity.set_target(mouse_pos, target_entity)
 
         elif event.type == pygame.MOUSEBUTTONUP:
@@ -230,9 +230,10 @@ class GameManager:
 
         all_ents = self.all_entities
         for entity in all_ents:
-            if isinstance(entity, Peasant):
-                entity.harvest(all_ents)
+            if isinstance(entity, Unit):
+                entity.update(all_ents)
 
+            if isinstance(entity, Peasant):
                 if entity.state == "GATHERING":
                     resource = entity.target_entity or entity.source_resource
                     if isinstance(resource, (Wood, Cristal)):
