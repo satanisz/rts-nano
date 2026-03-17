@@ -137,7 +137,8 @@ class GameManager:
             self.entities[team_color] = group
 
             for asset_type, coords in assets.items():
-                for x, y in coords:
+                normalized_coords = self._normalize_coords(coords)
+                for x, y in normalized_coords:
                     entity = EntityFactory.create_entity(asset_type, x, y, team_color)
                     match entity:
                         case Peasant():
@@ -154,6 +155,12 @@ class GameManager:
                             self.resources.woods.append(entity)
                         case Cristal():
                             self.resources.cristals.append(entity)
+
+    def _normalize_coords(self, coords):
+        """Normalize map coordinates to a list of coordinate pairs."""
+        if isinstance(coords, list) and len(coords) == 2 and all(isinstance(value, (int, float)) for value in coords):
+            return [coords]
+        return coords
 
     def handle_input(self, event):
         """Process keyboard and mouse input for team control and selection.

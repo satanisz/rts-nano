@@ -91,7 +91,13 @@ class Entity(ABC):
         Args:
             screen: Pygame surface used for rendering.
         """
-        pygame.draw.circle(screen, self.color, (int(self.x), int(self.y)), int(self.radius + 2), 1)
+        pygame.draw.circle(
+            screen,
+            self._get_hitbox_color(),
+            (int(self.x), int(self.y)),
+            int(self.radius + 2),
+            self._get_hitbox_width(),
+        )
 
         top_left_x = int(self.x - self.size / 2)
         top_left_y = int(self.y - self.size / 2)
@@ -102,6 +108,14 @@ class Entity(ABC):
 
         if self.selected:
             pygame.draw.rect(screen, WHITE, (top_left_x, top_left_y, self.size, self.size), 1)
+
+    def _get_hitbox_width(self):
+        """Return the stroke width used for the entity hitbox."""
+        return 1
+
+    def _get_hitbox_color(self):
+        """Return the color used for the entity hitbox."""
+        return self.color
 
     def contains_point(self, pos):
         """Check whether a screen position overlaps the entity bounds.
@@ -185,6 +199,7 @@ class Unit(Entity, ABC):
     DEFAULT_ATTACK_SPEED = 0
     DEFAULT_ATTACK_TYPE = None
     DEFAULT_SHIELD_MODIFIER = 0
+    HIT_FLASH_DURATION_MS = 120
 
     def __init__(self, x: int, y: int, team: TeamColor, size: int, radius: float):
         if type(self) is Unit:
@@ -213,6 +228,7 @@ class Unit(Entity, ABC):
         self.attack_type = self.DEFAULT_ATTACK_TYPE
         self.shield_modifier = self.DEFAULT_SHIELD_MODIFIER
         self.attack_cooldown = 0
+        self.hit_flash_until_ms = 0
         self.state = "IDLE"
 
     def draw(self, screen):
@@ -236,6 +252,24 @@ class Unit(Entity, ABC):
         self.prev_x = self.x
 
         super().draw(screen)
+
+    def _get_hitbox_width(self):
+        """Return the hitbox width for units."""
+        return 1
+
+    def _get_hitbox_color(self):
+        """Return a one-shot flash color after a successful hit."""
+        if self._is_hit_flash_active():
+            return YELLOW
+        return self.color
+
+    def _trigger_hit_flash(self):
+        """Start a short visual flash to indicate a landed hit."""
+        self.hit_flash_until_ms = pygame.time.get_ticks() + self.HIT_FLASH_DURATION_MS
+
+    def _is_hit_flash_active(self):
+        """Return whether the hit flash is currently visible."""
+        return pygame.time.get_ticks() < self.hit_flash_until_ms
 
     def set_target(self, pos, target_entity=None):
         """Assign a movement or interaction target.
@@ -309,6 +343,7 @@ class Unit(Entity, ABC):
         damage = max(0, self.attack_damage + self.attack_modifier - getattr(target, "shield_modifier", 0))
         target.life -= damage
         self.attack_cooldown = max(1, int(self.attack_speed * FPS))
+        self._trigger_hit_flash()
         self.state = "ATTACKING"
 
     def update(self, entities):
