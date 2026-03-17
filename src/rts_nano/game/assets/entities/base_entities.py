@@ -24,6 +24,7 @@ class Entity:
         self.life = 0
         self.class_name = class_name
         self.image = None
+        self.original_image = None
         
     @classmethod
     def get_team_color(cls, team: TeamColor) -> tuple[int, int, int]:
@@ -41,9 +42,11 @@ class Entity:
             try:
                 self.image = pygame.image.load(image_path)
                 self.image = pygame.transform.scale(self.image, (int(self.size), int(self.size)))
+                self.original_image = self.image
             except Exception as e:
                 logging.warning(f"Could not load image {image_path}: {e}")
                 self.image = None
+                self.original_image = None
 
     def draw(self, screen):
         # Draw hitbox circle for visualization
@@ -58,7 +61,7 @@ class Entity:
             pygame.draw.rect(screen, self.color, (top_left_x, top_left_y, self.size, self.size))
         
         if self.selected:
-            pygame.draw.rect(screen, WHITE, (top_left_x, top_left_y, self.size, self.size), 2)
+            pygame.draw.rect(screen, WHITE, (top_left_x, top_left_y, self.size, self.size), 1)
 
     def contains_point(self, pos):
         px, py = pos
@@ -87,6 +90,9 @@ class Unit(Entity):
         
         super().__init__(x, y, color, size, radius, "Unit")
         self.team = team
+        self.default_facing = "right" if team == TeamColor.BLUE else "left"
+        self.facing = self.default_facing
+        self.prev_x = float(x)
         self.target_x = x
         self.target_y = y
         self.speed = UNIT_SPEED
@@ -101,6 +107,24 @@ class Unit(Entity):
         self.attack_range = 0
         self.attack_speed = 0
         self.state = "IDLE" # IDLE, MOVING, GATHERING, RETURNING, DEPOSITING
+
+    def draw(self, screen):
+        dx = self.x - self.prev_x
+        # small margin to avoid flapping
+        if dx > 0.1:
+            self.facing = "right"
+        elif dx < -0.1:
+            self.facing = "left"
+            
+        if self.original_image is not None:
+            if self.facing != self.default_facing:
+                self.image = pygame.transform.flip(self.original_image, True, False)
+            else:
+                self.image = self.original_image
+                
+        self.prev_x = self.x
+        
+        super().draw(screen)
 
     def set_target(self, pos, target_entity=None):
         self.target_x, self.target_y = pos
