@@ -18,11 +18,15 @@ class MagicMissile:
     y: float
     target_x: float
     target_y: float
+    target_entity: Entity | None = None
     speed: float = 8.0
     radius: int = 5
 
     def update(self) -> bool:
         """Move the projectile and return False when it reaches the target."""
+        if self.target_entity is not None and getattr(self.target_entity, "life", 1) > 0:
+            self.target_x, self.target_y = self.target_entity.get_center()
+
         dx = self.target_x - self.x
         dy = self.target_y - self.y
         dist = math.sqrt(dx**2 + dy**2)
@@ -294,9 +298,15 @@ class GameManager:
                 if isinstance(entity, Mage):
                     attack_event = entity.consume_attack_event()
                     if attack_event and attack_event[2] == AttackType.RANGED:
-                        source_pos, target_pos, _ = attack_event
+                        source_pos, target_pos, _, target_entity = attack_event
                         self.magic_missiles.append(
-                            MagicMissile(source_pos[0], source_pos[1], target_pos[0], target_pos[1])
+                            MagicMissile(
+                                source_pos[0],
+                                source_pos[1],
+                                target_pos[0],
+                                target_pos[1],
+                                target_entity=target_entity,
+                            )
                         )
 
             if isinstance(entity, Peasant):

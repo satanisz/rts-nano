@@ -229,7 +229,9 @@ class Unit(Entity, ABC):
         self.shield_modifier = self.DEFAULT_SHIELD_MODIFIER
         self.attack_cooldown = 0
         self.hit_flash_until_ms = 0
-        self.last_attack_event: tuple[tuple[float, float], tuple[float, float], AttackType | None] | None = None
+        self.last_attack_event: (
+            tuple[tuple[float, float], tuple[float, float], AttackType | None, Entity | None] | None
+        ) = None
         self.state = "IDLE"
 
     def draw(self, screen):
@@ -345,7 +347,7 @@ class Unit(Entity, ABC):
         target.life -= damage
         self.attack_cooldown = max(1, int(self.attack_speed * FPS))
         self._trigger_hit_flash()
-        self.last_attack_event = ((self.x, self.y), target.get_center(), self.attack_type)
+        self.last_attack_event = ((self.x, self.y), target.get_center(), self.attack_type, target)
         self.state = "ATTACKING"
 
     def consume_attack_event(self):
