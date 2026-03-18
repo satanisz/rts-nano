@@ -1,12 +1,46 @@
 """Game state coordination, input handling, and rendering."""
 
 import math
+from dataclasses import dataclass
 
 import pygame
 
 from rts_nano.game.assets.entities import Archer, Base, Cristal, Knight, Mage, Peasant, TeamColor, Wood
 from rts_nano.game.assets.entities.base_entities import Building, Entity, Resource, Unit
 from rts_nano.game.constants import *
+
+
+@dataclass
+class MagicMissile:
+    """Simple projectile effect used for mage ranged attacks."""
+
+    x: float
+    y: float
+    target_x: float
+    target_y: float
+    speed: float = 8.0
+    radius: int = 5
+
+    def update(self) -> bool:
+        """Move the projectile and return False when it reaches the target."""
+        dx = self.target_x - self.x
+        dy = self.target_y - self.y
+        dist = math.sqrt(dx**2 + dy**2)
+
+        if dist <= self.speed or dist == 0:
+            self.x = self.target_x
+            self.y = self.target_y
+            return False
+
+        self.x += (dx / dist) * self.speed
+        self.y += (dy / dist) * self.speed
+        return True
+
+    def draw(self, screen) -> None:
+        """Render a bright core with a soft glow for readability."""
+        pygame.draw.circle(screen, (120, 235, 255), (int(self.x), int(self.y)), self.radius + 3)
+        pygame.draw.circle(screen, CYAN, (int(self.x), int(self.y)), self.radius)
+        pygame.draw.circle(screen, WHITE, (int(self.x), int(self.y)), 2)
 
 
 class EntitiesGroup:
@@ -104,6 +138,7 @@ class GameManager:
         self.drag_start: tuple[int, int] | None = None
         self.drag_end: tuple[int, int] | None = None
         self.paused: bool = False
+        self.magic_missiles: list[MagicMissile] = []
 
         self._load_map_settings()
 
@@ -256,6 +291,13 @@ class GameManager:
 
             if isinstance(entity, Unit):
                 entity.update(all_ents)
+                if isinstance(entity, Mage):
+                    attack_event = entity.consume_attack_event()
+                    if attack_event and attack_event[2] == AttackType.RANGED:
+                        source_pos, target_pos, _ = attack_event
+                        self.magic_missiles.append(
+                            MagicMissile(source_pos[0], source_pos[1], target_pos[0], target_pos[1])
+                        )
 
             if isinstance(entity, Peasant):
                 if entity.state == "GATHERING":
@@ -321,6 +363,7 @@ class GameManager:
                         entity.source_resource = None
 
         self._remove_dead_entities()
+        self.magic_missiles = [missile for missile in self.magic_missiles if missile.update()]
 
     def draw_bottom_menu(self, screen):
         """Draw UI details for the current selection.
@@ -377,6 +420,8 @@ class GameManager:
         """
         for entity in self.all_entities:
             entity.draw(screen)
+        for missile in self.magic_missiles:
+            missile.draw(screen)
 
         if self.dragging and self.drag_start and self.drag_end:
             x1, y1 = self.drag_start
