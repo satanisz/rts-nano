@@ -8,6 +8,7 @@ import pygame
 from rts_nano.game.assets.entities import Archer, Base, Cristal, Knight, Mage, Peasant, TeamColor, Wood
 from rts_nano.game.assets.entities.base_entities import Building, Entity, Resource, Unit
 from rts_nano.game.constants import (
+    BLACK,
     BLUE,
     BOTTOM_MENU_HEIGHT,
     CYAN,
@@ -56,6 +57,42 @@ class MagicMissile:
         pygame.draw.circle(screen, (120, 235, 255), (int(self.x), int(self.y)), self.radius + 3)
         pygame.draw.circle(screen, CYAN, (int(self.x), int(self.y)), self.radius)
         pygame.draw.circle(screen, WHITE, (int(self.x), int(self.y)), 2)
+
+
+@dataclass
+class ArcherShot:
+    """Simple projectile effect used for archer ranged attacks."""
+
+    x: float
+    y: float
+    target_x: float
+    target_y: float
+    target_entity: Entity | None = None
+    speed: float = 10.0
+    radius: int = 3
+
+    def update(self) -> bool:
+        """Move the projectile and return False when it reaches the target."""
+        if self.target_entity is not None and getattr(self.target_entity, "life", 1) > 0:
+            self.target_x, self.target_y = self.target_entity.get_center()
+
+        dx = self.target_x - self.x
+        dy = self.target_y - self.y
+        dist = math.sqrt(dx**2 + dy**2)
+
+        if dist <= self.speed or dist == 0:
+            self.x = self.target_x
+            self.y = self.target_y
+            return False
+
+        self.x += (dx / dist) * self.speed
+        self.y += (dy / dist) * self.speed
+        return True
+
+    def draw(self, screen: pygame.Surface) -> None:
+        """Render a dark arrow-like bolt with a subtle trail."""
+        pygame.draw.circle(screen, (70, 70, 70), (int(self.x), int(self.y)), self.radius + 2)
+        pygame.draw.circle(screen, BLACK, (int(self.x), int(self.y)), self.radius)
 
 
 class EntitiesGroup:
@@ -157,6 +194,7 @@ class GameManager:
         self.drag_end: tuple[int, int] | None = None
         self.paused: bool = False
         self.magic_missiles: list[MagicMissile] = []
+        self.archer_shots: list[ArcherShot] = []
 
         self._load_map_settings()
 
@@ -309,12 +347,23 @@ class GameManager:
 
             if isinstance(entity, Unit):
                 entity.update(all_ents)
-                if isinstance(entity, Mage):
-                    attack_event = entity.consume_attack_event()
-                    if attack_event and attack_event[2] == AttackType.RANGED:
-                        source_pos, target_pos, _, target_entity = attack_event
+                attack_event = entity.consume_attack_event()
+                if attack_event and attack_event[2] == AttackType.RANGED:
+                    source_pos, target_pos, _, target_entity = attack_event
+                    if isinstance(entity, Mage):
                         self.magic_missiles.append(
                             MagicMissile(
+                                source_pos[0],
+                                source_pos[1],
+                                target_pos[0],
+                                target_pos[1],
+                                target_entity=target_entity,
+                            )
+                        )
+                    elif isinstance(entity, Archer):
+                        source_pos, target_pos, _, target_entity = attack_event
+                        self.archer_shots.append(
+                            ArcherShot(
                                 source_pos[0],
                                 source_pos[1],
                                 target_pos[0],
@@ -396,6 +445,7 @@ class GameManager:
 
         self._remove_dead_entities()
         self.magic_missiles = [missile for missile in self.magic_missiles if missile.update()]
+        self.archer_shots = [shot for shot in self.archer_shots if shot.update()]
 
     def draw_bottom_menu(self, screen: pygame.Surface) -> None:
         """Draw UI details for the current selection.
@@ -454,6 +504,8 @@ class GameManager:
             entity.draw(screen)
         for missile in self.magic_missiles:
             missile.draw(screen)
+        for shot in self.archer_shots:
+            shot.draw(screen)
 
         if self.dragging and self.drag_start and self.drag_end:
             x1, y1 = self.drag_start

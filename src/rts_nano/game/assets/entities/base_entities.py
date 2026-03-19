@@ -249,7 +249,11 @@ class Unit(Entity, ABC):
         self.attack_modifier: int = self.DEFAULT_ATTACK_MODIFIER
         self.attack_range: int = self.DEFAULT_ATTACK_RANGE
         self.attack_speed: float = self.DEFAULT_ATTACK_SPEED
-        self.attack_type: AttackType = self.DEFAULT_ATTACK_TYPE
+        if isinstance(self.DEFAULT_ATTACK_TYPE, tuple):
+            self.attack_types: tuple[AttackType, ...] = self.DEFAULT_ATTACK_TYPE
+        else:
+            self.attack_types = (self.DEFAULT_ATTACK_TYPE,)
+        self.attack_type: AttackType = self.attack_types[0]
         self.shield_modifier: int = self.DEFAULT_SHIELD_MODIFIER
         self.attack_cooldown: int = 0
         self.hit_flash_until_ms: int = 0
