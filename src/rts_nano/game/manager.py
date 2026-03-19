@@ -7,7 +7,18 @@ import pygame
 
 from rts_nano.game.assets.entities import Archer, Base, Cristal, Knight, Mage, Peasant, TeamColor, Wood
 from rts_nano.game.assets.entities.base_entities import Building, Entity, Resource, Unit
-from rts_nano.game.constants import *
+from rts_nano.game.constants import (
+    BLUE,
+    BOTTOM_MENU_HEIGHT,
+    CYAN,
+    GREEN,
+    HARVEST_SEARCH_RADIUS,
+    RED,
+    SCREEN_HEIGHT,
+    SCREEN_WIDTH,
+    WHITE,
+    AttackType,
+)
 
 
 @dataclass
@@ -54,7 +65,8 @@ class EntitiesGroup:
         name: Team associated with the entity collection.
     """
 
-    def __init__(self, name: TeamColor):
+    def __init__(self, name: TeamColor) -> None:
+        """Initialize the object."""
         self.name: TeamColor = name
         self.resources: dict[str, int] = {"wood": 0, "cristal": 0}
         self.bases: list[Base] = []
@@ -78,7 +90,8 @@ class EntitiesGroup:
 class ResourcesGroup:
     """Store neutral resource nodes available on the map."""
 
-    def __init__(self):
+    def __init__(self) -> None:
+        """Initialize the object."""
         self.cristals: list[Cristal] = []
         self.woods: list[Wood] = []
 
@@ -132,7 +145,8 @@ class GameManager:
         map_settings: Mapping of team names to entity types and spawn positions.
     """
 
-    def __init__(self, map_settings: dict[str, dict[str, list[list[int]] | list[tuple[int, int]]]]):
+    def __init__(self, map_settings: dict[str, dict[str, list[list[int]] | list[tuple[int, int]]]]) -> None:
+        """Initialize the object."""
         self.map_settings = map_settings
         self.entities: dict[TeamColor, EntitiesGroup] = {}
         self.resources: ResourcesGroup = ResourcesGroup()
@@ -336,7 +350,9 @@ class GameManager:
                                 resource_list = self.resources.woods if is_wood else self.resources.cristals
                                 for replacement in resource_list:
                                     if replacement is not resource and replacement.amount > 0:
-                                        dist = math.sqrt((replacement.x - resource.x) ** 2 + (replacement.y - resource.y) ** 2)
+                                        dist = math.sqrt(
+                                            (replacement.x - resource.x) ** 2 + (replacement.y - resource.y) ** 2
+                                        )
                                         if dist < min_dist:
                                             min_dist = dist
                                             new_resource = replacement
@@ -354,7 +370,9 @@ class GameManager:
                             team_group = self.entities.get(entity.team)
                             team_bases = team_group.bases if team_group else []
                             if team_bases:
-                                nearest_base = min(team_bases, key=lambda base: (base.x - entity.x) ** 2 + (base.y - entity.y) ** 2)
+                                nearest_base = min(
+                                    team_bases, key=lambda base: (base.x - entity.x) ** 2 + (base.y - entity.y) ** 2
+                                )
                                 entity.set_target(nearest_base.get_center(), nearest_base)
                             else:
                                 entity.state = "IDLE"
@@ -366,7 +384,11 @@ class GameManager:
                         team_group.resources["cristal"] += entity.carry_cristal
                     entity.carry_wood = 0
                     entity.carry_cristal = 0
-                    if entity.source_resource and entity.source_resource in all_ents and entity.source_resource.amount > 0:
+                    if (
+                        entity.source_resource
+                        and entity.source_resource in all_ents
+                        and entity.source_resource.amount > 0
+                    ):
                         entity.set_target(entity.source_resource.get_center(), entity.source_resource)
                     else:
                         entity.state = "IDLE"
@@ -454,7 +476,9 @@ class GameManager:
         if team_group:
             res = team_group.resources
             num_buildings = len(team_group.bases)
-            num_units = len(team_group.peasents) + len(team_group.knights) + len(team_group.archers) + len(team_group.mages)
+            num_units = (
+                len(team_group.peasents) + len(team_group.knights) + len(team_group.archers) + len(team_group.mages)
+            )
         else:
             res = {"wood": 0, "cristal": 0}
             num_buildings = 0

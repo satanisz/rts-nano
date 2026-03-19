@@ -7,6 +7,7 @@ from rts_nano.game.constants import AttackType
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
 
+
 class Peasant(Unit):
     """Worker unit that can gather and deposit resources."""
 
@@ -23,6 +24,7 @@ class Peasant(Unit):
     DEFAULT_SHIELD_MODIFIER = 0
 
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
+        """Initialize the object."""
         super().__init__(x, y, team, self.SIZE, self.RADIUS)
         self.load_image(str(BASE_DIR / "assets" / f"{team.value.lower()}_peasant.png"))
 
@@ -41,6 +43,7 @@ class Peasant(Unit):
 
         self.state = "IDLE"
 
+
 class Knight(Unit):
     """Frontline melee unit."""
 
@@ -57,6 +60,7 @@ class Knight(Unit):
     DEFAULT_SHIELD_MODIFIER = 0
 
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
+        """Initialize the object."""
         super().__init__(x, y, team, self.SIZE, self.RADIUS)
         self.load_image(str(BASE_DIR / "assets" / f"{team.value.lower()}_knight.png"))
 
@@ -66,6 +70,7 @@ class Knight(Unit):
             self.state = "IDLE"
             return
         super()._attack(target)
+
 
 class Archer(Unit):
     """Ranged unit with moderate mobility."""
@@ -79,12 +84,17 @@ class Archer(Unit):
     DEFAULT_ATTACK_MODIFIER = 0
     DEFAULT_ATTACK_RANGE = 50
     DEFAULT_ATTACK_SPEED = 1
-    DEFAULT_ATTACK_TYPE = (AttackType.MELEE, AttackType.RANGED,)
+    DEFAULT_ATTACK_TYPE = (
+        AttackType.MELEE,
+        AttackType.RANGED,
+    )
     DEFAULT_SHIELD_MODIFIER = 0
 
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
+        """Initialize the object."""
         super().__init__(x, y, team, self.SIZE, self.RADIUS)
         self.load_image(str(BASE_DIR / "assets" / f"{team.value.lower()}_archer.png"))
+
 
 class Mage(Unit):
     """Fragile ranged caster unit."""
@@ -102,5 +112,6 @@ class Mage(Unit):
     DEFAULT_SHIELD_MODIFIER = 0
 
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
+        """Initialize the object."""
         super().__init__(x, y, team, self.SIZE, self.RADIUS)
         self.load_image(str(BASE_DIR / "assets" / f"{team.value.lower()}_mage.png"))

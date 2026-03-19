@@ -11,6 +11,7 @@ from rts_nano.game.manager import GameManager
 
 BASE_DIR = Path(__file__).resolve().parent
 
+
 def main() -> None:
     """Run the game loop and load the default map configuration."""
     pygame.init()
@@ -19,7 +20,7 @@ def main() -> None:
     clock = pygame.time.Clock()
 
     settings_path = BASE_DIR / "maps" / "map_settings_01.json"
-    with open(settings_path, encoding="utf-8") as f:
+    with settings_path.open(encoding="utf-8") as f:
         map_settings = json.load(f)
 
     game_manager = GameManager(map_settings)
@@ -41,6 +42,7 @@ def main() -> None:
 
     pygame.quit()
     sys.exit()
+
 
 if __name__ == "__main__":
     main()

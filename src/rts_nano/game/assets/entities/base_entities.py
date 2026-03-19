@@ -1,20 +1,33 @@
 """Base entity types shared across units, buildings, and resources."""
 
+from __future__ import annotations
+
 import logging
 import math
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 from abc import ABC
-from collections.abc import Iterable
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 
 import pygame
 
-from rts_nano.game.constants import *
+from rts_nano.game.constants import (
+    BLUE,
+    FPS,
+    GRAY,
+    RED,
+    WHITE,
+    YELLOW,
+    AttackType,
+)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-class TeamColor(str, Enum):
+class TeamColor(StrEnum):
     """Available ownership groups for game entities."""
 
     BLUE = "Blue"
@@ -24,6 +37,7 @@ class TeamColor(str, Enum):
 
 
 class Entity(ABC):
+    # ruff: noqa: B024
     """Represent a drawable selectable object on the map.
 
     Args:
@@ -35,7 +49,10 @@ class Entity(ABC):
         class_name: Human-readable entity label.
     """
 
-    def __init__(self, x: float, y: float, color: tuple[int, int, int], size: int, radius: float, class_name: str) -> None:
+    def __init__(
+        self, x: float, y: float, color: tuple[int, int, int], size: int, radius: float, class_name: str
+    ) -> None:
+        """Initialize the object."""
         if type(self) is Entity:
             raise TypeError("Entity is an abstract base class and cannot be instantiated directly.")
         self.x: float = float(x)
@@ -128,7 +145,10 @@ class Entity(ABC):
             True if the point lies inside the entity rectangle.
         """
         px, py = pos
-        return self.x - self.size / 2 <= px <= self.x + self.size / 2 and self.y - self.size / 2 <= py <= self.y + self.size / 2
+        return (
+            self.x - self.size / 2 <= px <= self.x + self.size / 2
+            and self.y - self.size / 2 <= py <= self.y + self.size / 2
+        )
 
     def get_center(self) -> tuple[float, float]:
         """Return the entity center coordinates."""
@@ -148,7 +168,8 @@ class Resource(Entity, ABC):
     RADIUS = 5.0
     DEFAULT_AMOUNT = 100
 
-    def __init__(self, x: int, y: int, name: str = "Resource"):
+    def __init__(self, x: int, y: int, name: str = "Resource") -> None:
+        """Initialize the object."""
         if type(self) is Resource:
             raise TypeError("Resource is an abstract base class and cannot be instantiated directly.")
         super().__init__(x, y, GRAY, self.SIZE, self.RADIUS, name)
@@ -169,7 +190,8 @@ class Building(Entity, ABC):
     MAX_LIFE = 500
     DEFAULT_SHIELD_MODIFIER = 0
 
-    def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE):
+    def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
+        """Initialize the object."""
         if type(self) is Building:
             raise TypeError("Building is an abstract base class and cannot be instantiated directly.")
         color = Entity.get_team_color(team)
@@ -202,7 +224,8 @@ class Unit(Entity, ABC):
     DEFAULT_SHIELD_MODIFIER: int = 0
     HIT_FLASH_DURATION_MS: int = 120
 
-    def __init__(self, x: int, y: int, team: TeamColor, size: int, radius: float):
+    def __init__(self, x: int, y: int, team: TeamColor, size: int, radius: float) -> None:
+        """Initialize the object."""
         if type(self) is Unit:
             raise TypeError("Unit is an abstract base class and cannot be instantiated directly.")
         color = Entity.get_team_color(team)
@@ -230,9 +253,7 @@ class Unit(Entity, ABC):
         self.shield_modifier: int = self.DEFAULT_SHIELD_MODIFIER
         self.attack_cooldown: int = 0
         self.hit_flash_until_ms: int = 0
-        self.last_attack_event: (
-            tuple[tuple[float, float], tuple[float, float], AttackType, Entity] | None
-        ) = None
+        self.last_attack_event: tuple[tuple[float, float], tuple[float, float], AttackType, Entity] | None = None
         self.state = "IDLE"
 
     def draw(self, screen: pygame.Surface) -> None:
@@ -330,7 +351,7 @@ class Unit(Entity, ABC):
         dy = ty - self.y
         return math.sqrt(dx**2 + dy**2) <= self._get_attack_distance(target)
 
-    def _attack(self, target: Entity):
+    def _attack(self, target: Entity) -> None:
         """Apply damage to a hostile target when the cooldown has elapsed."""
         if not self._is_hostile_target(target):
             self.state = "IDLE"
