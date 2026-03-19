@@ -40,7 +40,7 @@ class MagicMissile:
         self.y += (dy / dist) * self.speed
         return True
 
-    def draw(self, screen) -> None:
+    def draw(self, screen: pygame.Surface) -> None:
         """Render a bright core with a soft glow for readability."""
         pygame.draw.circle(screen, (120, 235, 255), (int(self.x), int(self.y)), self.radius + 3)
         pygame.draw.circle(screen, CYAN, (int(self.x), int(self.y)), self.radius)
@@ -195,13 +195,13 @@ class GameManager:
                         case Cristal():
                             self.resources.cristals.append(entity)
 
-    def _normalize_coords(self, coords):
+    def _normalize_coords(self, coords: list[list[int] | tuple[int, int]]) -> list[list[int] | tuple[int, int]]:
         """Normalize map coordinates to a list of coordinate pairs."""
         if isinstance(coords, list) and len(coords) == 2 and all(isinstance(value, (int, float)) for value in coords):
             return [coords]
         return coords
 
-    def handle_input(self, event):
+    def handle_input(self, event: pygame.event.Event) -> None:
         """Process keyboard and mouse input for team control and selection.
 
         Args:
@@ -250,7 +250,7 @@ class GameManager:
         elif event.type == pygame.MOUSEMOTION and self.dragging:
             self.drag_end = pygame.mouse.get_pos()
 
-    def select_units_in_box(self):
+    def select_units_in_box(self) -> None:
         """Select units inside the drag rectangle or under the click point."""
         if not self.drag_start or not self.drag_end:
             return
@@ -283,7 +283,7 @@ class GameManager:
                         entity.selected = True
                         self.selected_entities.append(entity)
 
-    def update(self):
+    def update(self) -> None:
         """Advance game simulation, harvesting, and resource deposit logic."""
         if self.paused:
             return
@@ -375,7 +375,7 @@ class GameManager:
         self._remove_dead_entities()
         self.magic_missiles = [missile for missile in self.magic_missiles if missile.update()]
 
-    def draw_bottom_menu(self, screen):
+    def draw_bottom_menu(self, screen: pygame.Surface) -> None:
         """Draw UI details for the current selection.
 
         Args:
@@ -422,7 +422,7 @@ class GameManager:
                     text_surf = font_small.render(stat_text, True, color)
                     screen.blit(text_surf, (pos_x, pos_y + j * 16))
 
-    def draw(self, screen):
+    def draw(self, screen: pygame.Surface) -> None:
         """Draw world entities, selection state, HUD, and pause overlay.
 
         Args:

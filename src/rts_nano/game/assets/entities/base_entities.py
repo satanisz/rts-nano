@@ -5,6 +5,7 @@ import math
 from abc import ABC
 from enum import Enum
 from pathlib import Path
+from typing import Iterable
 
 import pygame
 
@@ -34,19 +35,19 @@ class Entity(ABC):
         class_name: Human-readable entity label.
     """
 
-    def __init__(self, x, y, color, size, radius, class_name):
+    def __init__(self, x: float, y: float, color: tuple[int, int, int], size: int, radius: float, class_name: str) -> None:
         if type(self) is Entity:
             raise TypeError("Entity is an abstract base class and cannot be instantiated directly.")
-        self.x = x
-        self.y = y
-        self.color = color
-        self.size = size
-        self.radius = radius
-        self.selected = False
-        self.life = 0
-        self.class_name = class_name
-        self.image = None
-        self.original_image = None
+        self.x: float = float(x)
+        self.y: float = float(y)
+        self.color: tuple[int, int, int] = color
+        self.size: int = size
+        self.radius: float = radius
+        self.selected: bool = False
+        self.life: int = 0
+        self.class_name: str = class_name
+        self.image: pygame.Surface | None = None
+        self.original_image: pygame.Surface | None = None
 
     @classmethod
     def get_team_color(cls, team: TeamColor) -> tuple[int, int, int]:
@@ -69,7 +70,7 @@ class Entity(ABC):
             return GRAY
         raise ValueError(f"Unknown team color: {team}")
 
-    def load_image(self, image_path):
+    def load_image(self, image_path: str | Path | None) -> None:
         """Load and scale an entity sprite from disk.
 
         Args:
@@ -85,7 +86,7 @@ class Entity(ABC):
                 self.image = None
                 self.original_image = None
 
-    def draw(self, screen):
+    def draw(self, screen: pygame.Surface) -> None:
         """Draw the entity, its collision radius, and selection outline.
 
         Args:
@@ -109,15 +110,15 @@ class Entity(ABC):
         if self.selected:
             pygame.draw.rect(screen, WHITE, (top_left_x, top_left_y, self.size, self.size), 1)
 
-    def _get_hitbox_width(self):
+    def _get_hitbox_width(self) -> int:
         """Return the stroke width used for the entity hitbox."""
         return 1
 
-    def _get_hitbox_color(self):
+    def _get_hitbox_color(self) -> tuple[int, int, int]:
         """Return the color used for the entity hitbox."""
         return self.color
 
-    def contains_point(self, pos):
+    def contains_point(self, pos: tuple[int, int]) -> bool:
         """Check whether a screen position overlaps the entity bounds.
 
         Args:
@@ -129,7 +130,7 @@ class Entity(ABC):
         px, py = pos
         return self.x - self.size / 2 <= px <= self.x + self.size / 2 and self.y - self.size / 2 <= py <= self.y + self.size / 2
 
-    def get_center(self):
+    def get_center(self) -> tuple[float, float]:
         """Return the entity center coordinates."""
         return self.x, self.y
 
@@ -151,7 +152,7 @@ class Resource(Entity, ABC):
         if type(self) is Resource:
             raise TypeError("Resource is an abstract base class and cannot be instantiated directly.")
         super().__init__(x, y, GRAY, self.SIZE, self.RADIUS, name)
-        self.amount = self.DEFAULT_AMOUNT
+        self.amount: int = self.DEFAULT_AMOUNT
 
 
 class Building(Entity, ABC):
@@ -190,16 +191,16 @@ class Unit(Entity, ABC):
         radius: Interaction radius used for collisions and selection.
     """
 
-    DEFAULT_SPEED = 0.0
-    DEFAULT_MAX_CARRY = 0
-    DEFAULT_MAX_LIFE = 0
-    DEFAULT_ATTACK_DAMAGE = 0
-    DEFAULT_ATTACK_MODIFIER = 0
-    DEFAULT_ATTACK_RANGE = 0
-    DEFAULT_ATTACK_SPEED = 0
-    DEFAULT_ATTACK_TYPE = None
-    DEFAULT_SHIELD_MODIFIER = 0
-    HIT_FLASH_DURATION_MS = 120
+    DEFAULT_SPEED: float = 0.0
+    DEFAULT_MAX_CARRY: int = 0
+    DEFAULT_MAX_LIFE: int = 0
+    DEFAULT_ATTACK_DAMAGE: int = 0
+    DEFAULT_ATTACK_MODIFIER: int = 0
+    DEFAULT_ATTACK_RANGE: int = 0
+    DEFAULT_ATTACK_SPEED: float = 0
+    DEFAULT_ATTACK_TYPE: AttackType = AttackType.NONE
+    DEFAULT_SHIELD_MODIFIER: int = 0
+    HIT_FLASH_DURATION_MS: int = 120
 
     def __init__(self, x: int, y: int, team: TeamColor, size: int, radius: float):
         if type(self) is Unit:
@@ -207,34 +208,34 @@ class Unit(Entity, ABC):
         color = Entity.get_team_color(team)
 
         super().__init__(x, y, color, size, radius, "Unit")
-        self.team = team
-        self.default_facing = "right" if team == TeamColor.BLUE else "left"
-        self.facing = self.default_facing
-        self.prev_x = float(x)
-        self.target_x = x
-        self.target_y = y
-        self.speed = self.DEFAULT_SPEED
-        self.target_entity = None
-        self.source_resource = None
-        self.carry_wood = 0
-        self.carry_cristal = 0
-        self.max_carry = self.DEFAULT_MAX_CARRY
-        self.max_life = self.DEFAULT_MAX_LIFE
-        self.life = self.DEFAULT_MAX_LIFE
-        self.attack_damage = self.DEFAULT_ATTACK_DAMAGE
-        self.attack_modifier = self.DEFAULT_ATTACK_MODIFIER
-        self.attack_range = self.DEFAULT_ATTACK_RANGE
-        self.attack_speed = self.DEFAULT_ATTACK_SPEED
-        self.attack_type = self.DEFAULT_ATTACK_TYPE
-        self.shield_modifier = self.DEFAULT_SHIELD_MODIFIER
-        self.attack_cooldown = 0
-        self.hit_flash_until_ms = 0
+        self.team: TeamColor = team
+        self.default_facing: str = "right" if team == TeamColor.BLUE else "left"
+        self.facing: str = self.default_facing
+        self.prev_x: float = float(x)
+        self.target_x: float = float(x)
+        self.target_y: float = float(y)
+        self.speed: float = self.DEFAULT_SPEED
+        self.target_entity: Entity | None = None
+        self.source_resource: Resource | None = None
+        self.carry_wood: int = 0
+        self.carry_cristal: int = 0
+        self.max_carry: int = self.DEFAULT_MAX_CARRY
+        self.max_life: int = self.DEFAULT_MAX_LIFE
+        self.life: int = self.DEFAULT_MAX_LIFE
+        self.attack_damage: int = self.DEFAULT_ATTACK_DAMAGE
+        self.attack_modifier: int = self.DEFAULT_ATTACK_MODIFIER
+        self.attack_range: int = self.DEFAULT_ATTACK_RANGE
+        self.attack_speed: float = self.DEFAULT_ATTACK_SPEED
+        self.attack_type: AttackType = self.DEFAULT_ATTACK_TYPE
+        self.shield_modifier: int = self.DEFAULT_SHIELD_MODIFIER
+        self.attack_cooldown: int = 0
+        self.hit_flash_until_ms: int = 0
         self.last_attack_event: (
-            tuple[tuple[float, float], tuple[float, float], AttackType | None, Entity | None] | None
+            tuple[tuple[float, float], tuple[float, float], AttackType, Entity] | None
         ) = None
         self.state = "IDLE"
 
-    def draw(self, screen):
+    def draw(self, screen: pygame.Surface) -> None:
         """Draw the unit and flip the sprite to match movement direction.
 
         Args:
@@ -256,25 +257,25 @@ class Unit(Entity, ABC):
 
         super().draw(screen)
 
-    def _get_hitbox_width(self):
+    def _get_hitbox_width(self) -> int:
         """Return the hitbox width for units."""
         return 1
 
-    def _get_hitbox_color(self):
+    def _get_hitbox_color(self) -> tuple[int, int, int]:
         """Return a one-shot flash color after a successful hit."""
         if self._is_hit_flash_active():
             return YELLOW
         return self.color
 
-    def _trigger_hit_flash(self):
+    def _trigger_hit_flash(self) -> None:
         """Start a short visual flash to indicate a landed hit."""
         self.hit_flash_until_ms = pygame.time.get_ticks() + self.HIT_FLASH_DURATION_MS
 
-    def _is_hit_flash_active(self):
+    def _is_hit_flash_active(self) -> bool:
         """Return whether the hit flash is currently visible."""
         return pygame.time.get_ticks() < self.hit_flash_until_ms
 
-    def set_target(self, pos, target_entity=None):
+    def set_target(self, pos: tuple[float, float], target_entity: "Entity | None" = None) -> None:
         """Assign a movement or interaction target.
 
         The unit keeps a linked source resource for continuous harvesting when
@@ -295,15 +296,15 @@ class Unit(Entity, ABC):
 
         self.state = "MOVING"
 
-    def _handle_target_reached(self):
+    def _handle_target_reached(self) -> None:
         """Handle unit behavior after reaching its target entity or point."""
         self.state = "IDLE"
 
-    def _is_alive_entity(self, entity):
+    def _is_alive_entity(self, entity: object) -> bool:
         """Return whether an entity should still be considered alive."""
         return entity is not None and getattr(entity, "life", 1) > 0
 
-    def _is_hostile_target(self, entity):
+    def _is_hostile_target(self, entity: object) -> bool:
         """Return whether the target belongs to an opposing team."""
         return (
             entity is not None
@@ -312,24 +313,24 @@ class Unit(Entity, ABC):
             and self._is_alive_entity(entity)
         )
 
-    def _get_target_position(self):
+    def _get_target_position(self) -> tuple[float, float]:
         """Return the current target position, following target entities."""
         if self.target_entity and self._is_alive_entity(self.target_entity):
             return self.target_entity.get_center()
         return self.target_x, self.target_y
 
-    def _get_attack_distance(self, target):
+    def _get_attack_distance(self, target: Entity) -> float:
         """Return the maximum center-to-center distance for a valid hit."""
         return self.attack_range + self.radius + getattr(target, "radius", 0)
 
-    def _is_in_attack_range(self, target):
+    def _is_in_attack_range(self, target: Entity) -> bool:
         """Return whether the current target is inside attack range."""
         tx, ty = target.get_center()
         dx = tx - self.x
         dy = ty - self.y
         return math.sqrt(dx**2 + dy**2) <= self._get_attack_distance(target)
 
-    def _attack(self, target):
+    def _attack(self, target: Entity):
         """Apply damage to a hostile target when the cooldown has elapsed."""
         if not self._is_hostile_target(target):
             self.state = "IDLE"
@@ -350,13 +351,13 @@ class Unit(Entity, ABC):
         self.last_attack_event = ((self.x, self.y), target.get_center(), self.attack_type, target)
         self.state = "ATTACKING"
 
-    def consume_attack_event(self):
+    def consume_attack_event(self) -> tuple[tuple[float, float], tuple[float, float], AttackType, Entity] | None:
         """Return and clear the latest attack event emitted by the unit."""
         attack_event = self.last_attack_event
         self.last_attack_event = None
         return attack_event
 
-    def update(self, entities):
+    def update(self, entities: Iterable[Entity]) -> None:
         """Advance unit movement and resolve collisions.
 
         Args:
@@ -404,7 +405,7 @@ class Unit(Entity, ABC):
 
         self.resolve_collisions(entities)
 
-    def resolve_collisions(self, entities):
+    def resolve_collisions(self, entities: Iterable[Entity]) -> None:
         """Push the unit away from overlapping entities.
 
         Args:

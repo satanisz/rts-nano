@@ -9,7 +9,7 @@ from rts_nano.game.manager import GameManager
 
 BASE_DIR = Path(__file__).resolve().parent
 
-def main():
+def main() -> None:
     """Run the game loop and load the default map configuration."""
     pygame.init()
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))

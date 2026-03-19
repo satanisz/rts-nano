@@ -25,6 +25,7 @@ class AttackType(StrEnum):
 
     MELEE = "Melee"
     RANGED = "Ranged"
+    NONE = "None"
 
 
 SCREEN_WIDTH = 1600

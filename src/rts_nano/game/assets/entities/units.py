@@ -10,13 +10,7 @@ from rts_nano.game.constants import AttackType
 BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
 
 class Peasant(Unit):
-    """Worker unit that can gather and deposit resources.
-
-    Args:
-        x: Horizontal center position.
-        y: Vertical center position.
-        team: Owning team.
-    """
+    """Worker unit that can gather and deposit resources."""
 
     SIZE = 30
     RADIUS = 10.0
@@ -30,11 +24,11 @@ class Peasant(Unit):
     DEFAULT_ATTACK_TYPE = AttackType.MELEE
     DEFAULT_SHIELD_MODIFIER = 0
 
-    def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE):
+    def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
         super().__init__(x, y, team, self.SIZE, self.RADIUS)
         self.load_image(str(BASE_DIR / "assets" / f"{team.value.lower()}_peasant.png"))
 
-    def _handle_target_reached(self):
+    def _handle_target_reached(self) -> None:
         """Transition the peasant to gathering or depositing when appropriate."""
         if self.target_entity:
             if isinstance(self.target_entity, Resource):
@@ -50,13 +44,7 @@ class Peasant(Unit):
         self.state = "IDLE"
 
 class Knight(Unit):
-    """Frontline melee unit.
-
-    Args:
-        x: Horizontal center position.
-        y: Vertical center position.
-        team: Owning team.
-    """
+    """Frontline melee unit."""
 
     SIZE = 40
     RADIUS = 13.0
@@ -70,18 +58,12 @@ class Knight(Unit):
     DEFAULT_ATTACK_TYPE = AttackType.MELEE
     DEFAULT_SHIELD_MODIFIER = 0
 
-    def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE):
+    def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
         super().__init__(x, y, team, self.SIZE, self.RADIUS)
         self.load_image(str(BASE_DIR / "assets" / f"{team.value.lower()}_knight.png"))
 
 class Archer(Unit):
-    """Ranged unit with moderate mobility.
-
-    Args:
-        x: Horizontal center position.
-        y: Vertical center position.
-        team: Owning team.
-    """
+    """Ranged unit with moderate mobility."""
 
     SIZE = 40
     RADIUS = 13.0
@@ -95,18 +77,12 @@ class Archer(Unit):
     DEFAULT_ATTACK_TYPE = AttackType.RANGED
     DEFAULT_SHIELD_MODIFIER = 0
 
-    def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE):
+    def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
         super().__init__(x, y, team, self.SIZE, self.RADIUS)
         self.load_image(str(BASE_DIR / "assets" / f"{team.value.lower()}_archer.png"))
 
 class Mage(Unit):
-    """Fragile ranged caster unit.
-
-    Args:
-        x: Horizontal center position.
-        y: Vertical center position.
-        team: Owning team.
-    """
+    """Fragile ranged caster unit."""
 
     SIZE = 40
     RADIUS = 13.0
@@ -120,6 +96,6 @@ class Mage(Unit):
     DEFAULT_ATTACK_TYPE = AttackType.RANGED
     DEFAULT_SHIELD_MODIFIER = 0
 
-    def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE):
+    def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
         super().__init__(x, y, team, self.SIZE, self.RADIUS)
         self.load_image(str(BASE_DIR / "assets" / f"{team.value.lower()}_mage.png"))

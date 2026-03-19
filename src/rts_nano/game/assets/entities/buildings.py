@@ -15,6 +15,6 @@ class Base(Building):
         team: Owning team.
     """
 
-    def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE):
+    def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
         super().__init__(x, y, team)
         self.load_image(str(BASE_DIR / "assets" / f"{team.value.lower()}_base.png"))
