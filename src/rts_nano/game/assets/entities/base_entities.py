@@ -3,9 +3,9 @@
 import logging
 import math
 from abc import ABC
+from collections.abc import Iterable
 from enum import Enum
 from pathlib import Path
-from typing import Iterable
 
 import pygame
 
@@ -198,7 +198,7 @@ class Unit(Entity, ABC):
     DEFAULT_ATTACK_MODIFIER: int = 0
     DEFAULT_ATTACK_RANGE: int = 0
     DEFAULT_ATTACK_SPEED: float = 0
-    DEFAULT_ATTACK_TYPE: AttackType = AttackType.NONE
+    DEFAULT_ATTACK_TYPE: tuple[AttackType, ...] = (AttackType.NONE,)
     DEFAULT_SHIELD_MODIFIER: int = 0
     HIT_FLASH_DURATION_MS: int = 120
 
@@ -275,7 +275,7 @@ class Unit(Entity, ABC):
         """Return whether the hit flash is currently visible."""
         return pygame.time.get_ticks() < self.hit_flash_until_ms
 
-    def set_target(self, pos: tuple[float, float], target_entity: "Entity | None" = None) -> None:
+    def set_target(self, pos: tuple[float, float], target_entity: Entity | None = None) -> None:
         """Assign a movement or interaction target.
 
         The unit keeps a linked source resource for continuous harvesting when
@@ -309,7 +309,7 @@ class Unit(Entity, ABC):
         return (
             entity is not None
             and hasattr(entity, "team")
-            and getattr(entity, "team") != self.team
+            and entity.team != self.team
             and self._is_alive_entity(entity)
         )
 

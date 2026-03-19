@@ -1,6 +1,7 @@
 """Building entity implementations."""
 
 from pathlib import Path
+
 from rts_nano.game.assets.entities.base_entities import Building, TeamColor
 from rts_nano.game.constants import *
 

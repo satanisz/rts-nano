@@ -1,10 +1,12 @@
 """Application entry point for the RTS Nano game."""
 
-import pygame
-import sys
 import json
+import sys
 from pathlib import Path
-from rts_nano.game.constants import *
+
+import pygame
+
+from rts_nano.game.constants import FPS, GRAY, SCREEN_HEIGHT, SCREEN_WIDTH
 from rts_nano.game.manager import GameManager
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -17,7 +19,7 @@ def main() -> None:
     clock = pygame.time.Clock()
 
     settings_path = BASE_DIR / "maps" / "map_settings_01.json"
-    with open(settings_path, "r", encoding="utf-8") as f:
+    with open(settings_path, encoding="utf-8") as f:
         map_settings = json.load(f)
 
     game_manager = GameManager(map_settings)

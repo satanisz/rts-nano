@@ -2,9 +2,7 @@
 
 from pathlib import Path
 
-from rts_nano.game.assets.entities.base_entities import Building
-from rts_nano.game.assets.entities.base_entities import Resource
-from rts_nano.game.assets.entities.base_entities import TeamColor, Unit
+from rts_nano.game.assets.entities.base_entities import Building, Entity, Resource, TeamColor, Unit
 from rts_nano.game.constants import AttackType
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
@@ -21,7 +19,7 @@ class Peasant(Unit):
     DEFAULT_ATTACK_MODIFIER = 0
     DEFAULT_ATTACK_RANGE = 0
     DEFAULT_ATTACK_SPEED = 1
-    DEFAULT_ATTACK_TYPE = AttackType.MELEE
+    DEFAULT_ATTACK_TYPE = (AttackType.MELEE,)
     DEFAULT_SHIELD_MODIFIER = 0
 
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
@@ -55,12 +53,19 @@ class Knight(Unit):
     DEFAULT_ATTACK_MODIFIER = 0
     DEFAULT_ATTACK_RANGE = 50
     DEFAULT_ATTACK_SPEED = 1
-    DEFAULT_ATTACK_TYPE = AttackType.MELEE
+    DEFAULT_ATTACK_TYPE = (AttackType.MELEE,)
     DEFAULT_SHIELD_MODIFIER = 0
 
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
         super().__init__(x, y, team, self.SIZE, self.RADIUS)
         self.load_image(str(BASE_DIR / "assets" / f"{team.value.lower()}_knight.png"))
+
+    def _attack(self, target: Entity) -> None:
+        """Perform a melee attack."""
+        if self.attack_type != AttackType.MELEE:
+            self.state = "IDLE"
+            return
+        super()._attack(target)
 
 class Archer(Unit):
     """Ranged unit with moderate mobility."""
@@ -74,7 +79,7 @@ class Archer(Unit):
     DEFAULT_ATTACK_MODIFIER = 0
     DEFAULT_ATTACK_RANGE = 50
     DEFAULT_ATTACK_SPEED = 1
-    DEFAULT_ATTACK_TYPE = AttackType.RANGED
+    DEFAULT_ATTACK_TYPE = (AttackType.MELEE, AttackType.RANGED,)
     DEFAULT_SHIELD_MODIFIER = 0
 
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
@@ -93,7 +98,7 @@ class Mage(Unit):
     DEFAULT_ATTACK_MODIFIER = 0
     DEFAULT_ATTACK_RANGE = 500
     DEFAULT_ATTACK_SPEED = 1
-    DEFAULT_ATTACK_TYPE = AttackType.RANGED
+    DEFAULT_ATTACK_TYPE = (AttackType.RANGED,)
     DEFAULT_SHIELD_MODIFIER = 0
 
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:

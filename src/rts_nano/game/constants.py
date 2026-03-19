@@ -41,5 +41,5 @@ YELLOW = (255, 255, 0)
 CYAN = (0, 255, 255)
 GRAY = (128, 128, 128)
 
-FPS: int = 60
+FPS: float = 60.0
 HARVEST_SEARCH_RADIUS: float = 300.0
