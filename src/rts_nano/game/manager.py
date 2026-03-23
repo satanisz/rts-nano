@@ -478,9 +478,13 @@ class GameManager:
                 stats_texts = [f"{cls_name}"]
 
                 if isinstance(entity, Unit):
-                    stats_texts.append(f"HP: {entity.life}/{entity.max_life}  ATK: {entity.attack_damage}")
+                    stats_texts.append(f"HP: {entity.life}/{entity.max_life}")
+                    stats_texts.append(f"ATTACK: {entity.attack_damage}")
+                    stats_texts.append(f"RANGE: {entity.attack_range}")
+                    stats_texts.append(f"SHIELD: {entity.shield_modifier}")
                 elif isinstance(entity, Building):
                     stats_texts.append(f"HP: {entity.life}/{entity.max_life}")
+                    stats_texts.append(f"SHIELD: {entity.shield_modifier}")
                 elif isinstance(entity, Resource):
                     stats_texts.append(f"Amount: {entity.amount}")
 
