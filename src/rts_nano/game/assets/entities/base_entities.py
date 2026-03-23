@@ -327,7 +327,11 @@ class Unit(Entity, ABC):
 
     def _is_alive_entity(self, entity: object) -> bool:
         """Return whether an entity should still be considered alive."""
-        return entity is not None and getattr(entity, "life", 1) > 0
+        if entity is None:
+            return False
+        if isinstance(entity, Resource):
+            return entity.amount > 0
+        return getattr(entity, "life", 1) > 0
 
     def _is_hostile_target(self, entity: object) -> bool:
         """Return whether the target belongs to an opposing team."""
@@ -440,6 +444,12 @@ class Unit(Entity, ABC):
 
         for entity in entities:
             if entity is self:
+                continue
+            if (
+                isinstance(self.target_entity, Resource)
+                and isinstance(entity, Unit)
+                and entity.team == self.team
+            ):
                 continue
 
             other_cx, other_cy = entity.get_center()
