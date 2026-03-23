@@ -22,6 +22,9 @@ from rts_nano.game.constants import (
     AttackType,
 )
 
+WOOD_ICON = "\U0001FAB5"
+CRISTAL_ICON = "\U0001F48E"
+
 
 @dataclass
 class MagicMissile:
@@ -527,6 +530,7 @@ class GameManager:
             pygame.draw.rect(screen, GREEN, (min_x, min_y, width, height), 2)
 
         font = pygame.font.SysFont(None, 36)
+        emoji_font = pygame.font.SysFont(["Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", "Noto Emoji"], 20)
         team_group = self.entities.get(self.current_team)
         ui_color = BLUE if self.current_team == TeamColor.BLUE else RED
 
@@ -541,17 +545,22 @@ class GameManager:
             num_buildings = 0
             num_units = 0
 
-        text = font.render(
-            f"Team {self.current_team.value} | Wood: {res['wood']}   Cristal: {res['cristal']} | "
-            f"Buildings: {num_buildings}   Units: {num_units}",
-            True,
-            ui_color,
-        )
+        hud_parts: list[pygame.Surface] = [
+            font.render(f"Team {self.current_team.value} | ", True, ui_color),
+            emoji_font.render(WOOD_ICON, True, ui_color),
+            font.render(f": {res['wood']}   ", True, ui_color),
+            emoji_font.render(CRISTAL_ICON, True, ui_color),
+            font.render(f": {res['cristal']} | Buildings: {num_buildings}   Units: {num_units}/{MAX_UNITS}", True, ui_color),
+        ]
 
         if self.paused:
             pause_text = font.render("- PAUSED -", True, WHITE)
             text_rect = pause_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
             screen.blit(pause_text, text_rect)
 
-        screen.blit(text, (10, 10))
+        hud_x = 10
+        hud_y = 10
+        for part_surface in hud_parts:
+            screen.blit(part_surface, (hud_x, hud_y))
+            hud_x += part_surface.get_width()
         self.draw_bottom_menu(screen)
