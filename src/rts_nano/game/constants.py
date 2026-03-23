@@ -43,3 +43,4 @@ GRAY = (128, 128, 128)
 
 FPS: float = 60.0
 HARVEST_SEARCH_RADIUS: float = 300.0
+MAX_UNITS: int = 50
