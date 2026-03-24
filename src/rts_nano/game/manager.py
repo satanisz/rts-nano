@@ -202,6 +202,7 @@ class GameManager:
         self.menu_options: list[str] = ["CONTINUE", "SAVE", "LOAD", "SPEED: NORMAL", "EXIT"]
         self.magic_missiles: list[MagicMissile] = []
         self.archer_shots: list[ArcherShot] = []
+        self.build_peasant_buttons: list[tuple[pygame.Rect, Base]] = []
 
         self._load_map_settings()
 
@@ -283,6 +284,8 @@ class GameManager:
             elif event.key == pygame.K_F10:
                 self.menu_active = not self.menu_active
                 self.paused = self.menu_active
+            elif event.key == pygame.K_b:
+                self._try_build_peasant_from_selection()
 
         elif event.type == pygame.MOUSEBUTTONDOWN:
             mouse_pos = pygame.mouse.get_pos()
@@ -293,6 +296,12 @@ class GameManager:
                 return  # Block world interaction while menu is open
 
             if event.button == 1:
+                # Check UI buttons first
+                for rect, base in self.build_peasant_buttons:
+                    if rect.collidepoint(mouse_pos):
+                        self._build_peasant(base)
+                        return
+
                 self.dragging = True
                 self.drag_start = mouse_pos
                 self.drag_end = mouse_pos
@@ -317,6 +326,22 @@ class GameManager:
 
         elif event.type == pygame.MOUSEMOTION and self.dragging:
             self.drag_end = pygame.mouse.get_pos()
+
+    def _build_peasant(self, base: Base) -> None:
+        """Attempt to build a Peasant at the given base."""
+        team_group = self.entities.get(base.team)
+        if team_group and team_group.resources["wood"] >= 50:
+            team_group.resources["wood"] -= 50
+            spawn_x, spawn_y = int(base.x), int(base.y + base.size)
+            peasant = Peasant(spawn_x, spawn_y, base.team)
+            team_group.peasents.append(peasant)
+
+    def _try_build_peasant_from_selection(self) -> None:
+        """Attempt to build a peasant from the first selected base."""
+        for entity in self.selected_entities:
+            if isinstance(entity, Base) and entity.team == self.current_team:
+                self._build_peasant(entity)
+                break
 
     def _handle_menu_click(self, mouse_pos: tuple[int, int]) -> None:
         """Process clicks on the main menu."""
@@ -505,6 +530,8 @@ class GameManager:
         pygame.draw.rect(screen, (40, 40, 40), menu_rect)
         pygame.draw.rect(screen, (200, 200, 200), menu_rect, 2)
 
+        self.build_peasant_buttons.clear()
+
         if self.selected_entities:
             start_x = 20
             start_y = SCREEN_HEIGHT - BOTTOM_MENU_HEIGHT + 15
@@ -533,6 +560,8 @@ class GameManager:
                 elif isinstance(entity, Building):
                     stats_texts.append(f"HP: {entity.life}/{entity.max_life}")
                     stats_texts.append(f"SHIELD: {entity.shield_modifier}")
+                    if isinstance(entity, Base) and getattr(entity, "team", None) == self.current_team:
+                        stats_texts.append("[B] Build Peasant (50 Wood)")
                 elif isinstance(entity, Resource):
                     stats_texts.append(f"Amount: {entity.amount}")
 
@@ -543,8 +572,20 @@ class GameManager:
                             color = (130, 130, 255)
                         elif entity.team == TeamColor.RED:
                             color = (255, 130, 130)
+                    
+                    if stat_text == "[B] Build Peasant (50 Wood)":
+                        mouse_pos = pygame.mouse.get_pos()
+                        temp_surf = font_small.render(stat_text, True, WHITE)
+                        temp_rect = temp_surf.get_rect(topleft=(pos_x, pos_y + j * 16))
+                        # Hover effect for the button
+                        if temp_rect.collidepoint(mouse_pos):
+                            color = (255, 255, 100) # Yellowish on hover
+                    
                     text_surf = font_small.render(stat_text, True, color)
-                    screen.blit(text_surf, (pos_x, pos_y + j * 16))
+                    text_rect = screen.blit(text_surf, (pos_x, pos_y + j * 16))
+                    
+                    if stat_text == "[B] Build Peasant (50 Wood)" and isinstance(entity, Base):
+                        self.build_peasant_buttons.append((text_rect, entity))
 
     def draw(self, screen: pygame.Surface) -> None:
         """Draw world entities, selection state, HUD, and pause overlay.
