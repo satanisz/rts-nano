@@ -197,6 +197,9 @@ class GameManager:
         self.drag_start: tuple[int, int] | None = None
         self.drag_end: tuple[int, int] | None = None
         self.paused: bool = False
+        self.menu_active: bool = False
+        self.fps_multiplier: float = 1.0
+        self.menu_options: list[str] = ["CONTINUE", "SAVE", "LOAD", "SPEED: NORMAL", "EXIT"]
         self.magic_missiles: list[MagicMissile] = []
         self.archer_shots: list[ArcherShot] = []
 
@@ -275,10 +278,19 @@ class GameManager:
             elif event.key == pygame.K_q:
                 pygame.event.post(pygame.event.Event(pygame.QUIT))
             elif event.key == pygame.K_p:
-                self.paused = not self.paused
+                if not self.menu_active:
+                    self.paused = not self.paused
+            elif event.key == pygame.K_F10:
+                self.menu_active = not self.menu_active
+                self.paused = self.menu_active
 
         elif event.type == pygame.MOUSEBUTTONDOWN:
             mouse_pos = pygame.mouse.get_pos()
+
+            if self.menu_active:
+                if event.button == 1:
+                    self._handle_menu_click(mouse_pos)
+                return  # Block world interaction while menu is open
 
             if event.button == 1:
                 self.dragging = True
@@ -305,6 +317,38 @@ class GameManager:
 
         elif event.type == pygame.MOUSEMOTION and self.dragging:
             self.drag_end = pygame.mouse.get_pos()
+
+    def _handle_menu_click(self, mouse_pos: tuple[int, int]) -> None:
+        """Process clicks on the main menu."""
+        menu_width = 300
+        button_height = 50
+        spacing = 20
+        total_height = len(self.menu_options) * (button_height + spacing) - spacing
+        start_x = (SCREEN_WIDTH - menu_width) // 2
+        start_y = (SCREEN_HEIGHT - total_height) // 2
+
+        for i, option in enumerate(self.menu_options):
+            rect = pygame.Rect(start_x, start_y + i * (button_height + spacing), menu_width, button_height)
+            if rect.collidepoint(mouse_pos):
+                if option == "CONTINUE":
+                    self.menu_active = False
+                    self.paused = False
+                elif option == "SAVE":
+                    print("SAVE functionality is a placeholder.")
+                elif option == "LOAD":
+                    print("LOAD functionality is a placeholder.")
+                elif option.startswith("SPEED:"):
+                    if self.fps_multiplier == 1.0:
+                        self.fps_multiplier = 2.0
+                        self.menu_options[3] = "SPEED: FAST"
+                    elif self.fps_multiplier == 2.0:
+                        self.fps_multiplier = 0.5
+                        self.menu_options[3] = "SPEED: SLOW"
+                    else:
+                        self.fps_multiplier = 1.0
+                        self.menu_options[3] = "SPEED: NORMAL"
+                elif option == "EXIT":
+                    pygame.event.post(pygame.event.Event(pygame.QUIT))
 
     def select_units_in_box(self) -> None:
         """Select units inside the drag rectangle or under the click point."""
@@ -553,7 +597,7 @@ class GameManager:
             font.render(f": {res['cristal']} | Buildings: {num_buildings}   Units: {num_units}/{MAX_UNITS}", True, ui_color),
         ]
 
-        if self.paused:
+        if self.paused and not self.menu_active:
             pause_text = font.render("- PAUSED -", True, WHITE)
             text_rect = pause_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
             screen.blit(pause_text, text_rect)
@@ -564,3 +608,36 @@ class GameManager:
             screen.blit(part_surface, (hud_x, hud_y))
             hud_x += part_surface.get_width()
         self.draw_bottom_menu(screen)
+
+        if self.menu_active:
+            self.draw_main_menu(screen)
+
+    def draw_main_menu(self, screen: pygame.Surface) -> None:
+        """Draw the F10 pause menu."""
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 180))
+        screen.blit(overlay, (0, 0))
+
+        menu_width = 300
+        button_height = 50
+        spacing = 20
+        total_height = len(self.menu_options) * (button_height + spacing) - spacing
+        start_x = (SCREEN_WIDTH - menu_width) // 2
+        start_y = (SCREEN_HEIGHT - total_height) // 2
+
+        font = pygame.font.SysFont(None, 40)
+
+        for i, option in enumerate(self.menu_options):
+            rect = pygame.Rect(start_x, start_y + i * (button_height + spacing), menu_width, button_height)
+            
+            # Hover effect
+            mouse_pos = pygame.mouse.get_pos()
+            color = (80, 80, 80) if rect.collidepoint(mouse_pos) else (40, 40, 40)
+            
+            pygame.draw.rect(screen, color, rect)
+            pygame.draw.rect(screen, WHITE, rect, 2)
+            
+            text_surf = font.render(option, True, WHITE)
+            text_rect = text_surf.get_rect(center=rect.center)
+            screen.blit(text_surf, text_rect)
+

@@ -38,7 +38,7 @@ def main() -> None:
         game_manager.draw(screen)
 
         pygame.display.flip()
-        clock.tick(FPS)
+        clock.tick(FPS * game_manager.fps_multiplier)
 
     pygame.quit()
     sys.exit()
