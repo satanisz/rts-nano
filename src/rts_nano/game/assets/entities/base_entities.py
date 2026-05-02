@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import math
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -23,6 +22,7 @@ from rts_nano.game.constants import (
     YELLOW,
     AttackType,
 )
+from rts_nano.game.rules import calculate_damage, distance_between
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -354,10 +354,7 @@ class Unit(Entity, ABC):
 
     def _is_in_attack_range(self, target: Entity) -> bool:
         """Return whether the current target is inside attack range."""
-        tx, ty = target.get_center()
-        dx = tx - self.x
-        dy = ty - self.y
-        return math.sqrt(dx**2 + dy**2) <= self._get_attack_distance(target)
+        return distance_between(self, target) <= self._get_attack_distance(target)
 
     def _attack(self, target: Entity) -> None:
         """Apply damage to a hostile target when the cooldown has elapsed."""
@@ -373,7 +370,7 @@ class Unit(Entity, ABC):
             self.state = "ATTACKING"
             return
 
-        damage = max(0, self.attack_damage + self.attack_modifier - getattr(target, "shield_modifier", 0))
+        damage = calculate_damage(self.attack_damage, self.attack_modifier, getattr(target, "shield_modifier", 0))
         target.life -= damage
         self.attack_cooldown = max(1, int(self.attack_speed * FPS))
         self._trigger_hit_flash()
@@ -404,7 +401,7 @@ class Unit(Entity, ABC):
             self.target_x, self.target_y = self._get_target_position()
             dx = self.target_x - self.x
             dy = self.target_y - self.y
-            dist = math.sqrt(dx**2 + dy**2)
+            dist = (dx**2 + dy**2) ** 0.5
 
             interaction_dist = self.speed
             if self.target_entity and self._is_hostile_target(self.target_entity):
@@ -455,7 +452,7 @@ class Unit(Entity, ABC):
             other_cx, other_cy = entity.get_center()
             dx = my_cx - other_cx
             dy = my_cy - other_cy
-            dist = math.sqrt(dx**2 + dy**2)
+            dist = (dx**2 + dy**2) ** 0.5
 
             min_dist = self.radius + entity.radius
 

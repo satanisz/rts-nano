@@ -1,8 +1,10 @@
 """Game state coordination, input handling, and rendering."""
 
-from rts_nano.game.constants import MAX_UNITS
+from __future__ import annotations
+
 import math
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import pygame
 
@@ -15,15 +17,21 @@ from rts_nano.game.constants import (
     CYAN,
     GREEN,
     HARVEST_SEARCH_RADIUS,
+    MAX_UNITS,
     RED,
     SCREEN_HEIGHT,
     SCREEN_WIDTH,
     WHITE,
     AttackType,
 )
+from rts_nano.game.rules import clamp_point, distance_between_points, find_replacement_resource, nearest_entity
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 WOOD_ICON = "\U0001FAB5"
 CRISTAL_ICON = "\U0001F48E"
+PLAY_AREA_HEIGHT = SCREEN_HEIGHT - BOTTOM_MENU_HEIGHT
 
 
 @dataclass
@@ -140,14 +148,14 @@ class ResourcesGroup:
 class EntityFactory:
     """Create game entities from map configuration values."""
 
-    _TEAM_ENTITY_TYPES: dict[str, type[Entity]] = {
+    _TEAM_ENTITY_TYPES: dict[str, Callable[[int, int, TeamColor], Entity]] = {
         "peasant": Peasant,
         "knight": Knight,
         "archer": Archer,
         "mage": Mage,
         "base": Base,
     }
-    _NEUTRAL_ENTITY_TYPES: dict[str, type[Entity]] = {
+    _NEUTRAL_ENTITY_TYPES: dict[str, Callable[[int, int], Entity]] = {
         "wood": Wood,
         "cristal": Cristal,
     }
@@ -170,7 +178,7 @@ class EntityFactory:
         """
         team_entity_type = cls._TEAM_ENTITY_TYPES.get(asset_type)
         if team_entity_type is not None:
-            return team_entity_type(x, y, team=team)
+            return team_entity_type(x, y, team)
 
         neutral_entity_type = cls._NEUTRAL_ENTITY_TYPES.get(asset_type)
         if neutral_entity_type is not None:
@@ -186,7 +194,7 @@ class GameManager:
         map_settings: Mapping of team names to entity types and spawn positions.
     """
 
-    def __init__(self, map_settings: dict[str, dict[str, list[list[int]] | list[tuple[int, int]]]]) -> None:
+    def __init__(self, map_settings: dict[str, dict[str, list[object]]]) -> None:
         """Initialize the object."""
         self.map_settings = map_settings
         self.entities: dict[TeamColor, EntitiesGroup] = {}
@@ -203,6 +211,8 @@ class GameManager:
         self.magic_missiles: list[MagicMissile] = []
         self.archer_shots: list[ArcherShot] = []
         self.build_peasant_buttons: list[tuple[pygame.Rect, Base]] = []
+        self.game_over_message: str | None = None
+        self.menu_status: str | None = None
 
         self._load_map_settings()
 
@@ -227,6 +237,36 @@ class GameManager:
         ents.extend(self.resources.woods)
         ents.extend(self.resources.cristals)
         return ents
+
+    def _count_units(self, team: TeamColor) -> int:
+        """Return the number of living units owned by a team."""
+        group = self.entities.get(team)
+        if group is None:
+            return 0
+        return len(group.peasents) + len(group.knights) + len(group.archers) + len(group.mages)
+
+    def _has_reached_unit_cap(self, team: TeamColor) -> bool:
+        """Return whether a team is at the current unit cap."""
+        return self._count_units(team) >= MAX_UNITS
+
+    def _clamp_to_play_area(self, pos: tuple[float, float]) -> tuple[int, int]:
+        """Keep world orders out of the bottom UI panel."""
+        x, y = clamp_point(pos, min_x=0, max_x=SCREEN_WIDTH, min_y=0, max_y=PLAY_AREA_HEIGHT)
+        return int(x), int(y)
+
+    def _update_game_over_state(self) -> None:
+        """Detect a simple elimination victory condition."""
+        active_teams = [
+            team
+            for team, group in self.entities.items()
+            if team != TeamColor.RESOURCES and any(entity.life > 0 for entity in group.all_entities)
+        ]
+        if len(active_teams) == 1:
+            self.game_over_message = f"Team {active_teams[0].value} wins"
+            self.paused = True
+        elif not active_teams:
+            self.game_over_message = "Draw"
+            self.paused = True
 
     def _load_map_settings(self) -> None:
         """Instantiate entities from the loaded map configuration."""
@@ -255,11 +295,21 @@ class GameManager:
                         case Cristal():
                             self.resources.cristals.append(entity)
 
-    def _normalize_coords(self, coords: list[list[int] | tuple[int, int]]) -> list[list[int] | tuple[int, int]]:
+    def _normalize_coords(self, coords: list[object]) -> list[tuple[int, int]]:
         """Normalize map coordinates to a list of coordinate pairs."""
-        if isinstance(coords, list) and len(coords) == 2 and all(isinstance(value, (int, float)) for value in coords):
-            return [coords]
-        return coords
+        if len(coords) == 2 and all(isinstance(value, (int, float)) for value in coords):
+            return [self._coerce_coord_pair(coords)]
+        return [self._coerce_coord_pair(coord_pair) for coord_pair in coords]
+
+    @staticmethod
+    def _coerce_coord_pair(coord_pair: object) -> tuple[int, int]:
+        """Convert one JSON coordinate pair to integer screen coordinates."""
+        match coord_pair:
+            case [int() | float() as x, int() | float() as y]:
+                return int(x), int(y)
+            case (int() | float() as x, int() | float() as y):
+                return int(x), int(y)
+        raise TypeError(f"Invalid coordinate pair: {coord_pair!r}")
 
     def handle_input(self, event: pygame.event.Event) -> None:
         """Process keyboard and mouse input for team control and selection.
@@ -301,12 +351,17 @@ class GameManager:
                     if rect.collidepoint(mouse_pos):
                         self._build_peasant(base)
                         return
+                if mouse_pos[1] >= PLAY_AREA_HEIGHT:
+                    return
 
                 self.dragging = True
                 self.drag_start = mouse_pos
                 self.drag_end = mouse_pos
 
             elif event.button == 3:
+                if mouse_pos[1] >= PLAY_AREA_HEIGHT:
+                    return
+                order_pos = self._clamp_to_play_area(mouse_pos)
                 target_entity = None
                 for entity in self.all_entities:
                     if entity.contains_point(mouse_pos):
@@ -315,7 +370,7 @@ class GameManager:
 
                 for entity in self.selected_entities:
                     if isinstance(entity, Unit):
-                        entity.set_target(mouse_pos, target_entity)
+                        entity.set_target(order_pos, target_entity)
 
         elif event.type == pygame.MOUSEBUTTONUP:
             if event.button == 1 and self.dragging:
@@ -325,15 +380,15 @@ class GameManager:
                 self.drag_end = None
 
         elif event.type == pygame.MOUSEMOTION and self.dragging:
-            self.drag_end = pygame.mouse.get_pos()
+            self.drag_end = self._clamp_to_play_area(pygame.mouse.get_pos())
 
     def _build_peasant(self, base: Base) -> None:
         """Attempt to build a Peasant at the given base."""
         team_group = self.entities.get(base.team)
-        if team_group and team_group.resources["wood"] >= 50:
+        if team_group and team_group.resources["wood"] >= 50 and not self._has_reached_unit_cap(base.team):
             team_group.resources["wood"] -= 50
-            spawn_x, spawn_y = int(base.x), int(base.y + base.size)
-            peasant = Peasant(spawn_x, spawn_y, base.team)
+            spawn_x, spawn_y = self._clamp_to_play_area((base.x, base.y + base.size))
+            peasant = Peasant(int(spawn_x), int(spawn_y), base.team)
             team_group.peasents.append(peasant)
 
     def _try_build_peasant_from_selection(self) -> None:
@@ -359,10 +414,11 @@ class GameManager:
                     self.menu_active = False
                     self.paused = False
                 elif option == "SAVE":
-                    print("SAVE functionality is a placeholder.")
+                    self.menu_status = "Save is not implemented yet."
                 elif option == "LOAD":
-                    print("LOAD functionality is a placeholder.")
+                    self.menu_status = "Load is not implemented yet."
                 elif option.startswith("SPEED:"):
+                    self.menu_status = None
                     if self.fps_multiplier == 1.0:
                         self.fps_multiplier = 2.0
                         self.menu_options[3] = "SPEED: FAST"
@@ -387,7 +443,7 @@ class GameManager:
         min_y = min(y1, y2)
         max_y = max(y1, y2)
 
-        drag_distance = ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
+        drag_distance = distance_between_points(self.drag_start, self.drag_end)
         is_click = drag_distance < 5
 
         for entity in self.all_entities:
@@ -466,19 +522,12 @@ class GameManager:
                                 elif isinstance(resource, Cristal) and resource in self.resources.cristals:
                                     self.resources.cristals.remove(resource)
 
-                                new_resource = None
-                                min_dist = HARVEST_SEARCH_RADIUS
-
                                 resource_list = self.resources.woods if is_wood else self.resources.cristals
-                                for replacement in resource_list:
-                                    if replacement is not resource and replacement.amount > 0:
-                                        dist = math.sqrt(
-                                            (replacement.x - resource.x) ** 2 + (replacement.y - resource.y) ** 2
-                                        )
-                                        if dist < min_dist:
-                                            min_dist = dist
-                                            new_resource = replacement
-
+                                new_resource = find_replacement_resource(
+                                    resource,
+                                    resource_list,
+                                    search_radius=HARVEST_SEARCH_RADIUS,
+                                )
                                 entity.source_resource = new_resource
                                 entity.target_entity = new_resource
 
@@ -491,10 +540,8 @@ class GameManager:
 
                             team_group = self.entities.get(entity.team)
                             team_bases = team_group.bases if team_group else []
-                            if team_bases:
-                                nearest_base = min(
-                                    team_bases, key=lambda base: (base.x - entity.x) ** 2 + (base.y - entity.y) ** 2
-                                )
+                            nearest_base = nearest_entity(entity, team_bases)
+                            if nearest_base:
                                 entity.set_target(nearest_base.get_center(), nearest_base)
                             else:
                                 entity.state = "IDLE"
@@ -517,6 +564,7 @@ class GameManager:
                         entity.source_resource = None
 
         self._remove_dead_entities()
+        self._update_game_over_state()
         self.magic_missiles = [missile for missile in self.magic_missiles if missile.update()]
         self.archer_shots = [shot for shot in self.archer_shots if shot.update()]
 
@@ -561,7 +609,10 @@ class GameManager:
                     stats_texts.append(f"HP: {entity.life}/{entity.max_life}")
                     stats_texts.append(f"SHIELD: {entity.shield_modifier}")
                     if isinstance(entity, Base) and getattr(entity, "team", None) == self.current_team:
-                        stats_texts.append("[B] Build Peasant (50 Wood)")
+                        if self._has_reached_unit_cap(entity.team):
+                            stats_texts.append("Unit cap reached")
+                        else:
+                            stats_texts.append("[B] Build Peasant (50 Wood)")
                 elif isinstance(entity, Resource):
                     stats_texts.append(f"Amount: {entity.amount}")
 
@@ -572,18 +623,18 @@ class GameManager:
                             color = (130, 130, 255)
                         elif entity.team == TeamColor.RED:
                             color = (255, 130, 130)
-                    
+
                     if stat_text == "[B] Build Peasant (50 Wood)":
                         mouse_pos = pygame.mouse.get_pos()
                         temp_surf = font_small.render(stat_text, True, WHITE)
                         temp_rect = temp_surf.get_rect(topleft=(pos_x, pos_y + j * 16))
                         # Hover effect for the button
                         if temp_rect.collidepoint(mouse_pos):
-                            color = (255, 255, 100) # Yellowish on hover
-                    
+                            color = (255, 255, 100)
+
                     text_surf = font_small.render(stat_text, True, color)
                     text_rect = screen.blit(text_surf, (pos_x, pos_y + j * 16))
-                    
+
                     if stat_text == "[B] Build Peasant (50 Wood)" and isinstance(entity, Base):
                         self.build_peasant_buttons.append((text_rect, entity))
 
@@ -639,7 +690,8 @@ class GameManager:
         ]
 
         if self.paused and not self.menu_active:
-            pause_text = font.render("- PAUSED -", True, WHITE)
+            pause_label = self.game_over_message or "- PAUSED -"
+            pause_text = font.render(pause_label, True, WHITE)
             text_rect = pause_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
             screen.blit(pause_text, text_rect)
 
@@ -670,15 +722,20 @@ class GameManager:
 
         for i, option in enumerate(self.menu_options):
             rect = pygame.Rect(start_x, start_y + i * (button_height + spacing), menu_width, button_height)
-            
+
             # Hover effect
             mouse_pos = pygame.mouse.get_pos()
             color = (80, 80, 80) if rect.collidepoint(mouse_pos) else (40, 40, 40)
-            
+
             pygame.draw.rect(screen, color, rect)
             pygame.draw.rect(screen, WHITE, rect, 2)
-            
+
             text_surf = font.render(option, True, WHITE)
             text_rect = text_surf.get_rect(center=rect.center)
             screen.blit(text_surf, text_rect)
 
+        if self.menu_status:
+            status_font = pygame.font.SysFont(None, 26)
+            status_surf = status_font.render(self.menu_status, True, WHITE)
+            status_rect = status_surf.get_rect(center=(SCREEN_WIDTH // 2, start_y + total_height + 30))
+            screen.blit(status_surf, status_rect)

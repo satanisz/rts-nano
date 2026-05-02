@@ -1,10 +1,10 @@
 """Unit entity implementations."""
 
-import math
 from pathlib import Path
 
 from rts_nano.game.assets.entities.base_entities import Building, Entity, Resource, TeamColor, Unit
 from rts_nano.game.constants import AttackType
+from rts_nano.game.rules import distance_between
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
 
@@ -101,8 +101,7 @@ class Archer(Unit):
 
     def _get_attack_distance(self, target: Entity) -> float:
         """Pick interaction distance based on archer dead-zone rules."""
-        tx, ty = target.get_center()
-        dist = math.sqrt((tx - self.x) ** 2 + (ty - self.y) ** 2)
+        dist = distance_between(self, target)
         radius_sum = self.radius + getattr(target, "radius", 0)
         ranged_min = self.RANGED_MIN_ATTACK_RANGE + radius_sum
         if dist < ranged_min:
@@ -111,8 +110,7 @@ class Archer(Unit):
 
     def _attack(self, target: Entity) -> None:
         """Use melee up to 20 range, otherwise use ranged in 30-50 range."""
-        tx, ty = target.get_center()
-        dist = math.sqrt((tx - self.x) ** 2 + (ty - self.y) ** 2)
+        dist = distance_between(self, target)
         radius_sum = self.radius + getattr(target, "radius", 0)
         ranged_min = self.RANGED_MIN_ATTACK_RANGE + radius_sum
 
@@ -124,7 +122,8 @@ class Archer(Unit):
             self.attack_range = self.RANGED_ATTACK_RANGE
 
         super()._attack(target)
-  
+
+
 class Mage(Unit):
     """Fragile ranged caster unit."""
 
@@ -133,7 +132,7 @@ class Mage(Unit):
     DEFAULT_SPEED = 1.5
     DEFAULT_MAX_CARRY = 1
     DEFAULT_MAX_LIFE = 30
-    DEFA2LT_ATTACK_DAMAGE = 5
+    DEFAULT_ATTACK_DAMAGE = 5
     DEFAULT_ATTACK_MODIFIER = 0
     DEFAULT_ATTACK_RANGE = 500
     DEFAULT_ATTACK_SPEED = 1
