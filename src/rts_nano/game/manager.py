@@ -24,6 +24,7 @@ from rts_nano.game.constants import (
     WHITE,
     AttackType,
 )
+from rts_nano.game.pathfinding import find_path
 from rts_nano.game.rules import clamp_point, distance_between_points, find_replacement_resource, nearest_entity
 from rts_nano.game.terrain import TerrainMap
 
@@ -280,6 +281,31 @@ class GameManager:
         next_x, next_y = self._clamp_to_play_area(next_point)
         return self.terrain.can_move_between(unit.get_center(), (next_x, next_y), radius=unit.radius)
 
+    def _find_unit_path(self, unit: Unit, destination: tuple[float, float]) -> list[tuple[float, float]]:
+        """Build a terrain-aware path for a unit."""
+        goal = self._clamp_to_play_area(destination)
+        return find_path(
+            unit.get_center(),
+            goal,
+            width=SCREEN_WIDTH,
+            height=PLAY_AREA_HEIGHT,
+            can_move_between=lambda current, next_point: self.terrain.can_move_between(
+                current,
+                next_point,
+                radius=unit.radius,
+            ),
+        )
+
+    def _assign_unit_target(
+        self,
+        unit: Unit,
+        destination: tuple[float, float],
+        target_entity: Entity | None = None,
+    ) -> None:
+        """Assign a unit target plus an A* path when one is available."""
+        unit.set_target(destination, target_entity)
+        unit.set_path(self._find_unit_path(unit, destination))
+
     def _load_map_settings(self) -> None:
         """Instantiate entities from the loaded map configuration."""
         for category_str, assets in self.map_settings.items():
@@ -390,7 +416,7 @@ class GameManager:
 
                 for entity in self.selected_entities:
                     if isinstance(entity, Unit):
-                        entity.set_target(order_pos, target_entity)
+                        self._assign_unit_target(entity, order_pos, target_entity)
 
         elif event.type == pygame.MOUSEBUTTONUP:
             if event.button == 1 and self.dragging:
@@ -563,7 +589,7 @@ class GameManager:
                             team_bases = team_group.bases if team_group else []
                             nearest_base = nearest_entity(entity, team_bases)
                             if nearest_base:
-                                entity.set_target(nearest_base.get_center(), nearest_base)
+                                self._assign_unit_target(entity, nearest_base.get_center(), nearest_base)
                             else:
                                 entity.state = "IDLE"
 
@@ -579,7 +605,7 @@ class GameManager:
                         and entity.source_resource in all_ents
                         and entity.source_resource.amount > 0
                     ):
-                        entity.set_target(entity.source_resource.get_center(), entity.source_resource)
+                        self._assign_unit_target(entity, entity.source_resource.get_center(), entity.source_resource)
                     else:
                         entity.state = "IDLE"
                         entity.source_resource = None

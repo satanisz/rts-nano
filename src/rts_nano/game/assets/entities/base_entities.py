@@ -264,6 +264,7 @@ class Unit(Entity, ABC):
         self.attack_cooldown: int = 0
         self.hit_flash_until_ms: int = 0
         self.last_attack_event: tuple[tuple[float, float], tuple[float, float], AttackType, Entity] | None = None
+        self.path: list[tuple[float, float]] = []
         self.state = "IDLE"
 
     def draw(self, screen: pygame.Surface) -> None:
@@ -319,6 +320,7 @@ class Unit(Entity, ABC):
         """
         self.target_x, self.target_y = pos
         self.target_entity = target_entity
+        self.path.clear()
 
         if isinstance(target_entity, Resource):
             self.source_resource = target_entity
@@ -326,6 +328,23 @@ class Unit(Entity, ABC):
             self.source_resource = None
 
         self.state = "MOVING"
+
+    def set_path(self, path: list[tuple[float, float]]) -> None:
+        """Assign a path of movement waypoints."""
+        self.path = path
+
+    def _get_next_movement_target(self) -> tuple[float, float]:
+        """Return the next waypoint or final target position."""
+        if not self.path:
+            return self._get_target_position()
+
+        waypoint_x, waypoint_y = self.path[0]
+        if ((waypoint_x - self.x) ** 2 + (waypoint_y - self.y) ** 2) ** 0.5 <= max(self.speed, 2):
+            self.path.pop(0)
+            if not self.path:
+                return self._get_target_position()
+            waypoint_x, waypoint_y = self.path[0]
+        return waypoint_x, waypoint_y
 
     def _handle_target_reached(self) -> None:
         """Handle unit behavior after reaching its target entity or point."""
@@ -423,18 +442,27 @@ class Unit(Entity, ABC):
             self.state = "IDLE"
 
         if self.state in {"MOVING", "ATTACKING"}:
-            self.target_x, self.target_y = self._get_target_position()
+            self.target_x, self.target_y = self._get_next_movement_target()
             dx = self.target_x - self.x
             dy = self.target_y - self.y
             dist = (dx**2 + dy**2) ** 0.5
 
             interaction_dist = self.speed
-            if self.target_entity and self._is_hostile_target(self.target_entity):
+            if self.path:
+                interaction_dist = max(self.speed, 2)
+            elif self.target_entity and self._is_hostile_target(self.target_entity):
                 interaction_dist = self._get_attack_distance(self.target_entity)
             elif self.target_entity:
                 interaction_dist = self.radius + self.target_entity.radius + 2
 
             if dist < interaction_dist:
+                if self.path:
+                    self.x = self.target_x
+                    self.y = self.target_y
+                    self.path.pop(0)
+                    self.state = "MOVING"
+                    self.resolve_collisions(entities)
+                    return
                 if self.target_entity and self._is_hostile_target(self.target_entity):
                     self._attack(self.target_entity)
                 else:
