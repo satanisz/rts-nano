@@ -4,7 +4,7 @@ from pathlib import Path
 
 from rts_nano.game.assets.entities.base_entities import Building, Entity, Resource, TeamColor, Unit
 from rts_nano.game.constants import AttackType
-from rts_nano.game.rules import distance_between
+from rts_nano.game.rules import calculate_height_range_bonus, distance_between
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
 
@@ -106,7 +106,12 @@ class Archer(Unit):
         ranged_min = self.RANGED_MIN_ATTACK_RANGE + radius_sum
         if dist < ranged_min:
             return self.MELEE_ATTACK_RANGE + radius_sum
-        return self.RANGED_ATTACK_RANGE + radius_sum
+        range_bonus = calculate_height_range_bonus(
+            self.height_level,
+            getattr(target, "height_level", 0),
+            AttackType.RANGED,
+        )
+        return self.RANGED_ATTACK_RANGE + range_bonus + radius_sum
 
     def _attack(self, target: Entity) -> None:
         """Use melee up to 20 range, otherwise use ranged in 30-50 range."""

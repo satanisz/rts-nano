@@ -25,6 +25,7 @@ from rts_nano.game.constants import (
     AttackType,
 )
 from rts_nano.game.rules import clamp_point, distance_between_points, find_replacement_resource, nearest_entity
+from rts_nano.game.terrain import TerrainMap
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -194,9 +195,10 @@ class GameManager:
         map_settings: Mapping of team names to entity types and spawn positions.
     """
 
-    def __init__(self, map_settings: dict[str, dict[str, list[object]]]) -> None:
+    def __init__(self, map_settings: dict[str, dict[str, object]]) -> None:
         """Initialize the object."""
         self.map_settings = map_settings
+        self.terrain = TerrainMap(map_settings.get("Terrain"))
         self.entities: dict[TeamColor, EntitiesGroup] = {}
         self.resources: ResourcesGroup = ResourcesGroup()
         self.selected_entities: list[Entity] = []
@@ -268,9 +270,23 @@ class GameManager:
             self.game_over_message = "Draw"
             self.paused = True
 
+    def _update_entity_height_levels(self) -> None:
+        """Refresh entity height levels from the terrain map."""
+        for entity in self.all_entities:
+            entity.height_level = self.terrain.height_at(entity.get_center())
+
+    def _can_unit_move_to(self, unit: Unit, next_point: tuple[float, float]) -> bool:
+        """Return whether terrain permits a unit movement step."""
+        next_x, next_y = self._clamp_to_play_area(next_point)
+        return self.terrain.can_move_between(unit.get_center(), (next_x, next_y), radius=unit.radius)
+
     def _load_map_settings(self) -> None:
         """Instantiate entities from the loaded map configuration."""
         for category_str, assets in self.map_settings.items():
+            if category_str == "Terrain":
+                continue
+            if not isinstance(assets, dict):
+                raise TypeError(f"Invalid map category payload: {category_str!r}")
             team_color = TeamColor(category_str)
             group = EntitiesGroup(team_color)
             self.entities[team_color] = group
@@ -295,8 +311,10 @@ class GameManager:
                         case Cristal():
                             self.resources.cristals.append(entity)
 
-    def _normalize_coords(self, coords: list[object]) -> list[tuple[int, int]]:
+    def _normalize_coords(self, coords: object) -> list[tuple[int, int]]:
         """Normalize map coordinates to a list of coordinate pairs."""
+        if not isinstance(coords, list):
+            raise TypeError(f"Invalid coordinate payload: {coords!r}")
         if len(coords) == 2 and all(isinstance(value, (int, float)) for value in coords):
             return [self._coerce_coord_pair(coords)]
         return [self._coerce_coord_pair(coord_pair) for coord_pair in coords]
@@ -362,6 +380,8 @@ class GameManager:
                 if mouse_pos[1] >= PLAY_AREA_HEIGHT:
                     return
                 order_pos = self._clamp_to_play_area(mouse_pos)
+                if self.terrain.blocks_movement(order_pos):
+                    return
                 target_entity = None
                 for entity in self.all_entities:
                     if entity.contains_point(mouse_pos):
@@ -469,13 +489,14 @@ class GameManager:
         if self.paused:
             return
 
+        self._update_entity_height_levels()
         all_ents = self.all_entities
         for entity in all_ents:
             if getattr(entity, "life", 1) <= 0:
                 continue
 
             if isinstance(entity, Unit):
-                entity.update(all_ents)
+                entity.update(all_ents, self._can_unit_move_to)
                 attack_event = entity.consume_attack_event()
                 if attack_event and attack_event[2] == AttackType.RANGED:
                     source_pos, target_pos, _, target_entity = attack_event
@@ -564,6 +585,7 @@ class GameManager:
                         entity.source_resource = None
 
         self._remove_dead_entities()
+        self._update_entity_height_levels()
         self._update_game_over_state()
         self.magic_missiles = [missile for missile in self.magic_missiles if missile.update()]
         self.archer_shots = [shot for shot in self.archer_shots if shot.update()]
@@ -644,6 +666,7 @@ class GameManager:
         Args:
             screen: Pygame surface used for rendering.
         """
+        self.terrain.draw(screen)
         for entity in self.all_entities:
             entity.draw(screen)
         for missile in self.magic_missiles:

@@ -9,10 +9,16 @@ from __future__ import annotations
 import math
 from typing import TYPE_CHECKING
 
+from rts_nano.game.constants import AttackType
+
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
 
     from rts_nano.game.assets.entities.base_entities import Entity, Resource
+
+HIGH_GROUND_RANGED_DAMAGE_BONUS = 2
+LOW_GROUND_RANGED_DAMAGE_PENALTY = 1
+HIGH_GROUND_RANGED_RANGE_BONUS = 35
 
 
 def distance_between(first: Entity, second: Entity) -> float:
@@ -37,6 +43,22 @@ def squared_distance_between(first: Entity, second: Entity) -> float:
 def calculate_damage(attack_damage: int, attack_modifier: int, shield_modifier: int) -> int:
     """Calculate effective damage after additive modifiers and shielding."""
     return max(0, attack_damage + attack_modifier - shield_modifier)
+
+
+def calculate_height_damage_modifier(attacker_height: int, target_height: int, attack_type: AttackType) -> int:
+    """Return ranged combat damage modifier from terrain height differences."""
+    if attack_type != AttackType.RANGED or attacker_height == target_height:
+        return 0
+    if attacker_height > target_height:
+        return HIGH_GROUND_RANGED_DAMAGE_BONUS
+    return -LOW_GROUND_RANGED_DAMAGE_PENALTY
+
+
+def calculate_height_range_bonus(attacker_height: int, target_height: int, attack_type: AttackType) -> int:
+    """Return extra ranged attack reach granted by higher ground."""
+    if attack_type == AttackType.RANGED and attacker_height > target_height:
+        return HIGH_GROUND_RANGED_RANGE_BONUS
+    return 0
 
 
 def clamp_point(

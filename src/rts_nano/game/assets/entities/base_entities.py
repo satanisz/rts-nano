@@ -6,7 +6,7 @@ import logging
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Callable, Iterable
 from abc import ABC
 from enum import StrEnum
 from pathlib import Path
@@ -22,7 +22,12 @@ from rts_nano.game.constants import (
     YELLOW,
     AttackType,
 )
-from rts_nano.game.rules import calculate_damage, distance_between
+from rts_nano.game.rules import (
+    calculate_damage,
+    calculate_height_damage_modifier,
+    calculate_height_range_bonus,
+    distance_between,
+)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -65,6 +70,7 @@ class Entity(ABC):
         self.class_name: str = class_name
         self.image: pygame.Surface | None = None
         self.original_image: pygame.Surface | None = None
+        self.height_level: int = 0
 
     @classmethod
     def get_team_color(cls, team: TeamColor) -> tuple[int, int, int]:
@@ -350,7 +356,12 @@ class Unit(Entity, ABC):
 
     def _get_attack_distance(self, target: Entity) -> float:
         """Return the maximum center-to-center distance for a valid hit."""
-        return self.attack_range + self.radius + getattr(target, "radius", 0)
+        range_bonus = calculate_height_range_bonus(
+            self.height_level,
+            getattr(target, "height_level", 0),
+            self.attack_type,
+        )
+        return self.attack_range + range_bonus + self.radius + getattr(target, "radius", 0)
 
     def _is_in_attack_range(self, target: Entity) -> bool:
         """Return whether the current target is inside attack range."""
@@ -370,7 +381,16 @@ class Unit(Entity, ABC):
             self.state = "ATTACKING"
             return
 
-        damage = calculate_damage(self.attack_damage, self.attack_modifier, getattr(target, "shield_modifier", 0))
+        height_modifier = calculate_height_damage_modifier(
+            self.height_level,
+            getattr(target, "height_level", 0),
+            self.attack_type,
+        )
+        damage = calculate_damage(
+            self.attack_damage,
+            self.attack_modifier + height_modifier,
+            getattr(target, "shield_modifier", 0),
+        )
         target.life -= damage
         self.attack_cooldown = max(1, int(self.attack_speed * FPS))
         self._trigger_hit_flash()
@@ -383,12 +403,17 @@ class Unit(Entity, ABC):
         self.last_attack_event = None
         return attack_event
 
-    def update(self, entities: Iterable[Entity]) -> None:
+    def update(
+        self,
+        entities: Iterable[Entity],
+        can_move_to: Callable[[Unit, tuple[float, float]], bool] | None = None,
+    ) -> None:
         """Advance unit movement and resolve collisions.
 
         Args:
             entities: Entities used for movement interaction and collision
                 resolution.
+            can_move_to: Optional terrain movement validator.
         """
         if self.attack_cooldown > 0:
             self.attack_cooldown -= 1
@@ -419,8 +444,9 @@ class Unit(Entity, ABC):
                     self._handle_target_reached()
             elif dist > 0:
                 self.state = "MOVING"
-                self.x += (dx / dist) * self.speed
-                self.y += (dy / dist) * self.speed
+                next_x = self.x + (dx / dist) * self.speed
+                next_y = self.y + (dy / dist) * self.speed
+                self._try_move_to(next_x, next_y, can_move_to)
             else:
                 if self.target_entity and self._is_hostile_target(self.target_entity):
                     self._attack(self.target_entity)
@@ -430,6 +456,28 @@ class Unit(Entity, ABC):
                     self._handle_target_reached()
 
         self.resolve_collisions(entities)
+
+    def _try_move_to(
+        self,
+        next_x: float,
+        next_y: float,
+        can_move_to: Callable[[Unit, tuple[float, float]], bool] | None,
+    ) -> None:
+        """Move to a valid next point, with a small axis-slide fallback."""
+        if can_move_to is None or can_move_to(self, (next_x, next_y)):
+            self.x = next_x
+            self.y = next_y
+            return
+
+        if can_move_to(self, (next_x, self.y)):
+            self.x = next_x
+            return
+
+        if can_move_to(self, (self.x, next_y)):
+            self.y = next_y
+            return
+
+        self.state = "IDLE"
 
     def resolve_collisions(self, entities: Iterable[Entity]) -> None:
         """Push the unit away from overlapping entities.
