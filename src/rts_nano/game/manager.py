@@ -33,6 +33,7 @@ if TYPE_CHECKING:
 
 WOOD_ICON = "\U0001FAB5"
 CRISTAL_ICON = "\U0001F48E"
+FULLSCREEN_TOGGLE_EVENT = pygame.USEREVENT + 1
 PLAY_AREA_HEIGHT = SCREEN_HEIGHT - BOTTOM_MENU_HEIGHT
 CAMERA_SPEED = 12
 EDGE_SCROLL_MARGIN = 24
@@ -219,19 +220,40 @@ class GameManager:
         self.drag_end: tuple[int, int] | None = None
         self.paused: bool = False
         self.menu_active: bool = False
+        self.fullscreen_enabled: bool = False
         self.fps_multiplier: float = 1.0
-        self.menu_options: list[str] = ["CONTINUE", "SAVE", "LOAD", "SPEED: NORMAL", "EXIT"]
+        self.menu_options: list[str] = [
+            "CONTINUE",
+            "SAVE",
+            "LOAD",
+            "SPEED: NORMAL",
+            "FULLSCREEN: OFF",
+            "EXIT",
+        ]
         self.magic_missiles: list[MagicMissile] = []
         self.archer_shots: list[ArcherShot] = []
         self.build_peasant_buttons: list[tuple[pygame.Rect, Base]] = []
         self.game_over_message: str | None = None
         self.menu_status: str | None = None
+        self.mouse_pos: tuple[int, int] = (0, 0)
         self.camera_x: float = 0
         self.camera_y: float = 0
         self.map_width = max(self.terrain.width, SCREEN_WIDTH)
         self.map_height = max(self.terrain.height, PLAY_AREA_HEIGHT)
 
         self._load_map_settings()
+        self.set_viewport_size(SCREEN_WIDTH, SCREEN_HEIGHT)
+
+    def set_viewport_size(self, width: int, height: int) -> None:
+        """Update the visible game area to match the current display size."""
+        global PLAY_AREA_HEIGHT, SCREEN_HEIGHT, SCREEN_WIDTH
+
+        SCREEN_WIDTH = max(1, int(width))
+        SCREEN_HEIGHT = max(BOTTOM_MENU_HEIGHT + 1, int(height))
+        PLAY_AREA_HEIGHT = SCREEN_HEIGHT - BOTTOM_MENU_HEIGHT
+        self.map_width = max(self.terrain.width, SCREEN_WIDTH)
+        self.map_height = max(self.terrain.height, PLAY_AREA_HEIGHT)
+        self._clamp_camera()
 
     def _remove_dead_entities(self) -> None:
         """Remove defeated units and buildings from the game state."""
@@ -307,6 +329,10 @@ class GameManager:
         world_x = (mini_x - minimap_rect.left) / minimap_rect.width * self.map_width
         world_y = (mini_y - minimap_rect.top) / minimap_rect.height * self.map_height
         self._center_camera_on_world_pos((world_x, world_y))
+
+    def set_mouse_pos(self, pos: tuple[int, int]) -> None:
+        """Store the current logical mouse position."""
+        self.mouse_pos = pos
 
     def _update_game_over_state(self) -> None:
         """Detect a simple elimination victory condition."""
@@ -429,11 +455,16 @@ class GameManager:
             elif event.key == pygame.K_F10:
                 self.menu_active = not self.menu_active
                 self.paused = self.menu_active
+            elif event.key == pygame.K_F11 or (
+                event.key == pygame.K_RETURN and event.mod & pygame.KMOD_ALT
+            ):
+                self._request_fullscreen_toggle()
             elif event.key == pygame.K_b:
                 self._try_build_peasant_from_selection()
 
         elif event.type == pygame.MOUSEBUTTONDOWN:
             mouse_pos = event.pos
+            self.set_mouse_pos(mouse_pos)
 
             if self.menu_active:
                 if event.button == 1:
@@ -486,6 +517,7 @@ class GameManager:
                 self.drag_end = None
 
         elif event.type == pygame.MOUSEMOTION:
+            self.set_mouse_pos(event.pos)
             if self.minimap_dragging:
                 self._center_camera_from_minimap_pos(event.pos)
             elif self.dragging:
@@ -530,15 +562,35 @@ class GameManager:
                     self.menu_status = None
                     if self.fps_multiplier == 1.0:
                         self.fps_multiplier = 2.0
-                        self.menu_options[3] = "SPEED: FAST"
+                        self._set_menu_option("SPEED:", "SPEED: FAST")
                     elif self.fps_multiplier == 2.0:
                         self.fps_multiplier = 0.5
-                        self.menu_options[3] = "SPEED: SLOW"
+                        self._set_menu_option("SPEED:", "SPEED: SLOW")
                     else:
                         self.fps_multiplier = 1.0
-                        self.menu_options[3] = "SPEED: NORMAL"
+                        self._set_menu_option("SPEED:", "SPEED: NORMAL")
+                elif option.startswith("FULLSCREEN:"):
+                    self._request_fullscreen_toggle()
                 elif option == "EXIT":
                     pygame.event.post(pygame.event.Event(pygame.QUIT))
+
+    def _set_menu_option(self, prefix: str, value: str) -> None:
+        """Replace the first menu option that starts with prefix."""
+        for index, option in enumerate(self.menu_options):
+            if option.startswith(prefix):
+                self.menu_options[index] = value
+                return
+
+    def _request_fullscreen_toggle(self) -> None:
+        """Ask the application shell to toggle fullscreen mode."""
+        self.set_fullscreen_enabled(not self.fullscreen_enabled)
+        pygame.event.post(pygame.event.Event(FULLSCREEN_TOGGLE_EVENT, enabled=self.fullscreen_enabled))
+
+    def set_fullscreen_enabled(self, enabled: bool) -> None:
+        """Sync fullscreen state displayed by the menu."""
+        self.fullscreen_enabled = enabled
+        mode = "ON" if enabled else "OFF"
+        self._set_menu_option("FULLSCREEN:", f"FULLSCREEN: {mode}")
 
     def select_units_in_box(self) -> None:
         """Select units inside the drag rectangle or under the click point."""
@@ -697,7 +749,7 @@ class GameManager:
         if keys[pygame.K_DOWN] or keys[pygame.K_s]:
             dy += CAMERA_SPEED
 
-        mouse_x, mouse_y = pygame.mouse.get_pos()
+        mouse_x, mouse_y = self.mouse_pos
         if 0 <= mouse_y < SCREEN_HEIGHT:
             if mouse_x <= EDGE_SCROLL_MARGIN:
                 dx -= CAMERA_SPEED
@@ -769,7 +821,7 @@ class GameManager:
                             color = (255, 130, 130)
 
                     if stat_text == "[B] Build Peasant (50 Wood)":
-                        mouse_pos = pygame.mouse.get_pos()
+                        mouse_pos = self.mouse_pos
                         temp_surf = font_small.render(stat_text, True, WHITE)
                         temp_rect = temp_surf.get_rect(topleft=(pos_x, pos_y + j * 16))
                         # Hover effect for the button
@@ -913,7 +965,7 @@ class GameManager:
             rect = pygame.Rect(start_x, start_y + i * (button_height + spacing), menu_width, button_height)
 
             # Hover effect
-            mouse_pos = pygame.mouse.get_pos()
+            mouse_pos = self.mouse_pos
             color = (80, 80, 80) if rect.collidepoint(mouse_pos) else (40, 40, 40)
 
             pygame.draw.rect(screen, color, rect)
