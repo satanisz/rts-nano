@@ -13,7 +13,6 @@ so camera limits, minimap, HUD, and edge scrolling can adapt without bitmap
 stretching.
 """
 
-import json
 import sys
 from pathlib import Path
 
@@ -21,6 +20,7 @@ import pygame
 
 from rts_nano.game.constants import FPS, GRAY, SCREEN_HEIGHT, SCREEN_WIDTH
 from rts_nano.game.manager import FULLSCREEN_TOGGLE_EVENT, GameManager
+from rts_nano.map_schema import load_map_settings
 
 BASE_DIR = Path(__file__).resolve().parent
 WINDOWED_BASE_HEIGHT = SCREEN_HEIGHT
@@ -111,10 +111,7 @@ def main() -> None:
     pygame.display.set_caption("Simple RTS")
     clock = pygame.time.Clock()
 
-    settings_path = BASE_DIR / "maps" / "map_settings_01.json"
-    with settings_path.open(encoding="utf-8") as f:
-        map_settings = json.load(f)
-
+    map_settings = load_map_settings(BASE_DIR / "maps" / "map_settings_01.json")
     game_manager = GameManager(map_settings)
     game_manager.set_viewport_size(*display_screen.get_size())
 

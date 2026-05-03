@@ -12,6 +12,8 @@
         "cristal": [[350, 350]]
     },
     "Terrain": {
+        "width": 3200,
+        "height": 2200,
         "high_ground": [
             [[260, 160, 220, 150]]
         ],

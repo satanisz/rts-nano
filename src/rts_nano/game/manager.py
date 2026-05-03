@@ -57,6 +57,8 @@ from rts_nano.game.terrain import TerrainMap
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from rts_nano.map_schema import MapSettings
+
 WOOD_ICON = "\U0001FAB5"
 CRISTAL_ICON = "\U0001F48E"
 FULLSCREEN_TOGGLE_EVENT = pygame.USEREVENT + 1
@@ -302,7 +304,7 @@ class GameManager:
         ``_clamp_to_world`` instead of reading camera fields directly.
     """
 
-    def __init__(self, map_settings: dict[str, dict[str, object]]) -> None:
+    def __init__(self, map_settings: MapSettings) -> None:
         """Initialize the object."""
         self.map_settings = map_settings
         self.terrain = TerrainMap(map_settings.get("Terrain"))

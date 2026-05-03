@@ -1,0 +1,241 @@
+"""Typed map-schema helpers shared by the game, editor, and validators.
+
+Map files are JSON objects with four top-level sections:
+
+* ``Blue`` and ``Red`` contain spawn coordinates for team-owned entities.
+* ``Resources`` contains neutral resource coordinates.
+* ``Terrain`` contains map dimensions plus terrain/decorative layers.
+
+The canonical terrain format stores ``high_ground`` and ``water`` as grouped
+rectangle shapes. A shape is a list of one or more rectangles, so both a single
+rectangle and an L-shaped joined region use the same outer structure:
+
+``"high_ground": [[[x, y, width, height]]]``
+
+``"water": [[[x, y, width, height], [x2, y2, width2, height2]]]``
+
+This module deliberately uses ``TypedDict`` rather than dataclasses because the
+runtime still mutates JSON-like lists directly in the map editor. The helpers
+provide enough typing and validation for future agents to understand the schema
+without forcing a full serialization rewrite.
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import NotRequired, TypeAlias, TypedDict, cast
+
+Number: TypeAlias = int | float
+Coordinate: TypeAlias = list[int]
+RectPayload: TypeAlias = list[int]
+RectGroupPayload: TypeAlias = list[RectPayload]
+
+
+class TeamSettings(TypedDict, total=False):
+    """Serialized spawn lists for one controllable team."""
+
+    peasant: list[Coordinate]
+    base: list[Coordinate]
+    knight: list[Coordinate]
+    archer: list[Coordinate]
+    mage: list[Coordinate]
+
+
+class ResourceSettings(TypedDict, total=False):
+    """Serialized neutral resource lists."""
+
+    wood: list[Coordinate]
+    cristal: list[Coordinate]
+
+
+class TerrainSettings(TypedDict):
+    """Serialized terrain section.
+
+    ``high_ground`` and ``water`` use grouped rectangle payloads. ``ramps`` stay
+    flat because every ramp rectangle is an independent connector. ``rocks`` and
+    ``grass`` are point-radius payloads represented as ``[x, y, radius]``.
+    """
+
+    width: int
+    height: int
+    high_ground: list[RectGroupPayload]
+    ramps: list[RectPayload]
+    water: list[RectGroupPayload]
+    rocks: list[list[int]]
+    grass: list[list[int]]
+
+
+class MapSettings(TypedDict):
+    """Complete serialized map payload."""
+
+    Blue: TeamSettings
+    Red: TeamSettings
+    Resources: ResourceSettings
+    Terrain: TerrainSettings
+    Grey: NotRequired[TeamSettings]
+
+
+def load_map_settings(path: Path) -> MapSettings:
+    """Load and validate a map JSON file.
+
+    Args:
+        path: Path to the JSON file.
+
+    Returns:
+        Parsed map settings typed as ``MapSettings``.
+
+    Raises:
+        ValueError: If the file does not match the canonical map schema.
+        json.JSONDecodeError: If the file is not valid JSON.
+    """
+    with path.open(encoding="utf-8") as map_file:
+        payload = json.load(map_file)
+
+    errors = validate_map_settings(payload)
+    if errors:
+        formatted_errors = "\n".join(f"- {error}" for error in errors)
+        raise ValueError(f"Invalid map settings in {path}:\n{formatted_errors}")
+    return cast("MapSettings", payload)
+
+
+def validate_map_settings(payload: object) -> list[str]:
+    """Return schema validation errors for a loaded map payload."""
+    errors: list[str] = []
+    if not isinstance(payload, dict):
+        return ["Map root must be a JSON object."]
+
+    _validate_team(payload, "Blue", errors)
+    _validate_team(payload, "Red", errors)
+    _validate_resources(payload, errors)
+    _validate_terrain(payload, errors)
+    return errors
+
+
+def normalize_grouped_terrain(settings: MapSettings) -> None:
+    """Normalize high-ground and water terrain to grouped rectangle payloads.
+
+    This helper is intentionally permissive and accepts legacy flat rectangle
+    entries. The editor calls similar logic before saving; this function is
+    useful for tests or external tools that want to migrate in-memory payloads.
+    """
+    terrain = settings["Terrain"]
+    for key in ("high_ground", "water"):
+        terrain[key] = [_rect_group_from_payload(payload) for payload in terrain.get(key, [])]  # type: ignore[literal-required]
+
+
+def _validate_team(payload: dict[object, object], key: str, errors: list[str]) -> None:
+    team = payload.get(key)
+    if not isinstance(team, dict):
+        errors.append(f"{key} must be an object.")
+        return
+    for entity_name, coords in team.items():
+        if entity_name not in {"peasant", "base", "knight", "archer", "mage"}:
+            errors.append(f"{key}.{entity_name} is not a known entity type.")
+            continue
+        _validate_coordinate_list(coords, f"{key}.{entity_name}", errors)
+
+
+def _validate_resources(payload: dict[object, object], errors: list[str]) -> None:
+    resources = payload.get("Resources")
+    if not isinstance(resources, dict):
+        errors.append("Resources must be an object.")
+        return
+    for resource_name, coords in resources.items():
+        if resource_name not in {"wood", "cristal"}:
+            errors.append(f"Resources.{resource_name} is not a known resource type.")
+            continue
+        _validate_coordinate_list(coords, f"Resources.{resource_name}", errors)
+
+
+def _validate_terrain(payload: dict[object, object], errors: list[str]) -> None:
+    terrain = payload.get("Terrain")
+    if not isinstance(terrain, dict):
+        errors.append("Terrain must be an object.")
+        return
+
+    for dimension in ("width", "height"):
+        value = terrain.get(dimension)
+        if not isinstance(value, int) or value <= 0:
+            errors.append(f"Terrain.{dimension} must be a positive integer.")
+
+    _validate_grouped_rect_list(terrain.get("high_ground"), "Terrain.high_ground", errors)
+    _validate_grouped_rect_list(terrain.get("water"), "Terrain.water", errors)
+    _validate_rect_list(terrain.get("ramps"), "Terrain.ramps", errors)
+    _validate_point_radius_list(terrain.get("rocks"), "Terrain.rocks", errors)
+    _validate_point_radius_list(terrain.get("grass"), "Terrain.grass", errors)
+
+
+def _validate_coordinate_list(payload: object, label: str, errors: list[str]) -> None:
+    if not isinstance(payload, list):
+        errors.append(f"{label} must be a list of [x, y] coordinates.")
+        return
+    for index, item in enumerate(payload):
+        if not _is_coordinate(item):
+            errors.append(f"{label}[{index}] must be [x, y].")
+
+
+def _validate_grouped_rect_list(payload: object, label: str, errors: list[str]) -> None:
+    if not isinstance(payload, list):
+        errors.append(f"{label} must be a list of rectangle groups.")
+        return
+    for group_index, group in enumerate(payload):
+        if not isinstance(group, list) or not group:
+            errors.append(f"{label}[{group_index}] must be a non-empty rectangle group.")
+            continue
+        for rect_index, rect in enumerate(group):
+            if not _is_rect_payload(rect):
+                errors.append(f"{label}[{group_index}][{rect_index}] must be [x, y, width, height].")
+
+
+def _validate_rect_list(payload: object, label: str, errors: list[str]) -> None:
+    if not isinstance(payload, list):
+        errors.append(f"{label} must be a list of [x, y, width, height] rectangles.")
+        return
+    for index, item in enumerate(payload):
+        if not _is_rect_payload(item):
+            errors.append(f"{label}[{index}] must be [x, y, width, height].")
+
+
+def _validate_point_radius_list(payload: object, label: str, errors: list[str]) -> None:
+    if not isinstance(payload, list):
+        errors.append(f"{label} must be a list of [x, y, radius] payloads.")
+        return
+    for index, item in enumerate(payload):
+        if not _is_point_radius(item):
+            errors.append(f"{label}[{index}] must be [x, y, radius].")
+
+
+def _rect_group_from_payload(payload: object) -> RectGroupPayload:
+    if _is_rect_payload(payload):
+        return [cast("RectPayload", payload)]
+    if isinstance(payload, list):
+        return [cast("RectPayload", rect) for rect in payload if _is_rect_payload(rect)]
+    return []
+
+
+def _is_coordinate(payload: object) -> bool:
+    return (
+        isinstance(payload, list)
+        and len(payload) == 2
+        and all(isinstance(value, (int, float)) for value in payload)
+    )
+
+
+def _is_rect_payload(payload: object) -> bool:
+    return (
+        isinstance(payload, list)
+        and len(payload) == 4
+        and all(isinstance(value, int) for value in payload)
+        and payload[2] > 0
+        and payload[3] > 0
+    )
+
+
+def _is_point_radius(payload: object) -> bool:
+    return (
+        isinstance(payload, list)
+        and len(payload) == 3
+        and all(isinstance(value, int) for value in payload)
+        and payload[2] > 0
+    )
