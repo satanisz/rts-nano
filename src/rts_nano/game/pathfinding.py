@@ -12,7 +12,7 @@ Point = tuple[float, float]
 Cell = tuple[int, int]
 
 GRID_SIZE = 32
-MAX_EXPLORED_CELLS = 2500
+MAX_EXPLORED_CELLS = 12000
 ORTHOGONAL_COST = 10
 DIAGONAL_COST = 14
 

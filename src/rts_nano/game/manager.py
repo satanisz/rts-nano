@@ -34,6 +34,11 @@ if TYPE_CHECKING:
 WOOD_ICON = "\U0001FAB5"
 CRISTAL_ICON = "\U0001F48E"
 PLAY_AREA_HEIGHT = SCREEN_HEIGHT - BOTTOM_MENU_HEIGHT
+CAMERA_SPEED = 12
+EDGE_SCROLL_MARGIN = 24
+MINIMAP_WIDTH = 220
+MINIMAP_HEIGHT = 150
+MINIMAP_PADDING = 12
 
 
 @dataclass
@@ -66,11 +71,13 @@ class MagicMissile:
         self.y += (dy / dist) * self.speed
         return True
 
-    def draw(self, screen: pygame.Surface) -> None:
+    def draw(self, screen: pygame.Surface, offset: tuple[float, float] = (0, 0)) -> None:
         """Render a bright core with a soft glow for readability."""
-        pygame.draw.circle(screen, (120, 235, 255), (int(self.x), int(self.y)), self.radius + 3)
-        pygame.draw.circle(screen, CYAN, (int(self.x), int(self.y)), self.radius)
-        pygame.draw.circle(screen, WHITE, (int(self.x), int(self.y)), 2)
+        offset_x, offset_y = offset
+        draw_pos = (int(self.x - offset_x), int(self.y - offset_y))
+        pygame.draw.circle(screen, (120, 235, 255), draw_pos, self.radius + 3)
+        pygame.draw.circle(screen, CYAN, draw_pos, self.radius)
+        pygame.draw.circle(screen, WHITE, draw_pos, 2)
 
 
 @dataclass
@@ -103,10 +110,12 @@ class ArcherShot:
         self.y += (dy / dist) * self.speed
         return True
 
-    def draw(self, screen: pygame.Surface) -> None:
+    def draw(self, screen: pygame.Surface, offset: tuple[float, float] = (0, 0)) -> None:
         """Render a dark arrow-like bolt with a subtle trail."""
-        pygame.draw.circle(screen, (70, 70, 70), (int(self.x), int(self.y)), self.radius + 2)
-        pygame.draw.circle(screen, BLACK, (int(self.x), int(self.y)), self.radius)
+        offset_x, offset_y = offset
+        draw_pos = (int(self.x - offset_x), int(self.y - offset_y))
+        pygame.draw.circle(screen, (70, 70, 70), draw_pos, self.radius + 2)
+        pygame.draw.circle(screen, BLACK, draw_pos, self.radius)
 
 
 class EntitiesGroup:
@@ -205,6 +214,7 @@ class GameManager:
         self.selected_entities: list[Entity] = []
         self.current_team: TeamColor = TeamColor.BLUE
         self.dragging: bool = False
+        self.minimap_dragging: bool = False
         self.drag_start: tuple[int, int] | None = None
         self.drag_end: tuple[int, int] | None = None
         self.paused: bool = False
@@ -216,6 +226,10 @@ class GameManager:
         self.build_peasant_buttons: list[tuple[pygame.Rect, Base]] = []
         self.game_over_message: str | None = None
         self.menu_status: str | None = None
+        self.camera_x: float = 0
+        self.camera_y: float = 0
+        self.map_width = max(self.terrain.width, SCREEN_WIDTH)
+        self.map_height = max(self.terrain.height, PLAY_AREA_HEIGHT)
 
         self._load_map_settings()
 
@@ -252,10 +266,47 @@ class GameManager:
         """Return whether a team is at the current unit cap."""
         return self._count_units(team) >= MAX_UNITS
 
-    def _clamp_to_play_area(self, pos: tuple[float, float]) -> tuple[int, int]:
-        """Keep world orders out of the bottom UI panel."""
-        x, y = clamp_point(pos, min_x=0, max_x=SCREEN_WIDTH, min_y=0, max_y=PLAY_AREA_HEIGHT)
+    def _clamp_to_world(self, pos: tuple[float, float]) -> tuple[int, int]:
+        """Keep world orders inside map bounds."""
+        x, y = clamp_point(pos, min_x=0, max_x=self.map_width, min_y=0, max_y=self.map_height)
         return int(x), int(y)
+
+    def _clamp_camera(self) -> None:
+        """Keep the viewport inside the map."""
+        self.camera_x = min(max(self.camera_x, 0), max(0, self.map_width - SCREEN_WIDTH))
+        self.camera_y = min(max(self.camera_y, 0), max(0, self.map_height - PLAY_AREA_HEIGHT))
+
+    def _screen_to_world(self, pos: tuple[int, int]) -> tuple[int, int]:
+        """Convert a screen point in the play area to world coordinates."""
+        return self._clamp_to_world((pos[0] + self.camera_x, pos[1] + self.camera_y))
+
+    def _world_to_screen(self, pos: tuple[float, float]) -> tuple[int, int]:
+        """Convert world coordinates to screen coordinates."""
+        return int(pos[0] - self.camera_x), int(pos[1] - self.camera_y)
+
+    def _minimap_rect(self) -> pygame.Rect:
+        """Return the screen rectangle used by the minimap."""
+        return pygame.Rect(
+            MINIMAP_PADDING,
+            SCREEN_HEIGHT - MINIMAP_HEIGHT - MINIMAP_PADDING,
+            MINIMAP_WIDTH,
+            MINIMAP_HEIGHT,
+        )
+
+    def _center_camera_on_world_pos(self, pos: tuple[float, float]) -> None:
+        """Center the viewport on a world point."""
+        self.camera_x = pos[0] - SCREEN_WIDTH / 2
+        self.camera_y = pos[1] - PLAY_AREA_HEIGHT / 2
+        self._clamp_camera()
+
+    def _center_camera_from_minimap_pos(self, pos: tuple[int, int]) -> None:
+        """Center the viewport from a minimap screen point."""
+        minimap_rect = self._minimap_rect()
+        mini_x = min(max(pos[0], minimap_rect.left), minimap_rect.right)
+        mini_y = min(max(pos[1], minimap_rect.top), minimap_rect.bottom)
+        world_x = (mini_x - minimap_rect.left) / minimap_rect.width * self.map_width
+        world_y = (mini_y - minimap_rect.top) / minimap_rect.height * self.map_height
+        self._center_camera_on_world_pos((world_x, world_y))
 
     def _update_game_over_state(self) -> None:
         """Detect a simple elimination victory condition."""
@@ -278,17 +329,17 @@ class GameManager:
 
     def _can_unit_move_to(self, unit: Unit, next_point: tuple[float, float]) -> bool:
         """Return whether terrain permits a unit movement step."""
-        next_x, next_y = self._clamp_to_play_area(next_point)
+        next_x, next_y = self._clamp_to_world(next_point)
         return self.terrain.can_move_between(unit.get_center(), (next_x, next_y), radius=unit.radius)
 
     def _find_unit_path(self, unit: Unit, destination: tuple[float, float]) -> list[tuple[float, float]]:
         """Build a terrain-aware path for a unit."""
-        goal = self._clamp_to_play_area(destination)
+        goal = self._clamp_to_world(destination)
         return find_path(
             unit.get_center(),
             goal,
-            width=SCREEN_WIDTH,
-            height=PLAY_AREA_HEIGHT,
+            width=self.map_width,
+            height=self.map_height,
             can_move_between=lambda current, next_point: self.terrain.can_move_between(
                 current,
                 next_point,
@@ -382,7 +433,7 @@ class GameManager:
                 self._try_build_peasant_from_selection()
 
         elif event.type == pygame.MOUSEBUTTONDOWN:
-            mouse_pos = pygame.mouse.get_pos()
+            mouse_pos = event.pos
 
             if self.menu_active:
                 if event.button == 1:
@@ -390,6 +441,12 @@ class GameManager:
                 return  # Block world interaction while menu is open
 
             if event.button == 1:
+                minimap_rect = self._minimap_rect()
+                if minimap_rect.collidepoint(mouse_pos):
+                    self.minimap_dragging = True
+                    self._center_camera_from_minimap_pos(mouse_pos)
+                    return
+
                 # Check UI buttons first
                 for rect, base in self.build_peasant_buttons:
                     if rect.collidepoint(mouse_pos):
@@ -399,18 +456,19 @@ class GameManager:
                     return
 
                 self.dragging = True
-                self.drag_start = mouse_pos
-                self.drag_end = mouse_pos
+                world_pos = self._screen_to_world(mouse_pos)
+                self.drag_start = world_pos
+                self.drag_end = world_pos
 
             elif event.button == 3:
                 if mouse_pos[1] >= PLAY_AREA_HEIGHT:
                     return
-                order_pos = self._clamp_to_play_area(mouse_pos)
+                order_pos = self._screen_to_world(mouse_pos)
                 if self.terrain.blocks_movement(order_pos):
                     return
                 target_entity = None
                 for entity in self.all_entities:
-                    if entity.contains_point(mouse_pos):
+                    if entity.contains_point(order_pos):
                         target_entity = entity
                         break
 
@@ -419,21 +477,26 @@ class GameManager:
                         self._assign_unit_target(entity, order_pos, target_entity)
 
         elif event.type == pygame.MOUSEBUTTONUP:
-            if event.button == 1 and self.dragging:
+            if event.button == 1 and self.minimap_dragging:
+                self.minimap_dragging = False
+            elif event.button == 1 and self.dragging:
                 self.dragging = False
                 self.select_units_in_box()
                 self.drag_start = None
                 self.drag_end = None
 
-        elif event.type == pygame.MOUSEMOTION and self.dragging:
-            self.drag_end = self._clamp_to_play_area(pygame.mouse.get_pos())
+        elif event.type == pygame.MOUSEMOTION:
+            if self.minimap_dragging:
+                self._center_camera_from_minimap_pos(event.pos)
+            elif self.dragging:
+                self.drag_end = self._screen_to_world(event.pos)
 
     def _build_peasant(self, base: Base) -> None:
         """Attempt to build a Peasant at the given base."""
         team_group = self.entities.get(base.team)
         if team_group and team_group.resources["wood"] >= 50 and not self._has_reached_unit_cap(base.team):
             team_group.resources["wood"] -= 50
-            spawn_x, spawn_y = self._clamp_to_play_area((base.x, base.y + base.size))
+            spawn_x, spawn_y = self._clamp_to_world((base.x, base.y + base.size))
             peasant = Peasant(int(spawn_x), int(spawn_y), base.team)
             team_group.peasents.append(peasant)
 
@@ -512,6 +575,7 @@ class GameManager:
 
     def update(self) -> None:
         """Advance game simulation, harvesting, and resource deposit logic."""
+        self._update_camera()
         if self.paused:
             return
 
@@ -616,6 +680,38 @@ class GameManager:
         self.magic_missiles = [missile for missile in self.magic_missiles if missile.update()]
         self.archer_shots = [shot for shot in self.archer_shots if shot.update()]
 
+    def _update_camera(self) -> None:
+        """Scroll the viewport with keyboard keys or edge scrolling."""
+        if self.menu_active:
+            return
+
+        keys = pygame.key.get_pressed()
+        dx = 0
+        dy = 0
+        if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+            dx -= CAMERA_SPEED
+        if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+            dx += CAMERA_SPEED
+        if keys[pygame.K_UP] or keys[pygame.K_w]:
+            dy -= CAMERA_SPEED
+        if keys[pygame.K_DOWN] or keys[pygame.K_s]:
+            dy += CAMERA_SPEED
+
+        mouse_x, mouse_y = pygame.mouse.get_pos()
+        if 0 <= mouse_y < SCREEN_HEIGHT:
+            if mouse_x <= EDGE_SCROLL_MARGIN:
+                dx -= CAMERA_SPEED
+            elif mouse_x >= SCREEN_WIDTH - EDGE_SCROLL_MARGIN:
+                dx += CAMERA_SPEED
+            if mouse_y <= EDGE_SCROLL_MARGIN:
+                dy -= CAMERA_SPEED
+            elif mouse_y >= SCREEN_HEIGHT - EDGE_SCROLL_MARGIN:
+                dy += CAMERA_SPEED
+
+        self.camera_x += dx
+        self.camera_y += dy
+        self._clamp_camera()
+
     def draw_bottom_menu(self, screen: pygame.Surface) -> None:
         """Draw UI details for the current selection.
 
@@ -629,11 +725,11 @@ class GameManager:
         self.build_peasant_buttons.clear()
 
         if self.selected_entities:
-            start_x = 20
+            start_x = MINIMAP_WIDTH + MINIMAP_PADDING * 2 + 20
             start_y = SCREEN_HEIGHT - BOTTOM_MENU_HEIGHT + 15
             x_offset = 200
             y_offset = 40
-            max_cols = (SCREEN_WIDTH - 40) // x_offset
+            max_cols = max(1, (SCREEN_WIDTH - start_x - 20) // x_offset)
 
             font_small = pygame.font.SysFont(None, 24)
             for i, entity in enumerate(self.selected_entities):
@@ -692,17 +788,20 @@ class GameManager:
         Args:
             screen: Pygame surface used for rendering.
         """
-        self.terrain.draw(screen)
+        world_surface = screen.subsurface(pygame.Rect(0, 0, SCREEN_WIDTH, PLAY_AREA_HEIGHT))
+        camera_offset = (self.camera_x, self.camera_y)
+
+        self.terrain.draw(world_surface, camera_offset)
         for entity in self.all_entities:
-            entity.draw(screen)
+            entity.draw(world_surface, camera_offset)
         for missile in self.magic_missiles:
-            missile.draw(screen)
+            missile.draw(world_surface, camera_offset)
         for shot in self.archer_shots:
-            shot.draw(screen)
+            shot.draw(world_surface, camera_offset)
 
         if self.dragging and self.drag_start and self.drag_end:
-            x1, y1 = self.drag_start
-            x2, y2 = self.drag_end
+            x1, y1 = self._world_to_screen(self.drag_start)
+            x2, y2 = self._world_to_screen(self.drag_end)
             min_x = min(x1, x2)
             max_x = max(x1, x2)
             min_y = min(y1, y2)
@@ -750,9 +849,50 @@ class GameManager:
             screen.blit(part_surface, (hud_x, hud_y))
             hud_x += part_surface.get_width()
         self.draw_bottom_menu(screen)
+        self.draw_minimap(screen)
 
         if self.menu_active:
             self.draw_main_menu(screen)
+
+    def draw_minimap(self, screen: pygame.Surface) -> None:
+        """Draw a compact world overview and the current camera rectangle."""
+        rect = self._minimap_rect()
+        pygame.draw.rect(screen, (23, 32, 25), rect)
+        pygame.draw.rect(screen, WHITE, rect, 2)
+
+        scale_x = rect.width / self.map_width
+        scale_y = rect.height / self.map_height
+
+        def mini_rect(world_rect: pygame.Rect) -> pygame.Rect:
+            return pygame.Rect(
+                rect.left + int(world_rect.left * scale_x),
+                rect.top + int(world_rect.top * scale_y),
+                max(1, int(world_rect.width * scale_x)),
+                max(1, int(world_rect.height * scale_y)),
+            )
+
+        for region in self.terrain.water:
+            pygame.draw.rect(screen, (43, 92, 119), mini_rect(region.rect))
+        for region in self.terrain.high_ground:
+            pygame.draw.rect(screen, (113, 132, 77), mini_rect(region.rect))
+        for region in self.terrain.ramps:
+            pygame.draw.rect(screen, (158, 142, 96), mini_rect(region.rect))
+
+        for entity in self.all_entities:
+            color = getattr(entity, "color", WHITE)
+            if isinstance(entity, Resource):
+                color = (80, 210, 120) if isinstance(entity, Wood) else (90, 220, 240)
+            mini_x = rect.left + int(entity.x * scale_x)
+            mini_y = rect.top + int(entity.y * scale_y)
+            pygame.draw.circle(screen, color, (mini_x, mini_y), 2)
+
+        camera_rect = pygame.Rect(
+            rect.left + int(self.camera_x * scale_x),
+            rect.top + int(self.camera_y * scale_y),
+            max(4, int(SCREEN_WIDTH * scale_x)),
+            max(4, int(PLAY_AREA_HEIGHT * scale_y)),
+        )
+        pygame.draw.rect(screen, WHITE, camera_rect, 1)
 
     def draw_main_menu(self, screen: pygame.Surface) -> None:
         """Draw the F10 pause menu."""

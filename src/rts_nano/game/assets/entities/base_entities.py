@@ -109,22 +109,26 @@ class Entity(ABC):
                 self.image = None
                 self.original_image = None
 
-    def draw(self, screen: pygame.Surface) -> None:
+    def draw(self, screen: pygame.Surface, offset: tuple[float, float] = (0, 0)) -> None:
         """Draw the entity, its collision radius, and selection outline.
 
         Args:
             screen: Pygame surface used for rendering.
+            offset: Camera offset subtracted from world coordinates.
         """
+        offset_x, offset_y = offset
+        draw_x = self.x - offset_x
+        draw_y = self.y - offset_y
         pygame.draw.circle(
             screen,
             self._get_hitbox_color(),
-            (int(self.x), int(self.y)),
+            (int(draw_x), int(draw_y)),
             int(self.radius + 2),
             self._get_hitbox_width(),
         )
 
-        top_left_x = int(self.x - self.size / 2)
-        top_left_y = int(self.y - self.size / 2)
+        top_left_x = int(draw_x - self.size / 2)
+        top_left_y = int(draw_y - self.size / 2)
         if self.image:
             screen.blit(self.image, (top_left_x, top_left_y))
         else:
@@ -267,11 +271,12 @@ class Unit(Entity, ABC):
         self.path: list[tuple[float, float]] = []
         self.state = "IDLE"
 
-    def draw(self, screen: pygame.Surface) -> None:
+    def draw(self, screen: pygame.Surface, offset: tuple[float, float] = (0, 0)) -> None:
         """Draw the unit and flip the sprite to match movement direction.
 
         Args:
             screen: Pygame surface used for rendering.
+            offset: Camera offset subtracted from world coordinates.
         """
         dx = self.x - self.prev_x
         if dx > 0.1:
@@ -287,7 +292,7 @@ class Unit(Entity, ABC):
 
         self.prev_x = self.x
 
-        super().draw(screen)
+        super().draw(screen, offset)
 
     def _get_hitbox_width(self) -> int:
         """Return the hitbox width for units."""

@@ -52,11 +52,20 @@ class TerrainMap:
     def __init__(self, settings: dict[str, object] | None = None) -> None:
         """Initialize terrain from optional map settings."""
         settings = settings or {}
+        self.width = self._load_dimension(settings.get("width"), default=1600)
+        self.height = self._load_dimension(settings.get("height"), default=600)
         self.high_ground: list[TerrainRegion] = self._load_regions(settings.get("high_ground"), level=1)
         self.ramps: list[TerrainRegion] = self._load_regions(settings.get("ramps"), level=0, kind="ramp")
         self.water: list[TerrainRegion] = self._load_regions(settings.get("water"), level=0, kind="water")
         self.grass: list[TerrainDecoration] = self._load_decorations(settings.get("grass"), kind="grass")
         self.rocks: list[TerrainDecoration] = self._load_decorations(settings.get("rocks"), kind="rocks")
+
+    @staticmethod
+    def _load_dimension(payload: object, *, default: int) -> int:
+        """Read a positive map dimension from settings."""
+        if isinstance(payload, (int, float)) and payload > 0:
+            return int(payload)
+        return default
 
     @staticmethod
     def _as_iterable(payload: object) -> Iterable[object]:
@@ -117,19 +126,20 @@ class TerrainMap:
             return False
         return self.allows_height_transition(current_point, next_point)
 
-    def draw(self, screen: pygame.Surface) -> None:
+    def draw(self, screen: pygame.Surface, offset: tuple[float, float] = (0, 0)) -> None:
         """Draw terrain under entities."""
+        offset_x, offset_y = int(offset[0]), int(offset[1])
         self._draw_ground(screen)
         for region in self.water:
-            self._draw_water(screen, region.rect)
+            self._draw_water(screen, region.rect.move(-offset_x, -offset_y))
         for region in self.high_ground:
-            self._draw_high_ground(screen, region.rect)
+            self._draw_high_ground(screen, region.rect.move(-offset_x, -offset_y))
         for region in self.ramps:
-            self._draw_ramp(screen, region.rect)
+            self._draw_ramp(screen, region.rect.move(-offset_x, -offset_y))
         for decoration in self.grass:
-            self._draw_grass(screen, decoration)
+            self._draw_grass(screen, decoration, offset)
         for decoration in self.rocks:
-            self._draw_rocks(screen, decoration)
+            self._draw_rocks(screen, decoration, offset)
 
     def _draw_ground(self, screen: pygame.Surface) -> None:
         """Draw a simple procedural ground texture."""
@@ -165,24 +175,40 @@ class TerrainMap:
         for y in range(rect.top + 12, rect.bottom, 22):
             pygame.draw.arc(screen, (78, 144, 162), (rect.left + 8, y, rect.width - 16, 18), 0.1, 3.0, 2)
 
-    def _draw_grass(self, screen: pygame.Surface, decoration: TerrainDecoration) -> None:
+    def _draw_grass(
+        self,
+        screen: pygame.Surface,
+        decoration: TerrainDecoration,
+        offset: tuple[float, float] = (0, 0),
+    ) -> None:
         """Draw a small grass tuft."""
+        offset_x, offset_y = offset
+        draw_x = int(decoration.x - offset_x)
+        draw_y = int(decoration.y - offset_y)
         color = (121, 150, 63)
         for offset in (-6, 0, 6):
             pygame.draw.line(
                 screen,
                 color,
-                (decoration.x + offset, decoration.y + decoration.radius),
-                (decoration.x + offset // 2, decoration.y - decoration.radius),
+                (draw_x + offset, draw_y + decoration.radius),
+                (draw_x + offset // 2, draw_y - decoration.radius),
                 2,
             )
 
-    def _draw_rocks(self, screen: pygame.Surface, decoration: TerrainDecoration) -> None:
+    def _draw_rocks(
+        self,
+        screen: pygame.Surface,
+        decoration: TerrainDecoration,
+        offset: tuple[float, float] = (0, 0),
+    ) -> None:
         """Draw a small cluster of stones."""
-        pygame.draw.circle(screen, (88, 91, 84), (decoration.x, decoration.y), decoration.radius)
+        offset_x, offset_y = offset
+        draw_x = int(decoration.x - offset_x)
+        draw_y = int(decoration.y - offset_y)
+        pygame.draw.circle(screen, (88, 91, 84), (draw_x, draw_y), decoration.radius)
         pygame.draw.circle(
             screen,
             (114, 117, 108),
-            (decoration.x - decoration.radius // 2, decoration.y - decoration.radius // 3),
+            (draw_x - decoration.radius // 2, draw_y - decoration.radius // 3),
             max(2, decoration.radius // 2),
         )
