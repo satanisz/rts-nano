@@ -1,5 +1,15 @@
 """Game-wide constants used for rendering, simulation, and balancing.
 
+This module holds defaults, not necessarily live viewport state. The playable
+game can resize its viewport at runtime through ``GameManager.set_viewport_size``
+because fullscreen/windowed mode renders directly to the current display
+surface. New code that needs the current screen dimensions during gameplay
+should generally ask the manager or use manager helpers instead of importing
+``SCREEN_WIDTH``/``SCREEN_HEIGHT`` once and assuming they never change.
+
+Balance constants here are intentionally small and visible. Unit-specific
+balance lives on concrete unit classes.
+
 Attributes:
     AttackType: String enum for supported attack categories.
     SCREEN_WIDTH: Width of the game window in pixels.

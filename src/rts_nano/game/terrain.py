@@ -1,4 +1,25 @@
-"""Map terrain state and rendering helpers."""
+"""Terrain loading, collision semantics, and procedural rendering.
+
+The terrain system is deliberately data-driven. JSON map files provide a
+``Terrain`` object with dimensions, terrain regions, and decorative point
+objects. Coordinates are always world coordinates, not screen coordinates.
+Camera offsets are applied only when drawing.
+
+Region payloads use the grouped rectangle format:
+
+``"high_ground": [[[x, y, width, height], [x2, y2, width2, height2]]]``
+
+Each outer list entry is one visual shape. A shape can contain one rectangle or
+many touching/overlapping rectangles. Collision and height queries flatten those
+groups into individual rectangles, while rendering preserves groups so joined
+high ground or water draws as one continuous area.
+
+Movement rules are intentionally simple:
+
+* water and rocks block movement,
+* high ground changes an entity's ``height_level``,
+* height changes are allowed only when either endpoint is on a ramp.
+"""
 
 from __future__ import annotations
 
@@ -13,7 +34,15 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class TerrainRegion:
-    """Rectangular terrain region loaded from map settings."""
+    """One rectangular terrain area used for queries and rendering.
+
+    Attributes:
+        rect: World-space rectangle.
+        level: Height level contributed by the region. High ground uses ``1``;
+            ramps/water use ``0`` because they do not themselves create high
+            ground.
+        kind: Human-readable layer name used by drawing/debugging.
+    """
 
     rect: pygame.Rect
     level: int
@@ -30,7 +59,11 @@ class TerrainRegion:
 
 @dataclass(frozen=True)
 class TerrainDecoration:
-    """Small visual-only map object."""
+    """Small circular visual object loaded from terrain settings.
+
+    Rocks are also used as movement blockers, while grass is purely decorative.
+    The shared shape keeps the JSON format compact: ``[x, y, radius]``.
+    """
 
     x: int
     y: int
@@ -47,10 +80,24 @@ class TerrainDecoration:
 
 
 class TerrainMap:
-    """Store terrain features and expose height queries."""
+    """Store terrain features and answer terrain queries.
+
+    Public attributes such as ``high_ground``, ``ramps``, and ``water`` are
+    flattened lists kept for game logic and minimap drawing. The corresponding
+    ``*_shapes`` attributes preserve grouped JSON shapes for the main renderer.
+    Future code should use:
+
+    * flattened lists for collision, pathfinding, and minimap rectangles,
+    * grouped shapes for visual rendering of joined terrain.
+    """
 
     def __init__(self, settings: dict[str, object] | None = None) -> None:
-        """Initialize terrain from optional map settings."""
+        """Initialize terrain from optional map settings.
+
+        Missing or malformed terrain arrays are treated as empty. Width/height
+        fall back to the original one-screen map size so older minimal maps keep
+        loading.
+        """
         settings = settings or {}
         self.width = self._load_dimension(settings.get("width"), default=1600)
         self.height = self._load_dimension(settings.get("height"), default=600)
@@ -88,7 +135,13 @@ class TerrainMap:
         level: int,
         kind: str = "high_ground",
     ) -> list[list[TerrainRegion]]:
-        """Load terrain regions, preserving nested grouped shapes."""
+        """Load terrain regions, preserving nested grouped shapes.
+
+        The editor now saves ``high_ground`` and ``water`` exclusively as
+        grouped shapes, but this loader is permissive and also accepts old flat
+        ``[x, y, w, h]`` entries. That keeps archived maps and small hand-written
+        test payloads usable.
+        """
         regions: list[TerrainRegion] = []
         groups: list[list[TerrainRegion]] = []
         for item in self._as_iterable(payload):
@@ -122,14 +175,25 @@ class TerrainMap:
         return [TerrainDecoration.from_payload(item, kind=kind) for item in self._as_iterable(payload)]
 
     def height_at(self, point: tuple[float, float]) -> int:
-        """Return the terrain height at a map position."""
+        """Return the terrain height at a world position.
+
+        High-ground rectangles are flattened for this query. If grouped shapes
+        overlap, the first matching high-ground rectangle wins, but all current
+        maps use a single high level so ordering does not matter.
+        """
         for region in self.high_ground:
             if region.rect.collidepoint(point):
                 return region.level
         return 0
 
     def allows_height_transition(self, current_point: tuple[float, float], next_point: tuple[float, float]) -> bool:
-        """Return whether a movement step may cross between terrain levels."""
+        """Return whether a movement step may cross between terrain levels.
+
+        Units may freely move on the same height. Moving between low and high
+        ground is allowed only when either the current or next point lies on a
+        ramp. Pathfinding and per-frame movement both call this rule, so changing
+        it affects strategic routes and local collision fallback.
+        """
         current_height = self.height_at(current_point)
         next_height = self.height_at(next_point)
         if current_height == next_height:
@@ -141,7 +205,13 @@ class TerrainMap:
         return any(region.rect.collidepoint(point) for region in self.ramps)
 
     def blocks_movement(self, point: tuple[float, float], radius: float = 0) -> bool:
-        """Return whether terrain blocks a unit centered at point."""
+        """Return whether terrain blocks a unit centered at a world point.
+
+        The optional ``radius`` inflates water rectangles and rock circles so
+        unit centers cannot clip visually through blockers. Resource nodes are
+        not terrain blockers; they are normal entities handled by collision and
+        harvesting logic.
+        """
         x, y = point
         for region in self.water:
             if region.rect.inflate(radius * 2, radius * 2).collidepoint(x, y):
@@ -166,7 +236,16 @@ class TerrainMap:
         return self.allows_height_transition(current_point, next_point)
 
     def draw(self, screen: pygame.Surface, offset: tuple[float, float] = (0, 0)) -> None:
-        """Draw terrain under entities."""
+        """Draw terrain under entities.
+
+        Args:
+            screen: Surface representing only the playable world area.
+            offset: Camera ``(x, y)`` subtracted from every world coordinate.
+
+        This method redraws procedural ground each frame. It does not clip or
+        cull off-screen regions; maps are small enough that straightforward
+        drawing is easier to reason about.
+        """
         offset_x, offset_y = int(offset[0]), int(offset[1])
         self._draw_ground(screen)
         for shape in self.water_shapes:
@@ -216,7 +295,12 @@ class TerrainMap:
         *,
         width: int,
     ) -> None:
-        """Draw only the outside outline of a grouped rectangle shape."""
+        """Draw only the outside outline of a grouped rectangle shape.
+
+        Grouped terrain is represented as multiple rectangles. Drawing a normal
+        outline for each rectangle creates visible internal seams. This routine
+        subtracts covered edge spans so only the exterior boundary remains.
+        """
         for rect in rects:
             for start, end in self._visible_horizontal_segments(rect.left, rect.right, rect.top, -1, rects):
                 pygame.draw.line(screen, color, (start, rect.top), (end, rect.top), width)

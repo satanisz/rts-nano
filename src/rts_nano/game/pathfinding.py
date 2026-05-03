@@ -1,4 +1,14 @@
-"""Grid-based pathfinding helpers for terrain-aware movement."""
+"""Grid-based A* pathfinding helpers for terrain-aware movement.
+
+The pathfinder operates on world coordinates but searches a coarse square grid.
+It is intentionally independent of pygame terrain classes: callers provide a
+``can_move_between(current, next_point)`` predicate, which lets ``GameManager``
+inject water, rock, and ramp/height rules from ``TerrainMap``.
+
+Returned paths are waypoint lists in world coordinates. An empty list means no
+path was found within ``MAX_EXPLORED_CELLS``; units can still attempt local
+direct movement if the manager chooses to assign the target.
+"""
 
 from __future__ import annotations
 
@@ -26,7 +36,21 @@ def find_path(
     can_move_between: Callable[[Point, Point], bool],
     grid_size: int = GRID_SIZE,
 ) -> list[Point]:
-    """Find terrain-aware waypoints from start to goal using A*."""
+    """Find terrain-aware waypoints from start to goal using A*.
+
+    Args:
+        start: Unit center in world coordinates.
+        goal: Desired destination in world coordinates.
+        width: Searchable map width.
+        height: Searchable map height.
+        can_move_between: Terrain/collision predicate for adjacent grid-cell
+            centers.
+        grid_size: Size of one search cell in world pixels.
+
+    The search uses 8-neighbor movement and octile distance. Diagonal moves are
+    additionally checked through their horizontal and vertical components to
+    avoid clipping around blocked corners.
+    """
     start_cell = _point_to_cell(start, grid_size)
     goal_cell = _point_to_cell(goal, grid_size)
     max_col = max(0, (width - 1) // grid_size)
@@ -130,7 +154,13 @@ def _allows_diagonal_step(
     grid_size: int,
     can_move_between: Callable[[Point, Point], bool],
 ) -> bool:
-    """Prevent diagonal clipping through blocked corners."""
+    """Prevent diagonal clipping through blocked corners.
+
+    A diagonal step is accepted only if the corresponding horizontal and
+    vertical axis-aligned steps are both valid. This matters for water/rock
+    corners and ramp boundaries, where a purely diagonal edge could otherwise
+    sneak through terrain that no unit should cross.
+    """
     horizontal = (neighbor[0], current[1])
     vertical = (current[0], neighbor[1])
     current_point = _cell_center(current, grid_size, width, height)

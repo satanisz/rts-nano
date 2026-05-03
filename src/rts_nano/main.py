@@ -1,4 +1,17 @@
-"""Application entry point for the RTS Nano game."""
+"""Application entry point for the playable RTS Nano game.
+
+This module intentionally stays thin. It owns pygame display creation,
+fullscreen/window fallback behavior, and the outer event/update/draw loop. The
+actual game state lives in :class:`rts_nano.game.manager.GameManager`; keep new
+gameplay logic there unless it truly concerns process startup, display mode, or
+top-level event dispatch.
+
+Rendering uses the real pygame display size. In windowed mode the initial
+window follows the monitor aspect ratio; in fullscreen mode pygame is asked for
+native fullscreen first. The manager is told the current display size each frame
+so camera limits, minimap, HUD, and edge scrolling can adapt without bitmap
+stretching.
+"""
 
 import json
 import sys
@@ -14,7 +27,12 @@ WINDOWED_BASE_HEIGHT = SCREEN_HEIGHT
 
 
 def _desktop_size() -> tuple[int, int]:
-    """Return the current desktop size, falling back to the logical game size."""
+    """Return the current desktop size, falling back to the original game size.
+
+    Pygame can report zeroes on some drivers before the video system is fully
+    settled. The fallback keeps display creation deterministic for tests and
+    unusual SDL backends.
+    """
     info = pygame.display.Info()
     width = info.current_w or SCREEN_WIDTH
     height = info.current_h or SCREEN_HEIGHT
@@ -22,7 +40,13 @@ def _desktop_size() -> tuple[int, int]:
 
 
 def _windowed_size() -> tuple[int, int]:
-    """Pick a window size that follows the monitor aspect ratio."""
+    """Pick an initial window size that follows the monitor aspect ratio.
+
+    The game no longer renders to a fixed off-screen buffer and stretches it.
+    Instead the window itself changes shape and the game draws directly into
+    that surface. This helper keeps windowed mode visually close to fullscreen
+    proportions while leaving a small margin for the operating-system desktop.
+    """
     desktop_width, desktop_height = _desktop_size()
     if desktop_width <= 0 or desktop_height <= 0:
         return SCREEN_WIDTH, SCREEN_HEIGHT
@@ -36,7 +60,20 @@ def _windowed_size() -> tuple[int, int]:
 
 
 def _create_display(*, fullscreen: bool) -> tuple[pygame.Surface, bool]:
-    """Create the game display surface."""
+    """Create the game display surface and report whether fullscreen succeeded.
+
+    Fullscreen is attempted in descending order of desirability:
+
+    1. ``(0, 0), pygame.FULLSCREEN`` lets SDL pick the native monitor mode and
+       is most likely to hide the Windows taskbar.
+    2. The explicit desktop size is a useful fallback for drivers that reject
+       ``(0, 0)``.
+    3. The original project size keeps the game usable if native fullscreen is
+       unavailable.
+
+    Returning the actual fullscreen state lets the F10 menu stay synchronized
+    even when SDL falls back to windowed mode.
+    """
     if not fullscreen:
         return pygame.display.set_mode(_windowed_size()), False
 
@@ -56,7 +93,19 @@ def _create_display(*, fullscreen: bool) -> tuple[pygame.Surface, bool]:
 
 
 def main() -> None:
-    """Run the game loop and load the default map configuration."""
+    """Run the pygame loop for the default map.
+
+    The loop order is:
+
+    1. Refresh manager viewport/mouse state from the current display surface.
+    2. Forward pygame events to the manager, handling only process-level events
+       such as quit and fullscreen toggles locally.
+    3. Advance simulation.
+    4. Draw the world and UI directly onto the display surface.
+
+    Keeping the display surface as the render target is important: it means
+    fullscreen shows more map instead of stretching a fixed-resolution image.
+    """
     pygame.init()
     display_screen, _ = _create_display(fullscreen=False)
     pygame.display.set_caption("Simple RTS")

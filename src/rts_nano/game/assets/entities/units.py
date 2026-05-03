@@ -1,4 +1,11 @@
-"""Unit entity implementations."""
+"""Concrete unit classes and their special combat/interaction rules.
+
+All units inherit the movement and base combat state machine from ``Unit``.
+Concrete classes mainly provide balance constants, sprites, and small behavior
+overrides. When adding a new unit type, also register it in
+``manager.EntityFactory`` and consider whether the map editor should expose a
+placement tool.
+"""
 
 from pathlib import Path
 
@@ -10,7 +17,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
 
 
 class Peasant(Unit):
-    """Worker unit that can gather and deposit resources."""
+    """Worker unit that can gather resources and deposit them at allied bases.
+
+    Peasants enter ``GATHERING`` after reaching a ``Resource`` target and
+    ``DEPOSITING`` after reaching an allied ``Building``. The manager performs
+    the actual resource transfer because it owns team resource banks.
+    """
 
     SIZE = 30
     RADIUS = 10.0
@@ -74,7 +86,12 @@ class Knight(Unit):
 
 
 class Archer(Unit):
-    """Ranged unit with moderate mobility."""
+    """Ranged unit with a dead-zone and melee fallback.
+
+    The archer switches between melee and ranged attacks based on current target
+    distance. This gives it a simple micro-management profile: it wants to keep
+    enemies beyond ``RANGED_MIN_ATTACK_RANGE`` to use its stronger range.
+    """
 
     SIZE = 40
     RADIUS = 13.0
@@ -114,7 +131,7 @@ class Archer(Unit):
         return self.RANGED_ATTACK_RANGE + range_bonus + radius_sum
 
     def _attack(self, target: Entity) -> None:
-        """Use melee up to 20 range, otherwise use ranged in 30-50 range."""
+        """Choose melee or ranged attack mode before resolving damage."""
         dist = distance_between(self, target)
         radius_sum = self.radius + getattr(target, "radius", 0)
         ranged_min = self.RANGED_MIN_ATTACK_RANGE + radius_sum
@@ -130,7 +147,11 @@ class Archer(Unit):
 
 
 class Mage(Unit):
-    """Fragile ranged caster unit."""
+    """Fragile long-range caster unit.
+
+    Mages use ranged attacks only and emit ``MagicMissile`` VFX through the
+    manager's attack-event pipeline.
+    """
 
     SIZE = 40
     RADIUS = 13.0

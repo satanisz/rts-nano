@@ -1,4 +1,15 @@
-"""Base entity types shared across units, buildings, and resources."""
+"""Base entity types shared across units, buildings, and resources.
+
+The entity layer is intentionally lightweight and pygame-oriented. Entities know
+how to draw themselves, test point selection, move/attack if they are units, and
+resolve local collisions. Cross-entity systems such as resource bank updates,
+dead-list pruning, path creation, and projectile spawning live in
+``GameManager``.
+
+All entity coordinates are world coordinates representing the center point.
+Rendering accepts a camera offset and converts to screen coordinates at draw
+time. Avoid storing screen-space positions on entities.
+"""
 
 from __future__ import annotations
 
@@ -33,7 +44,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 class TeamColor(StrEnum):
-    """Available ownership groups for game entities."""
+    """Available ownership groups for game entities.
+
+    The string values match top-level keys in map JSON files. Keep that
+    serialization contract in mind when adding teams.
+    """
 
     BLUE = "Blue"
     RED = "Red"
@@ -44,6 +59,10 @@ class TeamColor(StrEnum):
 class Entity(ABC):
     # ruff: noqa: B024
     """Represent a drawable selectable object on the map.
+
+    ``Entity`` is the common API consumed by selection, collision, targeting,
+    minimap drawing, and terrain-height refresh. Concrete subclasses should set
+    gameplay fields such as ``life`` and ``team`` where applicable.
 
     Args:
         x: Horizontal center position.
@@ -146,10 +165,11 @@ class Entity(ABC):
         return self.color
 
     def contains_point(self, pos: tuple[int, int]) -> bool:
-        """Check whether a screen position overlaps the entity bounds.
+        """Check whether a world position overlaps the entity bounds.
 
         Args:
-            pos: Screen coordinates to test.
+            pos: World coordinates to test. Callers should convert from screen
+                coordinates before using this method.
 
         Returns:
             True if the point lies inside the entity rectangle.
@@ -167,6 +187,10 @@ class Entity(ABC):
 
 class Resource(Entity, ABC):
     """Represent a harvestable world resource.
+
+    Resources use ``amount`` instead of ``life`` as their depletion state. A
+    peasant reaching a resource switches into ``GATHERING`` and manager-level
+    harvesting decrements ``amount`` over time.
 
     Args:
         x: Horizontal center position.
@@ -188,6 +212,10 @@ class Resource(Entity, ABC):
 
 class Building(Entity, ABC):
     """Represent a stationary structure owned by a team.
+
+    Buildings are targetable combat entities and can receive deposited
+    resources. The concrete ``Base`` subclass is also the current production
+    structure for peasants.
 
     Args:
         x: Horizontal center position.
@@ -214,6 +242,14 @@ class Building(Entity, ABC):
 
 class Unit(Entity, ABC):
     """Represent a moving controllable entity.
+
+    Units own their movement/combat state machine. A target can be a point or an
+    entity. If an entity target is hostile, the unit moves until it is in attack
+    range and then applies damage on cooldown. If a target is friendly/resource,
+    subclass hooks decide what state to enter after reaching interaction range.
+
+    ``path`` is optional waypoint guidance supplied by ``GameManager``. When no
+    path is present, the unit moves directly toward ``target_x/target_y``.
 
     Args:
         x: Horizontal center position.
@@ -335,7 +371,11 @@ class Unit(Entity, ABC):
         self.state = "MOVING"
 
     def set_path(self, path: list[tuple[float, float]]) -> None:
-        """Assign a path of movement waypoints."""
+        """Assign a path of movement waypoints.
+
+        The final path waypoint is normally the exact requested goal. Empty path
+        means direct steering is still allowed; it does not cancel the target.
+        """
         self.path = path
 
     def _get_next_movement_target(self) -> tuple[float, float]:
@@ -392,7 +432,12 @@ class Unit(Entity, ABC):
         return distance_between(self, target) <= self._get_attack_distance(target)
 
     def _attack(self, target: Entity) -> None:
-        """Apply damage to a hostile target when the cooldown has elapsed."""
+        """Apply damage to a hostile target when the cooldown has elapsed.
+
+        Damage is resolved immediately. Ranged visual projectiles are created
+        later by ``GameManager`` after it consumes ``last_attack_event``. This
+        separation keeps gameplay deterministic even if VFX are skipped.
+        """
         if not self._is_hostile_target(target):
             self.state = "IDLE"
             return
@@ -422,7 +467,12 @@ class Unit(Entity, ABC):
         self.state = "ATTACKING"
 
     def consume_attack_event(self) -> tuple[tuple[float, float], tuple[float, float], AttackType, Entity] | None:
-        """Return and clear the latest attack event emitted by the unit."""
+        """Return and clear the latest attack event emitted by the unit.
+
+        The manager calls this once per frame after ``update``. Add new combat
+        VFX by extending the manager's attack-event handling, not by making units
+        draw projectiles directly.
+        """
         attack_event = self.last_attack_event
         self.last_attack_event = None
         return attack_event
@@ -432,7 +482,12 @@ class Unit(Entity, ABC):
         entities: Iterable[Entity],
         can_move_to: Callable[[Unit, tuple[float, float]], bool] | None = None,
     ) -> None:
-        """Advance unit movement and resolve collisions.
+        """Advance unit movement, interaction, attacks, and collision response.
+
+        This method is intentionally local: it can inspect nearby entities and
+        call the terrain movement validator, but it does not mutate team
+        resource banks or global entity lists. Manager-level systems handle
+        those cross-cutting changes after each unit update.
 
         Args:
             entities: Entities used for movement interaction and collision
@@ -514,6 +569,11 @@ class Unit(Entity, ABC):
 
     def resolve_collisions(self, entities: Iterable[Entity]) -> None:
         """Push the unit away from overlapping entities.
+
+        Collision response is simple pairwise separation. Workers currently
+        ignore allied unit collision while targeting a resource so multiple
+        workers can gather from nearby nodes without constantly pushing each
+        other off the resource.
 
         Args:
             entities: Entities that may collide with the unit.

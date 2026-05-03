@@ -2,6 +2,10 @@
 
 The entity objects keep mutable state, while this module keeps reusable rules
 that do not need to know about pygame or rendering.
+
+Keep functions here deterministic and side-effect free. They are good targets
+for future unit tests and RL-facing simulations because they do not depend on
+pygame surfaces, clocks, or event state.
 """
 
 from __future__ import annotations
@@ -41,12 +45,20 @@ def squared_distance_between(first: Entity, second: Entity) -> float:
 
 
 def calculate_damage(attack_damage: int, attack_modifier: int, shield_modifier: int) -> int:
-    """Calculate effective damage after additive modifiers and shielding."""
+    """Calculate effective damage after additive modifiers and shielding.
+
+    Combat balance currently uses additive modifiers rather than percentages.
+    Damage is clamped at zero so high shield values cannot heal the target.
+    """
     return max(0, attack_damage + attack_modifier - shield_modifier)
 
 
 def calculate_height_damage_modifier(attacker_height: int, target_height: int, attack_type: AttackType) -> int:
-    """Return ranged combat damage modifier from terrain height differences."""
+    """Return ranged combat damage modifier from terrain height differences.
+
+    Only ranged attacks care about terrain height. High-ground attackers gain a
+    small damage bonus; low-ground attackers suffer a penalty when firing up.
+    """
     if attack_type != AttackType.RANGED or attacker_height == target_height:
         return 0
     if attacker_height > target_height:
@@ -87,7 +99,12 @@ def find_replacement_resource(
     *,
     search_radius: float,
 ) -> Resource | None:
-    """Find a nearby resource node of the same type after one is depleted."""
+    """Find a nearby resource node after one is depleted.
+
+    The manager calls this while a peasant is harvesting. The helper assumes the
+    caller has already passed a candidate list of the same resource type, so it
+    only filters depleted/self candidates and applies the search radius.
+    """
     nearest: Resource | None = None
     nearest_distance = search_radius
 

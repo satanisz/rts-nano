@@ -1,4 +1,30 @@
-"""Game state coordination, input handling, and rendering."""
+"""Game state coordination, input handling, simulation, and rendering.
+
+``GameManager`` is the central runtime object for the playable game. It owns the
+loaded map, all entities, camera state, selected units, transient VFX, resource
+collection, combat projectiles, HUD widgets, and the F10 menu. The outer
+``main.py`` loop owns only pygame display creation and process-level events.
+
+Coordinate model:
+
+* entities, terrain, resources, paths, and orders use world coordinates,
+* the camera is stored as ``camera_x/camera_y`` and subtracted only for drawing,
+* mouse events arrive in screen coordinates and are converted before world
+  interaction,
+* the bottom UI panel and minimap are screen-space overlays.
+
+Simulation model:
+
+* units update themselves, but the manager supplies terrain movement validation,
+* peasants use manager-level harvesting/deposit logic because it touches team
+  resources and neutral resource lists,
+* ranged unit attacks emit events consumed here to spawn projectile VFX,
+* dead entities are pruned after all entity updates for the frame.
+
+When adding features, keep the split clear: entity classes own per-entity state
+machines, ``TerrainMap`` owns terrain queries, and this manager coordinates
+cross-entity systems.
+"""
 
 from __future__ import annotations
 
@@ -44,7 +70,12 @@ MINIMAP_PADDING = 12
 
 @dataclass
 class MagicMissile:
-    """Simple projectile effect used for mage ranged attacks."""
+    """Visual projectile effect used for mage ranged attacks.
+
+    The projectile is cosmetic. Damage is applied by ``Unit._attack`` before the
+    event reaches the manager. If ``target_entity`` is still alive, the missile
+    homes toward its current center so moving targets look natural.
+    """
 
     x: float
     y: float
@@ -83,7 +114,11 @@ class MagicMissile:
 
 @dataclass
 class ArcherShot:
-    """Simple projectile effect used for archer ranged attacks."""
+    """Visual projectile effect used for archer ranged attacks.
+
+    Like ``MagicMissile``, this object does not apply damage. It exists only to
+    make an already-resolved ranged attack visible to the player.
+    """
 
     x: float
     y: float
@@ -121,7 +156,12 @@ class ArcherShot:
 
 @dataclass
 class ClickMarker:
-    """Short-lived visual marker for issued map orders."""
+    """Short-lived visual marker for issued map orders.
+
+    Markers are stored in world coordinates and drawn with the same camera
+    offset as entities. They are intentionally independent of selected units:
+    even a right click with no units selected confirms where the player clicked.
+    """
 
     x: float
     y: float
@@ -155,6 +195,10 @@ class ClickMarker:
 class EntitiesGroup:
     """Store team-owned entities and collected resources.
 
+    The map JSON groups entities by team, but the runtime further separates unit
+    classes into lists for simple counts, UI summaries, and production logic.
+    Neutral resources are not stored here; they live in ``ResourcesGroup``.
+
     Args:
         name: Team associated with the entity collection.
     """
@@ -182,7 +226,12 @@ class EntitiesGroup:
 
 
 class ResourcesGroup:
-    """Store neutral resource nodes available on the map."""
+    """Store neutral resource nodes available on the map.
+
+    Resources are normal entities for drawing/selection/collision, but their
+    lifetime differs from units: they disappear when ``amount`` reaches zero
+    rather than when ``life`` reaches zero.
+    """
 
     def __init__(self) -> None:
         """Initialize the object."""
@@ -191,7 +240,12 @@ class ResourcesGroup:
 
 
 class EntityFactory:
-    """Create game entities from map configuration values."""
+    """Create game entities from map configuration values.
+
+    The factory is the only place that maps serialized asset names such as
+    ``"peasant"`` or ``"cristal"`` to concrete classes. Add new JSON entity
+    types here before expecting maps or the editor to spawn them in-game.
+    """
 
     _TEAM_ENTITY_TYPES: dict[str, Callable[[int, int, TeamColor], Entity]] = {
         "peasant": Peasant,
@@ -236,7 +290,16 @@ class GameManager:
     """Coordinate input, simulation, selection, and drawing.
 
     Args:
-        map_settings: Mapping of team names to entity types and spawn positions.
+        map_settings: Parsed JSON map settings. Team sections are dictionaries
+            of entity type to coordinate list. The ``Terrain`` section is passed
+            directly to ``TerrainMap``.
+
+    Important invariants:
+        ``map_width``/``map_height`` describe the world bounds. ``SCREEN_WIDTH``
+        and ``SCREEN_HEIGHT`` are updated by ``set_viewport_size`` so existing
+        rendering helpers can still use module-level constants. New gameplay
+        logic should prefer helper methods such as ``_screen_to_world`` and
+        ``_clamp_to_world`` instead of reading camera fields directly.
     """
 
     def __init__(self, map_settings: dict[str, dict[str, object]]) -> None:
@@ -279,7 +342,14 @@ class GameManager:
         self.set_viewport_size(SCREEN_WIDTH, SCREEN_HEIGHT)
 
     def set_viewport_size(self, width: int, height: int) -> None:
-        """Update the visible game area to match the current display size."""
+        """Update the visible game area to match the current display size.
+
+        The project originally used fixed screen constants. Fullscreen/window
+        work made the viewport dynamic, so this method mutates the module-level
+        ``SCREEN_WIDTH``, ``SCREEN_HEIGHT``, and ``PLAY_AREA_HEIGHT`` imported
+        from constants. This is intentionally centralized; avoid changing those
+        globals elsewhere.
+        """
         global PLAY_AREA_HEIGHT, SCREEN_HEIGHT, SCREEN_WIDTH
 
         SCREEN_WIDTH = max(1, int(width))
@@ -323,7 +393,12 @@ class GameManager:
         return self._count_units(team) >= MAX_UNITS
 
     def _clamp_to_world(self, pos: tuple[float, float]) -> tuple[int, int]:
-        """Keep world orders inside map bounds."""
+        """Clamp a world-space point to map bounds.
+
+        Use this for orders, spawned units, path goals, and converted mouse
+        coordinates. It clamps to full map dimensions, not to the visible
+        viewport.
+        """
         x, y = clamp_point(pos, min_x=0, max_x=self.map_width, min_y=0, max_y=self.map_height)
         return int(x), int(y)
 
@@ -333,7 +408,12 @@ class GameManager:
         self.camera_y = min(max(self.camera_y, 0), max(0, self.map_height - PLAY_AREA_HEIGHT))
 
     def _screen_to_world(self, pos: tuple[int, int]) -> tuple[int, int]:
-        """Convert a screen point in the play area to world coordinates."""
+        """Convert a screen point in the play area to world coordinates.
+
+        This helper assumes ``pos`` is in the game's current display coordinate
+        system, not desktop coordinates. ``main.py`` renders directly to the
+        display surface, so no additional scale transform is needed.
+        """
         return self._clamp_to_world((pos[0] + self.camera_x, pos[1] + self.camera_y))
 
     def _world_to_screen(self, pos: tuple[float, float]) -> tuple[int, int]:
@@ -418,7 +498,13 @@ class GameManager:
         unit.set_path(self._find_unit_path(unit, destination))
 
     def _load_map_settings(self) -> None:
-        """Instantiate entities from the loaded map configuration."""
+        """Instantiate entities from the loaded map configuration.
+
+        Every non-``Terrain`` top-level key is interpreted as a ``TeamColor``.
+        This currently includes ``Blue``, ``Red``, and ``Resources``. Resource
+        entities are created while iterating the resources group but stored in
+        ``self.resources`` rather than the temporary group.
+        """
         for category_str, assets in self.map_settings.items():
             if category_str == "Terrain":
                 continue
@@ -468,6 +554,16 @@ class GameManager:
 
     def handle_input(self, event: pygame.event.Event) -> None:
         """Process keyboard and mouse input for team control and selection.
+
+        Mouse handling is split into three screen-space zones:
+
+        * F10 menu consumes all clicks while active,
+        * minimap consumes left clicks/drag before world selection,
+        * bottom panel blocks world orders and hosts build buttons.
+
+        World interactions convert to world coordinates immediately. Selection
+        rectangles store world coordinates so dragging remains correct while the
+        camera is moving.
 
         Args:
             event: Pygame event to process.
@@ -632,7 +728,12 @@ class GameManager:
         self._set_menu_option("FULLSCREEN:", f"FULLSCREEN: {mode}")
 
     def select_units_in_box(self) -> None:
-        """Select units inside the drag rectangle or under the click point."""
+        """Select units inside the drag rectangle or under the click point.
+
+        Only current-team units can be multi-selected by drag. A click can
+        select any entity, including enemies and resources, so the bottom panel
+        can inspect them.
+        """
         if not self.drag_start or not self.drag_end:
             return
 
@@ -665,7 +766,12 @@ class GameManager:
                         self.selected_entities.append(entity)
 
     def update(self) -> None:
-        """Advance game simulation, harvesting, and resource deposit logic."""
+        """Advance camera, unit simulation, harvesting, combat VFX, and victory.
+
+        The method returns early after camera update when paused. This lets the
+        user pan while paused/menu-free, but freezes unit movement, harvesting,
+        combat, projectiles, and click marker cleanup.
+        """
         self._update_camera()
         if self.paused:
             return
@@ -878,6 +984,10 @@ class GameManager:
     def draw(self, screen: pygame.Surface) -> None:
         """Draw world entities, selection state, HUD, and pause overlay.
 
+        The provided ``screen`` is the full display surface. The world is drawn
+        into a subsurface above the bottom menu; HUD, minimap, and menus are
+        drawn afterward in screen coordinates.
+
         Args:
             screen: Pygame surface used for rendering.
         """
@@ -950,7 +1060,12 @@ class GameManager:
             self.draw_main_menu(screen)
 
     def draw_minimap(self, screen: pygame.Surface) -> None:
-        """Draw a compact world overview and the current camera rectangle."""
+        """Draw a compact world overview and the current camera rectangle.
+
+        The minimap uses flattened terrain rectangles rather than grouped shapes
+        because it is intentionally schematic. Click/drag behavior is handled in
+        ``handle_input`` via ``_center_camera_from_minimap_pos``.
+        """
         rect = self._minimap_rect()
         pygame.draw.rect(screen, (23, 32, 25), rect)
         pygame.draw.rect(screen, WHITE, rect, 2)

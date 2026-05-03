@@ -1,4 +1,31 @@
-"""Small standalone map editor for RTS Nano JSON maps."""
+"""Standalone pygame map editor for RTS Nano JSON maps.
+
+The editor writes the same JSON schema consumed by the game. It is intentionally
+separate from ``main.py`` so editor shortcuts, destructive operations, and map
+creation do not complicate the playable game loop.
+
+Coordinate model:
+
+* mouse and camera positions are world coordinates plus screen offsets,
+* the HUD occupies the bottom ``HUD_HEIGHT`` pixels,
+* arrows and edge scrolling move the camera over maps larger than the window,
+* optional grid snapping affects placement coordinates only.
+
+Terrain model:
+
+* ``high_ground`` and ``water`` are saved as grouped rectangle shapes,
+  e.g. ``[[[x, y, w, h], [x2, y2, w2, h2]]]``.
+* Adding high ground or water merges touching/overlapping groups so the game
+  can render them as one continuous shape.
+* ``ramps`` remain independent rectangles because they are connectors rather
+  than filled terrain masses.
+
+Destructive tools:
+
+* right click removes from the currently selected layer,
+* ``0 Erase`` removes any asset or terrain group at a point/area,
+* ``X Flatten`` removes only terrain regions and leaves units/resources alone.
+"""
 
 from __future__ import annotations
 
@@ -88,7 +115,17 @@ TOOL_LABELS = {
 
 @dataclass
 class MapEditor:
-    """Interactive editor for one JSON map file."""
+    """Interactive editor state for one map file.
+
+    The object owns the mutable JSON payload, camera, current tool, drag state,
+    and transient status text. It does not own the pygame process; ``main`` owns
+    window creation and forwards events here.
+
+    The editor mutates ``settings`` in memory and writes only on ``save`` or
+    when creating a new map. Loading a map normalizes ``high_ground`` and
+    ``water`` into grouped-shape format immediately, so simply opening and
+    saving an older flat map upgrades those fields.
+    """
 
     map_path: Path
 
@@ -125,7 +162,13 @@ class MapEditor:
 
     @staticmethod
     def blank_settings(width: int = 3200, height: int = 2200) -> dict[str, object]:
-        """Return a new empty map payload."""
+        """Return a new empty map payload using the current canonical schema.
+
+        The team dictionaries include all known entity keys so users can place
+        units in any order without the editor having to infer missing sections.
+        Terrain groups start empty but already use the grouped schema for
+        ``high_ground`` and ``water``.
+        """
         return {
             "Blue": {"peasant": [], "base": [], "knight": [], "archer": [], "mage": []},
             "Red": {"peasant": [], "base": [], "knight": [], "archer": [], "mage": []},
@@ -151,7 +194,12 @@ class MapEditor:
         return settings
 
     def load_map(self, map_path: Path) -> None:
-        """Load another map file into the editor."""
+        """Load another map file into the editor and reset transient state.
+
+        The camera returns to the top-left corner and any active rectangle drag
+        is canceled. This avoids accidentally finishing a drag on a different
+        map after ``Ctrl+O``.
+        """
         self.map_path = map_path
         self.settings = self._load_settings(map_path)
         self._normalize_grouped_terrain_payloads()
@@ -162,7 +210,7 @@ class MapEditor:
         self.status = f"Loaded {map_path.name}"
 
     def create_new_map(self, map_path: Path, *, width: int = 3200, height: int = 2200) -> None:
-        """Create and switch to a new blank map."""
+        """Create, save, and switch to a new blank map file."""
         map_path.parent.mkdir(parents=True, exist_ok=True)
         self.map_path = map_path
         self.settings = self.blank_settings(width=width, height=height)
@@ -183,7 +231,14 @@ class MapEditor:
         self.status = f"Saved {self.map_path.name}"
 
     def _normalize_grouped_terrain_payloads(self) -> None:
-        """Store high-ground and water as lists of rectangle groups."""
+        """Store high-ground and water as lists of rectangle groups.
+
+        This is the editor's schema migration point. It accepts old flat
+        rectangles and existing nested groups, then rewrites each shape as an
+        outer list entry containing one or more ``[x, y, width, height]``
+        rectangles. The game loader is permissive, but the editor always writes
+        the new canonical format.
+        """
         for key in MERGED_RECT_TOOLS:
             normalized_groups = []
             for payload in self._terrain_list(key):
@@ -195,7 +250,13 @@ class MapEditor:
             self.terrain_settings[key] = normalized_groups
 
     def handle_event(self, event: pygame.event.Event) -> bool:
-        """Process one pygame event. Return False when the editor should quit."""
+        """Process one pygame event and return whether editing should continue.
+
+        Mouse-down starts placement or deletion. Mouse-up finalizes rectangle
+        tools. Mouse-motion only matters during drags because ordinary hover
+        information is derived directly from ``pygame.mouse.get_pos`` at draw
+        time.
+        """
         if event.type == pygame.QUIT:
             return False
 
@@ -211,7 +272,11 @@ class MapEditor:
         return True
 
     def _handle_keydown(self, event: pygame.event.Event) -> None:
-        """Handle editor keyboard shortcuts."""
+        """Handle editor keyboard shortcuts.
+
+        ``Ctrl`` shortcuts are checked before tool keys, so ``Ctrl+S`` saves
+        instead of selecting the red-knight tool bound to ``S``.
+        """
         if event.key == pygame.K_s and event.mod & pygame.KMOD_CTRL:
             self.save()
         elif event.key == pygame.K_o and event.mod & pygame.KMOD_CTRL:
@@ -252,7 +317,13 @@ class MapEditor:
             index += 1
 
     def _handle_mouse_down(self, event: pygame.event.Event) -> None:
-        """Handle mouse press for placement, deletion, or rectangle start."""
+        """Handle mouse press for placement, deletion, or rectangle start.
+
+        Left click places point-like tools immediately. Rectangle and special
+        tools start a drag so the release event can decide whether this was a
+        point operation or an area operation. Right click always deletes from
+        the currently selected layer.
+        """
         if event.pos[1] >= SCREEN_HEIGHT - HUD_HEIGHT:
             return
 
@@ -374,7 +445,12 @@ class MapEditor:
         self.status = f"Added {self.tool} at {world_pos[0]},{world_pos[1]}"
 
     def _add_rect_item(self, tool: str, rect: pygame.Rect) -> None:
-        """Add a rectangle, merging compatible terrain layers."""
+        """Add a terrain rectangle, merging compatible terrain layers.
+
+        ``high_ground`` and ``water`` are masses, so touching/overlapping
+        rectangles join the same grouped shape. ``ramps`` stay flat because each
+        ramp rectangle is a semantic connector used by movement rules.
+        """
         if tool in MERGED_RECT_TOOLS:
             merged_rect, merged_count = self._merge_rect_payload(self._terrain_list(tool), rect)
             self.status = (
@@ -387,7 +463,13 @@ class MapEditor:
         self.status = f"Added {tool}: {rect.x},{rect.y},{rect.width},{rect.height}"
 
     def _merge_rect_payload(self, rect_payloads: list[list[int]], rect: pygame.Rect) -> tuple[pygame.Rect, int]:
-        """Merge an added rectangle into a grouped multi-rectangle shape."""
+        """Merge an added rectangle into a grouped multi-rectangle shape.
+
+        The function removes every touching/overlapping group, appends all of
+        their rectangles to a new group, and returns the group's bounding box for
+        status text only. The bounding box is not saved as terrain; saving the
+        exact rectangles avoids turning L-shaped terrain into a filled box.
+        """
         grouped_payloads = [[rect.x, rect.y, rect.width, rect.height]]
         merged_count = 0
         bounds = rect.copy()
@@ -426,7 +508,12 @@ class MapEditor:
         self.status = f"Removed {self.tool}" if removed else f"No {self.tool} nearby"
 
     def _erase_area_or_point(self, rect: pygame.Rect, world_pos: tuple[int, int]) -> None:
-        """Erase any map asset at a point or inside a dragged area."""
+        """Erase any map asset at a point or inside a dragged area.
+
+        This is intentionally broader than right-click layer deletion: it can
+        remove resources, decorations, team entities, and terrain groups without
+        switching tools.
+        """
         if rect.width < 8 and rect.height < 8:
             removed = self._remove_any_nearest(world_pos)
         else:
@@ -434,7 +521,12 @@ class MapEditor:
         self.status = f"Erased {removed} item(s)" if removed else "Nothing to erase"
 
     def _flatten_area_or_point(self, rect: pygame.Rect, world_pos: tuple[int, int]) -> None:
-        """Remove terrain regions from a point or dragged area."""
+        """Remove terrain regions from a point or dragged area.
+
+        Flattening is a terrain-only eraser. It removes ``high_ground``,
+        ``ramps``, and ``water`` groups/rectangles while leaving placed entities,
+        resource nodes, rocks, and grass untouched.
+        """
         if rect.width < 8 and rect.height < 8:
             removed = sum(self._remove_rect_at(self._terrain_list(key), world_pos) for key in RECT_TERRAIN_TOOLS)
         else:
@@ -548,7 +640,12 @@ class MapEditor:
 
     @staticmethod
     def _payload_rects(payload: object) -> list[pygame.Rect]:
-        """Return all rectangles represented by a flat or nested terrain payload."""
+        """Return all rectangles represented by a flat or nested terrain payload.
+
+        This mirrors ``TerrainMap`` parsing so editor operations work on both
+        canonical grouped terrain and older flat rectangles. Editor saves will
+        normalize the result.
+        """
         if MapEditor._is_rect_payload(payload):
             return [pygame.Rect(*payload)]
         if not isinstance(payload, list):
@@ -655,7 +752,12 @@ class MapEditor:
 
 
 def _parse_args() -> Namespace:
-    """Parse map editor CLI arguments."""
+    """Parse map editor CLI arguments.
+
+    Bare filenames are resolved under ``src/rts_nano/maps``. Paths with a parent
+    component are treated as explicit relative/absolute paths so temporary files
+    and external map folders remain possible.
+    """
     parser = ArgumentParser(description="RTS Nano map editor")
     parser.add_argument("--map", type=Path, default=DEFAULT_MAP_PATH, help="Map JSON file to load.")
     parser.add_argument("--new", type=Path, help="Create a new blank map at this path and open it.")
