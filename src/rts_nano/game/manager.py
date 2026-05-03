@@ -119,6 +119,39 @@ class ArcherShot:
         pygame.draw.circle(screen, BLACK, draw_pos, self.radius)
 
 
+@dataclass
+class ClickMarker:
+    """Short-lived visual marker for issued map orders."""
+
+    x: float
+    y: float
+    color: tuple[int, int, int]
+    created_at_ms: int
+    duration_ms: int = 450
+
+    def is_alive(self, now_ms: int) -> bool:
+        """Return whether this marker should still be drawn."""
+        return now_ms - self.created_at_ms < self.duration_ms
+
+    def draw(self, screen: pygame.Surface, offset: tuple[float, float] = (0, 0)) -> None:
+        """Draw an expanding ring at the order position."""
+        now_ms = pygame.time.get_ticks()
+        elapsed = now_ms - self.created_at_ms
+        progress = min(max(elapsed / self.duration_ms, 0.0), 1.0)
+        alpha = int(220 * (1.0 - progress))
+        radius = int(8 + progress * 22)
+        offset_x, offset_y = offset
+        draw_pos = (int(self.x - offset_x), int(self.y - offset_y))
+
+        marker_surface = pygame.Surface((radius * 2 + 6, radius * 2 + 6), pygame.SRCALPHA)
+        center = marker_surface.get_width() // 2, marker_surface.get_height() // 2
+        color = (*self.color, alpha)
+        pygame.draw.circle(marker_surface, color, center, radius, width=3)
+        pygame.draw.line(marker_surface, color, (center[0] - 6, center[1]), (center[0] + 6, center[1]), width=2)
+        pygame.draw.line(marker_surface, color, (center[0], center[1] - 6), (center[0], center[1] + 6), width=2)
+        screen.blit(marker_surface, marker_surface.get_rect(center=draw_pos))
+
+
 class EntitiesGroup:
     """Store team-owned entities and collected resources.
 
@@ -232,6 +265,7 @@ class GameManager:
         ]
         self.magic_missiles: list[MagicMissile] = []
         self.archer_shots: list[ArcherShot] = []
+        self.click_markers: list[ClickMarker] = []
         self.build_peasant_buttons: list[tuple[pygame.Rect, Base]] = []
         self.game_over_message: str | None = None
         self.menu_status: str | None = None
@@ -503,6 +537,11 @@ class GameManager:
                         target_entity = entity
                         break
 
+                marker_color = (255, 80, 80) if target_entity else (80, 255, 120)
+                self.click_markers.append(
+                    ClickMarker(order_pos[0], order_pos[1], marker_color, pygame.time.get_ticks())
+                )
+
                 for entity in self.selected_entities:
                     if isinstance(entity, Unit):
                         self._assign_unit_target(entity, order_pos, target_entity)
@@ -731,6 +770,8 @@ class GameManager:
         self._update_game_over_state()
         self.magic_missiles = [missile for missile in self.magic_missiles if missile.update()]
         self.archer_shots = [shot for shot in self.archer_shots if shot.update()]
+        now_ms = pygame.time.get_ticks()
+        self.click_markers = [marker for marker in self.click_markers if marker.is_alive(now_ms)]
 
     def _update_camera(self) -> None:
         """Scroll the viewport with keyboard keys or edge scrolling."""
@@ -850,6 +891,8 @@ class GameManager:
             missile.draw(world_surface, camera_offset)
         for shot in self.archer_shots:
             shot.draw(world_surface, camera_offset)
+        for marker in self.click_markers:
+            marker.draw(world_surface, camera_offset)
 
         if self.dragging and self.drag_start and self.drag_end:
             x1, y1 = self._world_to_screen(self.drag_start)
