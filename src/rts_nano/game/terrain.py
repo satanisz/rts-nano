@@ -54,9 +54,12 @@ class TerrainMap:
         settings = settings or {}
         self.width = self._load_dimension(settings.get("width"), default=1600)
         self.height = self._load_dimension(settings.get("height"), default=600)
-        self.high_ground: list[TerrainRegion] = self._load_regions(settings.get("high_ground"), level=1)
-        self.ramps: list[TerrainRegion] = self._load_regions(settings.get("ramps"), level=0, kind="ramp")
-        self.water: list[TerrainRegion] = self._load_regions(settings.get("water"), level=0, kind="water")
+        self.high_ground_shapes = self._load_region_groups(settings.get("high_ground"), level=1)
+        self.ramp_shapes = self._load_region_groups(settings.get("ramps"), level=0, kind="ramp")
+        self.water_shapes = self._load_region_groups(settings.get("water"), level=0, kind="water")
+        self.high_ground: list[TerrainRegion] = self._flatten_region_groups(self.high_ground_shapes)
+        self.ramps: list[TerrainRegion] = self._flatten_region_groups(self.ramp_shapes)
+        self.water: list[TerrainRegion] = self._flatten_region_groups(self.water_shapes)
         self.grass: list[TerrainDecoration] = self._load_decorations(settings.get("grass"), kind="grass")
         self.rocks: list[TerrainDecoration] = self._load_decorations(settings.get("rocks"), kind="rocks")
 
@@ -76,7 +79,43 @@ class TerrainMap:
 
     def _load_regions(self, payload: object, *, level: int, kind: str = "high_ground") -> list[TerrainRegion]:
         """Load rectangular terrain regions."""
-        return [TerrainRegion.from_payload(item, level=level, kind=kind) for item in self._as_iterable(payload)]
+        return self._flatten_region_groups(self._load_region_groups(payload, level=level, kind=kind))
+
+    def _load_region_groups(
+        self,
+        payload: object,
+        *,
+        level: int,
+        kind: str = "high_ground",
+    ) -> list[list[TerrainRegion]]:
+        """Load terrain regions, preserving nested grouped shapes."""
+        regions: list[TerrainRegion] = []
+        groups: list[list[TerrainRegion]] = []
+        for item in self._as_iterable(payload):
+            if self._is_region_payload(item):
+                groups.append([TerrainRegion.from_payload(item, level=level, kind=kind)])
+                continue
+            regions = []
+            for nested_item in self._as_iterable(item):
+                if self._is_region_payload(nested_item):
+                    regions.append(TerrainRegion.from_payload(nested_item, level=level, kind=kind))
+            if regions:
+                groups.append(regions)
+        return groups
+
+    @staticmethod
+    def _flatten_region_groups(groups: list[list[TerrainRegion]]) -> list[TerrainRegion]:
+        """Flatten grouped terrain regions for collision and height queries."""
+        return [region for group in groups for region in group]
+
+    @staticmethod
+    def _is_region_payload(payload: object) -> bool:
+        """Return whether a payload looks like [x, y, width, height]."""
+        return (
+            isinstance(payload, list)
+            and len(payload) == 4
+            and all(isinstance(value, (int, float)) for value in payload)
+        )
 
     def _load_decorations(self, payload: object, *, kind: str) -> list[TerrainDecoration]:
         """Load visual map decorations."""
@@ -130,12 +169,13 @@ class TerrainMap:
         """Draw terrain under entities."""
         offset_x, offset_y = int(offset[0]), int(offset[1])
         self._draw_ground(screen)
-        for region in self.water:
-            self._draw_water(screen, region.rect.move(-offset_x, -offset_y))
-        for region in self.high_ground:
-            self._draw_high_ground(screen, region.rect.move(-offset_x, -offset_y))
-        for region in self.ramps:
-            self._draw_ramp(screen, region.rect.move(-offset_x, -offset_y))
+        for shape in self.water_shapes:
+            self._draw_water_shape(screen, [region.rect.move(-offset_x, -offset_y) for region in shape])
+        for shape in self.high_ground_shapes:
+            self._draw_high_ground_shape(screen, [region.rect.move(-offset_x, -offset_y) for region in shape])
+        for shape in self.ramp_shapes:
+            for region in shape:
+                self._draw_ramp(screen, region.rect.move(-offset_x, -offset_y))
         for decoration in self.grass:
             self._draw_grass(screen, decoration, offset)
         for decoration in self.rocks:
@@ -152,6 +192,96 @@ class TerrainMap:
 
     def _draw_high_ground(self, screen: pygame.Surface, rect: pygame.Rect) -> None:
         """Draw a raised plateau."""
+        self._draw_high_ground_shape(screen, [rect])
+
+    def _draw_high_ground_shape(self, screen: pygame.Surface, rects: list[pygame.Rect]) -> None:
+        """Draw one high-ground shape made from one or more rectangles."""
+        if len(rects) == 1:
+            self._draw_legacy_high_ground(screen, rects[0])
+            return
+
+        for rect in rects:
+            shadow = rect.move(10, 10)
+            pygame.draw.rect(screen, (55, 68, 51), shadow)
+        for rect in rects:
+            pygame.draw.rect(screen, (113, 132, 77), rect)
+        self._draw_shape_outline(screen, rects, (64, 77, 57), width=4)
+        self._draw_shape_outline(screen, [rect.inflate(-10, -10) for rect in rects], (154, 167, 103), width=3)
+
+    def _draw_shape_outline(
+        self,
+        screen: pygame.Surface,
+        rects: list[pygame.Rect],
+        color: tuple[int, int, int],
+        *,
+        width: int,
+    ) -> None:
+        """Draw only the outside outline of a grouped rectangle shape."""
+        for rect in rects:
+            for start, end in self._visible_horizontal_segments(rect.left, rect.right, rect.top, -1, rects):
+                pygame.draw.line(screen, color, (start, rect.top), (end, rect.top), width)
+            for start, end in self._visible_horizontal_segments(rect.left, rect.right, rect.bottom, 1, rects):
+                pygame.draw.line(screen, color, (start, rect.bottom), (end, rect.bottom), width)
+            for start, end in self._visible_vertical_segments(rect.top, rect.bottom, rect.left, -1, rects):
+                pygame.draw.line(screen, color, (rect.left, start), (rect.left, end), width)
+            for start, end in self._visible_vertical_segments(rect.top, rect.bottom, rect.right, 1, rects):
+                pygame.draw.line(screen, color, (rect.right, start), (rect.right, end), width)
+
+    @staticmethod
+    def _visible_horizontal_segments(
+        left: int,
+        right: int,
+        y: int,
+        outward_step: int,
+        rects: list[pygame.Rect],
+    ) -> list[tuple[int, int]]:
+        """Return horizontal edge segments not covered by the grouped shape."""
+        covered: list[tuple[int, int]] = []
+        for other in rects:
+            if other.collidepoint(max(other.left, min(left, other.right - 1)), y + outward_step):
+                overlap_left = max(left, other.left)
+                overlap_right = min(right, other.right)
+                if overlap_left < overlap_right:
+                    covered.append((overlap_left, overlap_right))
+        return TerrainMap._subtract_segments((left, right), covered)
+
+    @staticmethod
+    def _visible_vertical_segments(
+        top: int,
+        bottom: int,
+        x: int,
+        outward_step: int,
+        rects: list[pygame.Rect],
+    ) -> list[tuple[int, int]]:
+        """Return vertical edge segments not covered by the grouped shape."""
+        covered: list[tuple[int, int]] = []
+        for other in rects:
+            if other.collidepoint(x + outward_step, max(other.top, min(top, other.bottom - 1))):
+                overlap_top = max(top, other.top)
+                overlap_bottom = min(bottom, other.bottom)
+                if overlap_top < overlap_bottom:
+                    covered.append((overlap_top, overlap_bottom))
+        return TerrainMap._subtract_segments((top, bottom), covered)
+
+    @staticmethod
+    def _subtract_segments(base: tuple[int, int], covered: list[tuple[int, int]]) -> list[tuple[int, int]]:
+        """Subtract covered intervals from one base interval."""
+        visible = [base]
+        for cover_start, cover_end in covered:
+            next_visible: list[tuple[int, int]] = []
+            for start, end in visible:
+                if cover_end <= start or cover_start >= end:
+                    next_visible.append((start, end))
+                    continue
+                if start < cover_start:
+                    next_visible.append((start, cover_start))
+                if cover_end < end:
+                    next_visible.append((cover_end, end))
+            visible = next_visible
+        return [(start, end) for start, end in visible if start < end]
+
+    def _draw_legacy_high_ground(self, screen: pygame.Surface, rect: pygame.Rect) -> None:
+        """Draw a raised plateau using the pre-grouped renderer."""
         shadow = rect.move(10, 10)
         pygame.draw.rect(screen, (55, 68, 51), shadow, border_radius=10)
         pygame.draw.rect(screen, (113, 132, 77), rect, border_radius=10)
@@ -171,6 +301,23 @@ class TerrainMap:
 
     def _draw_water(self, screen: pygame.Surface, rect: pygame.Rect) -> None:
         """Draw a shallow decorative water patch."""
+        self._draw_water_shape(screen, [rect])
+
+    def _draw_water_shape(self, screen: pygame.Surface, rects: list[pygame.Rect]) -> None:
+        """Draw one water shape made from one or more rectangles."""
+        if len(rects) == 1:
+            self._draw_legacy_water(screen, rects[0])
+            return
+
+        for rect in rects:
+            pygame.draw.rect(screen, (43, 92, 119), rect)
+        for rect in rects:
+            for y in range(rect.top + 12, rect.bottom, 22):
+                pygame.draw.arc(screen, (78, 144, 162), (rect.left + 8, y, rect.width - 16, 18), 0.1, 3.0, 2)
+        self._draw_shape_outline(screen, rects, (30, 70, 95), width=2)
+
+    def _draw_legacy_water(self, screen: pygame.Surface, rect: pygame.Rect) -> None:
+        """Draw a shallow decorative water patch using the pre-grouped renderer."""
         pygame.draw.rect(screen, (43, 92, 119), rect, border_radius=14)
         for y in range(rect.top + 12, rect.bottom, 22):
             pygame.draw.arc(screen, (78, 144, 162), (rect.left + 8, y, rect.width - 16, 18), 0.1, 3.0, 2)

@@ -1,0 +1,29 @@
+{
+    "Blue": {
+        "peasant": [],
+        "base": [],
+        "knight": [],
+        "archer": [],
+        "mage": []
+    },
+    "Red": {
+        "peasant": [],
+        "base": [],
+        "knight": [],
+        "archer": [],
+        "mage": []
+    },
+    "Resources": {
+        "wood": [],
+        "cristal": []
+    },
+    "Terrain": {
+        "width": 3200,
+        "height": 2200,
+        "high_ground": [],
+        "ramps": [],
+        "water": [],
+        "rocks": [],
+        "grass": []
+    }
+}
