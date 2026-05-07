@@ -431,6 +431,14 @@ class Unit(Entity, ABC):
         """Return whether the current target is inside attack range."""
         return distance_between(self, target) <= self._get_attack_distance(target)
 
+    def _get_interaction_distance(self) -> float:
+        """Return how close the unit must get to complete the current order."""
+        if self.target_entity and self._is_hostile_target(self.target_entity):
+            return self._get_attack_distance(self.target_entity)
+        if self.target_entity:
+            return self.radius + self.target_entity.radius + 2
+        return self.speed
+
     def _attack(self, target: Entity) -> None:
         """Apply damage to a hostile target when the cooldown has elapsed.
 
@@ -507,20 +515,25 @@ class Unit(Entity, ABC):
             dy = self.target_y - self.y
             dist = (dx**2 + dy**2) ** 0.5
 
-            interaction_dist = self.speed
-            if self.path:
-                interaction_dist = max(self.speed, 2)
-            elif self.target_entity and self._is_hostile_target(self.target_entity):
-                interaction_dist = self._get_attack_distance(self.target_entity)
-            elif self.target_entity:
-                interaction_dist = self.radius + self.target_entity.radius + 2
+            is_final_entity_waypoint = bool(self.path and len(self.path) == 1 and self.target_entity)
+            interaction_dist = (
+                self._get_interaction_distance() if is_final_entity_waypoint else max(self.speed, 2)
+            )
+            if not self.path:
+                interaction_dist = self._get_interaction_distance()
 
             if dist < interaction_dist:
                 if self.path:
-                    self.x = self.target_x
-                    self.y = self.target_y
+                    if not is_final_entity_waypoint:
+                        self.x = self.target_x
+                        self.y = self.target_y
                     self.path.pop(0)
-                    self.state = "MOVING"
+                    if self.path:
+                        self.state = "MOVING"
+                    elif self.target_entity and self._is_hostile_target(self.target_entity):
+                        self._attack(self.target_entity)
+                    else:
+                        self._handle_target_reached()
                     self.resolve_collisions(entities)
                     return
                 if self.target_entity and self._is_hostile_target(self.target_entity):
