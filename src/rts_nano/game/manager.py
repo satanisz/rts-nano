@@ -30,7 +30,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import pygame
 
@@ -59,8 +59,8 @@ if TYPE_CHECKING:
 
     from rts_nano.map_schema import MapSettings
 
-WOOD_ICON = "\U0001FAB5"
-CRISTAL_ICON = "\U0001F48E"
+WOOD_ICON = "\U0001fab5"
+CRISTAL_ICON = "\U0001f48e"
 FULLSCREEN_TOGGLE_EVENT = pygame.USEREVENT + 1
 PLAY_AREA_HEIGHT = SCREEN_HEIGHT - BOTTOM_MENU_HEIGHT
 CAMERA_SPEED = 12
@@ -519,7 +519,7 @@ class GameManager:
             for asset_type, coords in assets.items():
                 normalized_coords = self._normalize_coords(coords)
                 for x, y in normalized_coords:
-                    entity = EntityFactory.create_entity(asset_type, x, y, team_color)
+                    entity = EntityFactory.create_entity(cast("str", asset_type), x, y, team_color)
                     match entity:
                         case Peasant():
                             group.peasents.append(entity)
@@ -587,9 +587,7 @@ class GameManager:
             elif event.key == pygame.K_F10:
                 self.menu_active = not self.menu_active
                 self.paused = self.menu_active
-            elif event.key == pygame.K_F11 or (
-                event.key == pygame.K_RETURN and event.mod & pygame.KMOD_ALT
-            ):
+            elif event.key == pygame.K_F11 or (event.key == pygame.K_RETURN and event.mod & pygame.KMOD_ALT):
                 self._request_fullscreen_toggle()
             elif event.key == pygame.K_b:
                 self._try_build_peasant_from_selection()
@@ -1041,7 +1039,9 @@ class GameManager:
             emoji_font.render(WOOD_ICON, True, ui_color),
             font.render(f": {res['wood']}   ", True, ui_color),
             emoji_font.render(CRISTAL_ICON, True, ui_color),
-            font.render(f": {res['cristal']} | Buildings: {num_buildings}   Units: {num_units}/{MAX_UNITS}", True, ui_color),
+            font.render(
+                f": {res['cristal']} | Buildings: {num_buildings}   Units: {num_units}/{MAX_UNITS}", True, ui_color
+            ),
         ]
 
         if self.paused and not self.menu_active:

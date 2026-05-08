@@ -9,6 +9,11 @@ from pathlib import Path
 from rts_nano.map_schema import validate_map_settings
 
 
+def _write_line(message: str) -> None:
+    """Write one CLI output line without coupling validation to print."""
+    sys.stdout.write(f"{message}\n")
+
+
 def _parse_args() -> Namespace:
     """Parse validator CLI arguments."""
     parser = ArgumentParser(description="Validate RTS Nano map JSON files.")
@@ -38,11 +43,11 @@ def main() -> None:
         errors = validate_map_file(path)
         if errors:
             failed = True
-            print(f"{path}: invalid")
+            _write_line(f"{path}: invalid")
             for error in errors:
-                print(f"  - {error}")
+                _write_line(f"  - {error}")
         else:
-            print(f"{path}: ok")
+            _write_line(f"{path}: ok")
     sys.exit(1 if failed else 0)
 
 

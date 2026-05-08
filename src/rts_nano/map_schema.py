@@ -23,13 +23,15 @@ without forcing a full serialization rewrite.
 from __future__ import annotations
 
 import json
-from pathlib import Path
-from typing import NotRequired, TypeAlias, TypedDict, cast
+from typing import TYPE_CHECKING, NotRequired, TypedDict, cast
 
-Number: TypeAlias = int | float
-Coordinate: TypeAlias = list[int]
-RectPayload: TypeAlias = list[int]
-RectGroupPayload: TypeAlias = list[RectPayload]
+if TYPE_CHECKING:
+    from pathlib import Path
+
+type Number = int | float
+type Coordinate = list[int]
+type RectPayload = list[int]
+type RectGroupPayload = list[RectPayload]
 
 
 class TeamSettings(TypedDict, total=False):
@@ -105,10 +107,11 @@ def validate_map_settings(payload: object) -> list[str]:
     if not isinstance(payload, dict):
         return ["Map root must be a JSON object."]
 
-    _validate_team(payload, "Blue", errors)
-    _validate_team(payload, "Red", errors)
-    _validate_resources(payload, errors)
-    _validate_terrain(payload, errors)
+    root = cast("dict[object, object]", payload)
+    _validate_team(root, "Blue", errors)
+    _validate_team(root, "Red", errors)
+    _validate_resources(root, errors)
+    _validate_terrain(root, errors)
     return errors
 
 
@@ -120,8 +123,8 @@ def normalize_grouped_terrain(settings: MapSettings) -> None:
     useful for tests or external tools that want to migrate in-memory payloads.
     """
     terrain = settings["Terrain"]
-    for key in ("high_ground", "water"):
-        terrain[key] = [_rect_group_from_payload(payload) for payload in terrain.get(key, [])]  # type: ignore[literal-required]
+    terrain["high_ground"] = [_rect_group_from_payload(payload) for payload in terrain.get("high_ground", [])]
+    terrain["water"] = [_rect_group_from_payload(payload) for payload in terrain.get("water", [])]
 
 
 def _validate_team(payload: dict[object, object], key: str, errors: list[str]) -> None:
@@ -153,17 +156,18 @@ def _validate_terrain(payload: dict[object, object], errors: list[str]) -> None:
     if not isinstance(terrain, dict):
         errors.append("Terrain must be an object.")
         return
+    terrain_payload = cast("dict[object, object]", terrain)
 
     for dimension in ("width", "height"):
-        value = terrain.get(dimension)
+        value = terrain_payload.get(dimension)
         if not isinstance(value, int) or value <= 0:
             errors.append(f"Terrain.{dimension} must be a positive integer.")
 
-    _validate_grouped_rect_list(terrain.get("high_ground"), "Terrain.high_ground", errors)
-    _validate_grouped_rect_list(terrain.get("water"), "Terrain.water", errors)
-    _validate_rect_list(terrain.get("ramps"), "Terrain.ramps", errors)
-    _validate_point_radius_list(terrain.get("rocks"), "Terrain.rocks", errors)
-    _validate_point_radius_list(terrain.get("grass"), "Terrain.grass", errors)
+    _validate_grouped_rect_list(terrain_payload.get("high_ground"), "Terrain.high_ground", errors)
+    _validate_grouped_rect_list(terrain_payload.get("water"), "Terrain.water", errors)
+    _validate_rect_list(terrain_payload.get("ramps"), "Terrain.ramps", errors)
+    _validate_point_radius_list(terrain_payload.get("rocks"), "Terrain.rocks", errors)
+    _validate_point_radius_list(terrain_payload.get("grass"), "Terrain.grass", errors)
 
 
 def _validate_coordinate_list(payload: object, label: str, errors: list[str]) -> None:
@@ -215,27 +219,22 @@ def _rect_group_from_payload(payload: object) -> RectGroupPayload:
 
 
 def _is_coordinate(payload: object) -> bool:
-    return (
-        isinstance(payload, list)
-        and len(payload) == 2
-        and all(isinstance(value, (int, float)) for value in payload)
-    )
+    return isinstance(payload, list) and len(payload) == 2 and all(isinstance(value, (int, float)) for value in payload)
 
 
 def _is_rect_payload(payload: object) -> bool:
-    return (
-        isinstance(payload, list)
-        and len(payload) == 4
-        and all(isinstance(value, int) for value in payload)
-        and payload[2] > 0
-        and payload[3] > 0
-    )
+    if not isinstance(payload, list) or len(payload) != 4:
+        return False
+    x, y, width, height = payload
+    if not all(isinstance(value, int) for value in (x, y, width, height)):
+        return False
+    return cast("int", width) > 0 and cast("int", height) > 0
 
 
 def _is_point_radius(payload: object) -> bool:
-    return (
-        isinstance(payload, list)
-        and len(payload) == 3
-        and all(isinstance(value, int) for value in payload)
-        and payload[2] > 0
-    )
+    if not isinstance(payload, list) or len(payload) != 3:
+        return False
+    x, y, radius = payload
+    if not all(isinstance(value, int) for value in (x, y, radius)):
+        return False
+    return cast("int", radius) > 0

@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from rts_nano.map_schema import load_map_settings, validate_map_settings
 from rts_nano.validate_map import validate_map_file
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def _valid_payload() -> dict[str, object]:

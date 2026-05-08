@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+from typing import TYPE_CHECKING
+
 from rts_nano.game.assets.entities.base_entities import TeamColor
 from rts_nano.headless import HeadlessSimulation
-from rts_nano.map_schema import MapSettings
+
+if TYPE_CHECKING:
+    from rts_nano.map_schema import MapSettings
 
 
 def _settings() -> MapSettings:
@@ -59,4 +64,33 @@ def test_peasant_starts_harvesting_targeted_resources() -> None:
     simulation.step(80)
 
     assert peasant.carry_cristal > 0
+    simulation.close()
+
+
+def test_peasant_harvests_resource_beyond_ramp_edge() -> None:
+    """A* should not choose a diagonal shortcut that local movement rejects."""
+    simulation = HeadlessSimulation.from_map_file(Path("src/rts_nano/maps/map_settings_01.json"))
+    manager = simulation.manager
+    peasant = manager.entities[TeamColor.BLUE].peasents[0]
+    crystal = manager.resources.cristals[0]
+
+    manager._assign_unit_target(peasant, crystal.get_center(), crystal)
+    simulation.step(400)
+
+    assert peasant.carry_cristal > 0
+    simulation.close()
+
+
+def test_unit_path_is_not_blocked_by_neutral_resources() -> None:
+    """Neutral resources are selectable targets, not pathfinding blockers."""
+    simulation = HeadlessSimulation.from_map_file(Path("src/rts_nano/maps/map_settings_01.json"))
+    manager = simulation.manager
+    knight = manager.entities[TeamColor.BLUE].knights[0]
+
+    manager._assign_unit_target(knight, (1000, 500))
+    simulation.step(300)
+
+    assert knight.state == "IDLE"
+    assert not knight.path
+    assert knight.get_center() == (1000, 500)
     simulation.close()

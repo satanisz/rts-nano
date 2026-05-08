@@ -23,13 +23,14 @@ Movement rules are intentionally simple:
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import pygame
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Iterable, Mapping
 
 
 @dataclass(frozen=True)
@@ -91,7 +92,7 @@ class TerrainMap:
     * grouped shapes for visual rendering of joined terrain.
     """
 
-    def __init__(self, settings: dict[str, object] | None = None) -> None:
+    def __init__(self, settings: Mapping[str, object] | None = None) -> None:
         """Initialize terrain from optional map settings.
 
         Missing or malformed terrain arrays are treated as empty. Width/height
@@ -231,9 +232,25 @@ class TerrainMap:
         radius: float,
     ) -> bool:
         """Return whether a unit may move from current point to next point."""
-        if self.blocks_movement(next_point, radius):
-            return False
-        return self.allows_height_transition(current_point, next_point)
+        current_x, current_y = current_point
+        next_x, next_y = next_point
+        distance = math.hypot(next_x - current_x, next_y - current_y)
+        step_size = 0.5
+        steps = max(1, math.ceil(distance / step_size))
+
+        previous_point = current_point
+        for step in range(1, steps + 1):
+            t = step / steps
+            sample_point = (
+                current_x + (next_x - current_x) * t,
+                current_y + (next_y - current_y) * t,
+            )
+            if self.blocks_movement(sample_point, radius):
+                return False
+            if not self.allows_height_transition(previous_point, sample_point):
+                return False
+            previous_point = sample_point
+        return True
 
     def draw(self, screen: pygame.Surface, offset: tuple[float, float] = (0, 0)) -> None:
         """Draw terrain under entities.
@@ -417,12 +434,12 @@ class TerrainMap:
         draw_x = int(decoration.x - offset_x)
         draw_y = int(decoration.y - offset_y)
         color = (121, 150, 63)
-        for offset in (-6, 0, 6):
+        for blade_offset in (-6, 0, 6):
             pygame.draw.line(
                 screen,
                 color,
-                (draw_x + offset, draw_y + decoration.radius),
-                (draw_x + offset // 2, draw_y - decoration.radius),
+                (draw_x + blade_offset, draw_y + decoration.radius),
+                (draw_x + blade_offset // 2, draw_y - decoration.radius),
                 2,
             )
 

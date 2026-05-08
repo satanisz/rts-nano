@@ -516,9 +516,7 @@ class Unit(Entity, ABC):
             dist = (dx**2 + dy**2) ** 0.5
 
             is_final_entity_waypoint = bool(self.path and len(self.path) == 1 and self.target_entity)
-            interaction_dist = (
-                self._get_interaction_distance() if is_final_entity_waypoint else max(self.speed, 2)
-            )
+            interaction_dist = self._get_interaction_distance() if is_final_entity_waypoint else max(self.speed, 2)
             if not self.path:
                 interaction_dist = self._get_interaction_distance()
 
@@ -583,10 +581,11 @@ class Unit(Entity, ABC):
     def resolve_collisions(self, entities: Iterable[Entity]) -> None:
         """Push the unit away from overlapping entities.
 
-        Collision response is simple pairwise separation. Workers currently
-        ignore allied unit collision while targeting a resource so multiple
-        workers can gather from nearby nodes without constantly pushing each
-        other off the resource.
+        Collision response is simple pairwise separation. Resources remain
+        selectable targets but do not block movement, matching terrain
+        pathfinding. Workers also ignore allied unit collision while targeting a
+        resource so multiple workers can gather from nearby nodes without
+        constantly pushing each other off the resource.
 
         Args:
             entities: Entities that may collide with the unit.
@@ -596,11 +595,9 @@ class Unit(Entity, ABC):
         for entity in entities:
             if entity is self:
                 continue
-            if (
-                isinstance(self.target_entity, Resource)
-                and isinstance(entity, Unit)
-                and entity.team == self.team
-            ):
+            if isinstance(entity, Resource):
+                continue
+            if isinstance(self.target_entity, Resource) and isinstance(entity, Unit) and entity.team == self.team:
                 continue
 
             other_cx, other_cy = entity.get_center()

@@ -34,11 +34,15 @@ import sys
 from argparse import ArgumentParser, Namespace
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING, cast
 
 import pygame
 
 from rts_nano.game.constants import BLACK, BLUE, FPS, RED, SCREEN_HEIGHT, SCREEN_WIDTH, WHITE, YELLOW
 from rts_nano.game.terrain import TerrainMap
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 BASE_DIR = Path(__file__).resolve().parent
 DEFAULT_MAP_PATH = BASE_DIR / "maps" / "map_settings_01.json"
@@ -148,17 +152,19 @@ class MapEditor:
         terrain = self.settings.setdefault("Terrain", {})
         if not isinstance(terrain, dict):
             raise TypeError("Terrain settings must be a JSON object.")
-        return terrain
+        return cast("dict[str, object]", terrain)
 
     @property
     def map_width(self) -> int:
         """Return map width from settings."""
-        return int(self.terrain_settings.get("width", SCREEN_WIDTH))
+        width = self.terrain_settings.get("width", SCREEN_WIDTH)
+        return int(width) if isinstance(width, (int, float, str)) else SCREEN_WIDTH
 
     @property
     def map_height(self) -> int:
         """Return map height from settings."""
-        return int(self.terrain_settings.get("height", SCREEN_HEIGHT - HUD_HEIGHT))
+        height = self.terrain_settings.get("height", SCREEN_HEIGHT - HUD_HEIGHT)
+        return int(height) if isinstance(height, (int, float, str)) else SCREEN_HEIGHT - HUD_HEIGHT
 
     @staticmethod
     def blank_settings(width: int = 3200, height: int = 2200) -> dict[str, object]:
@@ -244,9 +250,7 @@ class MapEditor:
             for payload in self._terrain_list(key):
                 rects = self._payload_rects(payload)
                 if rects:
-                    normalized_groups.append(
-                        [[rect.x, rect.y, rect.width, rect.height] for rect in rects]
-                    )
+                    normalized_groups.append([[rect.x, rect.y, rect.width, rect.height] for rect in rects])
             self.terrain_settings[key] = normalized_groups
 
     def handle_event(self, event: pygame.event.Event) -> bool:
@@ -399,7 +403,7 @@ class MapEditor:
             world_y = round(world_y / GRID_SIZE) * GRID_SIZE
         return min(max(world_x, 0), self.map_width), min(max(world_y, 0), self.map_height)
 
-    def _world_to_screen(self, pos: tuple[int, int] | list[int]) -> tuple[int, int]:
+    def _world_to_screen(self, pos: Sequence[int]) -> tuple[int, int]:
         """Convert map coordinates to screen coordinates."""
         return int(pos[0] - self.camera_x), int(pos[1] - self.camera_y)
 
@@ -408,17 +412,18 @@ class MapEditor:
         terrain_list = self.terrain_settings.setdefault(key, [])
         if not isinstance(terrain_list, list):
             raise TypeError(f"Terrain field {key!r} must be a list.")
-        return terrain_list
+        return cast("list[list[int]]", terrain_list)
 
     def _resource_list(self, key: str) -> list[list[int]]:
         """Return a mutable resource list, creating it if needed."""
         resources = self.settings.setdefault("Resources", {})
         if not isinstance(resources, dict):
             raise TypeError("Resources settings must be a JSON object.")
-        resource_list = resources.setdefault(key, [])
+        resources_payload = cast("dict[str, object]", resources)
+        resource_list = resources_payload.setdefault(key, [])
         if not isinstance(resource_list, list):
             raise TypeError(f"Resource field {key!r} must be a list.")
-        return resource_list
+        return cast("list[list[int]]", resource_list)
 
     def _team_entity_list(self, tool: str) -> list[list[int]]:
         """Return a mutable team entity list for an entity tool."""
@@ -427,10 +432,11 @@ class MapEditor:
         team_settings = self.settings.setdefault(team_key, {})
         if not isinstance(team_settings, dict):
             raise TypeError(f"{team_key} settings must be a JSON object.")
-        entity_list = team_settings.setdefault(entity_name, [])
+        team_payload = cast("dict[str, object]", team_settings)
+        entity_list = team_payload.setdefault(entity_name, [])
         if not isinstance(entity_list, list):
             raise TypeError(f"{team_key}.{entity_name} must be a list.")
-        return entity_list
+        return cast("list[list[int]]", entity_list)
 
     def _add_point_item(self, world_pos: tuple[int, int]) -> None:
         """Place a resource, decoration, or entity."""
@@ -481,7 +487,10 @@ class MapEditor:
                 payload_rects = self._payload_rects(payload)
                 if any(bounds.inflate(2, 2).colliderect(existing_rect) for existing_rect in payload_rects):
                     grouped_payloads.extend(
-                        [[existing_rect.x, existing_rect.y, existing_rect.width, existing_rect.height] for existing_rect in payload_rects]
+                        [
+                            [existing_rect.x, existing_rect.y, existing_rect.width, existing_rect.height]
+                            for existing_rect in payload_rects
+                        ]
                     )
                     for existing_rect in payload_rects:
                         bounds.union_ip(existing_rect)
@@ -489,7 +498,7 @@ class MapEditor:
                     merged_count += 1
                     changed = True
 
-        rect_payloads.append(grouped_payloads)
+        rect_payloads.append(cast("list[int]", grouped_payloads))
         return bounds, merged_count
 
     def _remove_nearest_item(self, world_pos: tuple[int, int]) -> None:
@@ -576,7 +585,7 @@ class MapEditor:
                 continue
             for points in team_settings.values():
                 if isinstance(points, list):
-                    entity_lists.append(points)
+                    entity_lists.append(cast("list[list[int]]", points))
         return entity_lists
 
     @staticmethod
@@ -647,19 +656,15 @@ class MapEditor:
         normalize the result.
         """
         if MapEditor._is_rect_payload(payload):
-            return [pygame.Rect(*payload)]
+            return [pygame.Rect(*cast("list[int]", payload))]
         if not isinstance(payload, list):
             return []
-        return [pygame.Rect(*item) for item in payload if MapEditor._is_rect_payload(item)]
+        return [pygame.Rect(*cast("list[int]", item)) for item in payload if MapEditor._is_rect_payload(item)]
 
     @staticmethod
     def _is_rect_payload(payload: object) -> bool:
         """Return whether payload is [x, y, width, height]."""
-        return (
-            isinstance(payload, list)
-            and len(payload) == 4
-            and all(isinstance(value, int) for value in payload)
-        )
+        return isinstance(payload, list) and len(payload) == 4 and all(isinstance(value, int) for value in payload)
 
     @staticmethod
     def _remove_points_in_rect(payloads: list[list[int]], rect: pygame.Rect) -> int:
@@ -695,10 +700,21 @@ class MapEditor:
         resources = self.settings.get("Resources", {})
         if not isinstance(resources, dict):
             return
-        for point in resources.get("wood", []):
-            pygame.draw.circle(screen, (35, 25, 18), self._world_to_screen(point), 6)
-        for point in resources.get("cristal", []):
-            pygame.draw.circle(screen, (80, 230, 255), self._world_to_screen(point), 6)
+        resources_payload = cast("dict[str, object]", resources)
+        wood_points = resources_payload.get("wood", [])
+        if not isinstance(wood_points, list):
+            wood_points = []
+        for point in wood_points:
+            if not isinstance(point, list):
+                continue
+            pygame.draw.circle(screen, (35, 25, 18), self._world_to_screen(cast("Sequence[int]", point)), 6)
+        crystal_points = resources_payload.get("cristal", [])
+        if not isinstance(crystal_points, list):
+            crystal_points = []
+        for point in crystal_points:
+            if not isinstance(point, list):
+                continue
+            pygame.draw.circle(screen, (80, 230, 255), self._world_to_screen(cast("Sequence[int]", point)), 6)
 
     def _draw_entities(self, screen: pygame.Surface) -> None:
         """Draw simple team/entity markers."""
@@ -711,7 +727,9 @@ class MapEditor:
                 if not isinstance(points, list):
                     continue
                 for point in points:
-                    pos = self._world_to_screen(point)
+                    if not isinstance(point, list):
+                        continue
+                    pos = self._world_to_screen(cast("Sequence[int]", point))
                     size = 24 if entity_name == "base" else 12
                     rect = pygame.Rect(0, 0, size, size)
                     rect.center = pos

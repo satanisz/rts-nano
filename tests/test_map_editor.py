@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pygame
 
 from rts_nano.map_editor import MapEditor
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def _write_map(path: Path) -> None:
