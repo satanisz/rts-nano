@@ -89,6 +89,7 @@ class Entity(ABC):
         self.class_name: str = class_name
         self.image: pygame.Surface | None = None
         self.original_image: pygame.Surface | None = None
+        self.avatar_image: pygame.Surface | None = None
         self.height_level: int = 0
 
     @classmethod
@@ -120,13 +121,15 @@ class Entity(ABC):
         """
         if image_path:
             try:
-                self.image = pygame.image.load(image_path)
-                self.image = pygame.transform.scale(self.image, (int(self.size), int(self.size)))
+                raw_image = pygame.image.load(image_path)
+                self.avatar_image = pygame.transform.scale(raw_image, (120, 120))
+                self.image = pygame.transform.scale(raw_image, (int(self.size), int(self.size)))
                 self.original_image = self.image
             except Exception as exc:
                 logging.warning(f"Could not load image {image_path}: {exc}")
                 self.image = None
                 self.original_image = None
+                self.avatar_image = None
 
     def draw(self, screen: pygame.Surface, offset: tuple[float, float] = (0, 0)) -> None:
         """Draw the entity, its collision radius, and selection outline.
@@ -306,6 +309,10 @@ class Unit(Entity, ABC):
         self.last_attack_event: tuple[tuple[float, float], tuple[float, float], AttackType, Entity] | None = None
         self.path: list[tuple[float, float]] = []
         self.state = "IDLE"
+        self.progress_anchor_x: float = float(x)
+        self.progress_anchor_y: float = float(y)
+        self.stuck_frames: int = 0
+        self.unstuck_cooldown: int = 0
 
     def draw(self, screen: pygame.Surface, offset: tuple[float, float] = (0, 0)) -> None:
         """Draw the unit and flip the sprite to match movement direction.
@@ -362,6 +369,10 @@ class Unit(Entity, ABC):
         self.target_x, self.target_y = pos
         self.target_entity = target_entity
         self.path.clear()
+        self.progress_anchor_x = self.x
+        self.progress_anchor_y = self.y
+        self.stuck_frames = 0
+        self.unstuck_cooldown = 0
 
         if isinstance(target_entity, Resource):
             self.source_resource = target_entity

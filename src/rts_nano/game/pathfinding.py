@@ -75,8 +75,8 @@ def find_path(
         if current == goal_cell:
             return _reconstruct_path(came_from, current, goal, grid_size, width, height)
 
+        current_point = _cell_center(current, grid_size, width, height)
         for neighbor, move_cost in _neighbors(current, max_col, max_row):
-            current_point = _cell_center(current, grid_size, width, height)
             neighbor_point = _cell_center(neighbor, grid_size, width, height)
             if not can_move_between(current_point, neighbor_point):
                 continue

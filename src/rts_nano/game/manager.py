@@ -68,6 +68,10 @@ EDGE_SCROLL_MARGIN = 24
 MINIMAP_WIDTH = 220
 MINIMAP_HEIGHT = 150
 MINIMAP_PADDING = 12
+FORMATION_SPACING = 38
+STUCK_FRAME_LIMIT = 75
+STUCK_PROGRESS_DISTANCE = 6.0
+UNSTUCK_COOLDOWN_FRAMES = 45
 
 
 @dataclass
@@ -477,16 +481,24 @@ class GameManager:
     def _find_unit_path(self, unit: Unit, destination: tuple[float, float]) -> list[tuple[float, float]]:
         """Build a terrain-aware path for a unit."""
         goal = self._clamp_to_world(destination)
+        movement_cache: dict[tuple[tuple[float, float], tuple[float, float]], bool] = {}
+
+        def can_move_between(current: tuple[float, float], next_point: tuple[float, float]) -> bool:
+            key = (current, next_point)
+            if key not in movement_cache:
+                movement_cache[key] = self.terrain.can_move_between(
+                    current,
+                    next_point,
+                    radius=unit.radius,
+                )
+            return movement_cache[key]
+
         return find_path(
             unit.get_center(),
             goal,
             width=self.map_width,
             height=self.map_height,
-            can_move_between=lambda current, next_point: self.terrain.can_move_between(
-                current,
-                next_point,
-                radius=unit.radius,
-            ),
+            can_move_between=can_move_between,
         )
 
     def _assign_unit_target(
@@ -498,6 +510,72 @@ class GameManager:
         """Assign a unit target plus an A* path when one is available."""
         unit.set_target(destination, target_entity)
         unit.set_path(self._find_unit_path(unit, destination))
+
+    def _assign_group_move_order(self, units: list[Unit], destination: tuple[int, int]) -> None:
+        """Assign a ground move order, spreading units across formation slots."""
+        if not units:
+            return
+        slots = self._formation_destinations(destination, len(units))
+        remaining_slots = slots.copy()
+        for unit in sorted(units, key=lambda selected_unit: distance_between_points(selected_unit.get_center(), destination)):
+            slot = min(remaining_slots, key=lambda candidate: distance_between_points(unit.get_center(), candidate))
+            remaining_slots.remove(slot)
+            self._assign_unit_target(unit, slot)
+
+    def _formation_destinations(self, center: tuple[int, int], count: int) -> list[tuple[int, int]]:
+        """Return terrain-valid formation slots around a clicked ground point."""
+        if count <= 1:
+            return [center]
+
+        columns = math.ceil(math.sqrt(count))
+        rows = math.ceil(count / columns)
+        offsets: list[tuple[float, float]] = []
+        for row in range(rows):
+            for column in range(columns):
+                offset_x = (column - (columns - 1) / 2) * FORMATION_SPACING
+                offset_y = (row - (rows - 1) / 2) * FORMATION_SPACING
+                offsets.append((offset_x, offset_y))
+
+        offsets.sort(key=lambda offset: offset[0] ** 2 + offset[1] ** 2)
+        destinations: list[tuple[int, int]] = []
+        for offset_x, offset_y in offsets[:count]:
+            slot = self._clamp_to_world((center[0] + offset_x, center[1] + offset_y))
+            if self.terrain.blocks_movement(slot):
+                slot = center
+            destinations.append(slot)
+        return destinations
+
+    def _update_unit_stuck_recovery(self, unit: Unit) -> None:
+        """Recover units nudged off path by local collision resolution."""
+        if unit.unstuck_cooldown > 0:
+            unit.unstuck_cooldown -= 1
+
+        if unit.state != "MOVING":
+            unit.progress_anchor_x = unit.x
+            unit.progress_anchor_y = unit.y
+            unit.stuck_frames = 0
+            return
+
+        progress_distance = distance_between_points((unit.x, unit.y), (unit.progress_anchor_x, unit.progress_anchor_y))
+        if progress_distance >= STUCK_PROGRESS_DISTANCE:
+            unit.progress_anchor_x = unit.x
+            unit.progress_anchor_y = unit.y
+            unit.stuck_frames = 0
+            return
+
+        unit.stuck_frames += 1
+        if unit.stuck_frames < STUCK_FRAME_LIMIT or unit.unstuck_cooldown > 0:
+            return
+
+        if unit.path:
+            unit.path.pop(0)
+        elif unit.target_entity and getattr(unit.target_entity, "life", 1) > 0:
+            self._assign_unit_target(unit, unit.target_entity.get_center(), unit.target_entity)
+
+        unit.progress_anchor_x = unit.x
+        unit.progress_anchor_y = unit.y
+        unit.stuck_frames = 0
+        unit.unstuck_cooldown = UNSTUCK_COOLDOWN_FRAMES
 
     def _load_map_settings(self) -> None:
         """Instantiate entities from the loaded map configuration.
@@ -638,8 +716,11 @@ class GameManager:
                     ClickMarker(order_pos[0], order_pos[1], marker_color, pygame.time.get_ticks())
                 )
 
-                for entity in self.selected_entities:
-                    if isinstance(entity, Unit):
+                selected_units = [entity for entity in self.selected_entities if isinstance(entity, Unit)]
+                if target_entity is None:
+                    self._assign_group_move_order(selected_units, order_pos)
+                else:
+                    for entity in selected_units:
                         self._assign_unit_target(entity, order_pos, target_entity)
 
         elif event.type == pygame.MOUSEBUTTONUP:
@@ -784,6 +865,7 @@ class GameManager:
 
             if isinstance(entity, Unit):
                 entity.update(all_ents, self._can_unit_move_to)
+                self._update_unit_stuck_recovery(entity)
                 attack_event = entity.consume_attack_event()
                 if attack_event and attack_event[2] == AttackType.RANGED:
                     source_pos, target_pos, _, target_entity = attack_event
@@ -924,7 +1006,23 @@ class GameManager:
         self.build_peasant_buttons.clear()
 
         if self.selected_entities:
-            start_x = MINIMAP_WIDTH + MINIMAP_PADDING * 2 + 20
+            # Avatar drawing
+            avatar_size = 120
+            avatar_x = MINIMAP_WIDTH + MINIMAP_PADDING * 2 + 20
+            avatar_y = SCREEN_HEIGHT - BOTTOM_MENU_HEIGHT + (BOTTOM_MENU_HEIGHT - avatar_size) // 2
+
+            primary_entity = self.selected_entities[0]
+            frame_rect = pygame.Rect(avatar_x - 2, avatar_y - 2, avatar_size + 4, avatar_size + 4)
+
+            if hasattr(primary_entity, "avatar_image") and primary_entity.avatar_image:
+                pygame.draw.rect(screen, (80, 80, 80), frame_rect)
+                pygame.draw.rect(screen, WHITE, frame_rect, 2)
+                screen.blit(primary_entity.avatar_image, (avatar_x, avatar_y))
+            else:
+                pygame.draw.rect(screen, (30, 30, 30), frame_rect)
+                pygame.draw.rect(screen, WHITE, frame_rect, 2)
+
+            start_x = avatar_x + avatar_size + 30
             start_y = SCREEN_HEIGHT - BOTTOM_MENU_HEIGHT + 15
             x_offset = 200
             y_offset = 40

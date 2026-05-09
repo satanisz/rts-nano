@@ -41,6 +41,35 @@ def test_headless_simulation_steps_and_issues_orders() -> None:
     simulation.close()
 
 
+def test_group_move_order_assigns_formation_slots() -> None:
+    """Group movement spreads units around the clicked destination."""
+    settings = _settings()
+    settings["Blue"]["peasant"] = [[20, 20], [28, 20], [36, 20], [44, 20]]
+    simulation = HeadlessSimulation.from_settings(settings)
+
+    affected = simulation.issue_move_order(TeamColor.BLUE, (160, 160))
+    targets = {(round(unit.target_x), round(unit.target_y)) for unit in simulation.units_for_team(TeamColor.BLUE)}
+
+    assert affected == 4
+    assert len(targets) == 4
+    simulation.close()
+
+
+def test_stuck_unit_skips_blocked_waypoint() -> None:
+    """A moving unit can recover when collision resolution prevents progress."""
+    simulation = HeadlessSimulation.from_settings(_settings())
+    manager = simulation.manager
+    unit = simulation.units_for_team(TeamColor.BLUE)[0]
+    unit.state = "MOVING"
+    unit.path = [(80, 20), (120, 20)]
+
+    for _ in range(75):
+        manager._update_unit_stuck_recovery(unit)
+
+    assert unit.path == [(120, 20)]
+    simulation.close()
+
+
 def test_peasant_starts_harvesting_targeted_resources() -> None:
     """A peasant can finish the final path waypoint beside a resource."""
     settings = _settings()

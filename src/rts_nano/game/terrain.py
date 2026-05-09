@@ -224,6 +224,72 @@ class TerrainMap:
                 return True
         return False
 
+    def _segment_blocks_movement(
+        self,
+        current_point: tuple[float, float],
+        next_point: tuple[float, float],
+        radius: float,
+    ) -> bool:
+        """Return whether a movement segment intersects water or rocks."""
+        if self.blocks_movement(next_point, radius):
+            return True
+
+        for region in self.water:
+            if region.rect.inflate(radius * 2, radius * 2).clipline(current_point, next_point):
+                return True
+        for rock in self.rocks:
+            if self._distance_point_to_segment((rock.x, rock.y), current_point, next_point) < radius + rock.radius:
+                return True
+        return False
+
+    def _segment_allows_height_transition(
+        self,
+        current_point: tuple[float, float],
+        next_point: tuple[float, float],
+    ) -> bool:
+        """Return whether segment high-ground crossings happen on ramps."""
+        if self.height_at(current_point) == self.height_at(next_point):
+            return True
+
+        for region in self.high_ground:
+            current_inside = region.rect.collidepoint(current_point)
+            next_inside = region.rect.collidepoint(next_point)
+            clipped_line = region.rect.clipline(current_point, next_point)
+            if not clipped_line:
+                continue
+
+            if current_inside != next_inside:
+                transition_point = clipped_line[1] if current_inside else clipped_line[0]
+                if not self.is_on_ramp(transition_point):
+                    return False
+            elif not current_inside and not next_inside:
+                entry_point, exit_point = clipped_line
+                if not self.is_on_ramp(entry_point) or not self.is_on_ramp(exit_point):
+                    return False
+        return True
+
+    @staticmethod
+    def _distance_point_to_segment(
+        point: tuple[float, float],
+        segment_start: tuple[float, float],
+        segment_end: tuple[float, float],
+    ) -> float:
+        """Return the shortest distance from a point to a line segment."""
+        point_x, point_y = point
+        start_x, start_y = segment_start
+        end_x, end_y = segment_end
+        dx = end_x - start_x
+        dy = end_y - start_y
+        length_squared = dx * dx + dy * dy
+        if length_squared == 0:
+            return math.hypot(point_x - start_x, point_y - start_y)
+
+        t = ((point_x - start_x) * dx + (point_y - start_y) * dy) / length_squared
+        t = min(max(t, 0), 1)
+        closest_x = start_x + t * dx
+        closest_y = start_y + t * dy
+        return math.hypot(point_x - closest_x, point_y - closest_y)
+
     def can_move_between(
         self,
         current_point: tuple[float, float],
@@ -232,25 +298,9 @@ class TerrainMap:
         radius: float,
     ) -> bool:
         """Return whether a unit may move from current point to next point."""
-        current_x, current_y = current_point
-        next_x, next_y = next_point
-        distance = math.hypot(next_x - current_x, next_y - current_y)
-        step_size = 0.5
-        steps = max(1, math.ceil(distance / step_size))
-
-        previous_point = current_point
-        for step in range(1, steps + 1):
-            t = step / steps
-            sample_point = (
-                current_x + (next_x - current_x) * t,
-                current_y + (next_y - current_y) * t,
-            )
-            if self.blocks_movement(sample_point, radius):
-                return False
-            if not self.allows_height_transition(previous_point, sample_point):
-                return False
-            previous_point = sample_point
-        return True
+        if self._segment_blocks_movement(current_point, next_point, radius):
+            return False
+        return self._segment_allows_height_transition(current_point, next_point)
 
     def draw(self, screen: pygame.Surface, offset: tuple[float, float] = (0, 0)) -> None:
         """Draw terrain under entities.

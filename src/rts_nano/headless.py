@@ -75,8 +75,7 @@ class HeadlessSimulation:
     def issue_move_order(self, team: TeamColor, destination: tuple[float, float]) -> int:
         """Assign all units on a team a move order and return affected count."""
         units = self.units_for_team(team)
-        for unit in units:
-            self.manager._assign_unit_target(unit, destination)
+        self.manager._assign_group_move_order(units, (int(destination[0]), int(destination[1])))
         return len(units)
 
     def close(self) -> None:
