@@ -39,7 +39,10 @@ class Peasant(Unit):
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
         """Initialize the object."""
         super().__init__(x, y, team, self.SIZE, self.RADIUS)
-        self.load_image(str(BASE_DIR / "assets" / f"{team.value.lower()}_peasant.png"))
+        self.load_image(
+            str(BASE_DIR / "assets" / "sprites" / f"{team.value.lower()}_peasant.png"),
+            str(BASE_DIR / "assets" / "portraits" / "peasant.png")
+        )
 
     def _handle_target_reached(self) -> None:
         """Transition the peasant to gathering or depositing when appropriate."""
@@ -75,7 +78,10 @@ class Knight(Unit):
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
         """Initialize the object."""
         super().__init__(x, y, team, self.SIZE, self.RADIUS)
-        self.load_image(str(BASE_DIR / "assets" / f"{team.value.lower()}_knight.png"))
+        self.load_image(
+            str(BASE_DIR / "assets" / "sprites" / f"{team.value.lower()}_knight.png"),
+            str(BASE_DIR / "assets" / "portraits" / "knight.png")
+        )
 
     def _attack(self, target: Entity) -> None:
         """Perform a melee attack."""
@@ -114,7 +120,10 @@ class Archer(Unit):
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
         """Initialize the object."""
         super().__init__(x, y, team, self.SIZE, self.RADIUS)
-        self.load_image(str(BASE_DIR / "assets" / f"{team.value.lower()}_archer.png"))
+        self.load_image(
+            str(BASE_DIR / "assets" / "sprites" / f"{team.value.lower()}_archer.png"),
+            str(BASE_DIR / "assets" / "portraits" / "archer.png")
+        )
 
     def _get_attack_distance(self, target: Entity) -> float:
         """Pick interaction distance based on archer dead-zone rules."""
@@ -168,4 +177,7 @@ class Mage(Unit):
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
         """Initialize the object."""
         super().__init__(x, y, team, self.SIZE, self.RADIUS)
-        self.load_image(str(BASE_DIR / "assets" / f"{team.value.lower()}_mage.png"))
+        self.load_image(
+            str(BASE_DIR / "assets" / "sprites" / f"{team.value.lower()}_mage.png"),
+            str(BASE_DIR / "assets" / "portraits" / "mage.png")
+        )

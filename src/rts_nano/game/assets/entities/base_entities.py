@@ -113,16 +113,27 @@ class Entity(ABC):
             return GRAY
         raise ValueError(f"Unknown team color: {team}")
 
-    def load_image(self, image_path: str | Path | None) -> None:
+    def load_image(self, image_path: str | Path | None, avatar_path: str | Path | None = None) -> None:
         """Load and scale an entity sprite from disk.
 
         Args:
             image_path: Path to the sprite file.
+            avatar_path: Optional path to the portrait/avatar file.
         """
         if image_path:
             try:
                 raw_image = pygame.image.load(image_path)
-                self.avatar_image = pygame.transform.scale(raw_image, (120, 120))
+                
+                if avatar_path:
+                    try:
+                        raw_avatar = pygame.image.load(avatar_path)
+                        self.avatar_image = pygame.transform.scale(raw_avatar, (120, 120))
+                    except Exception as exc:
+                        logging.warning(f"Could not load avatar {avatar_path}: {exc}")
+                        self.avatar_image = pygame.transform.scale(raw_image, (120, 120))
+                else:
+                    self.avatar_image = pygame.transform.scale(raw_image, (120, 120))
+                    
                 self.image = pygame.transform.scale(raw_image, (int(self.size), int(self.size)))
                 self.original_image = self.image
             except Exception as exc:

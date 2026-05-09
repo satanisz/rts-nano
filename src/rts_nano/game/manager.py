@@ -44,6 +44,7 @@ from rts_nano.game.constants import (
     GREEN,
     HARVEST_SEARCH_RADIUS,
     MAX_UNITS,
+    MAX_SELECTION_SIZE,
     RED,
     SCREEN_HEIGHT,
     SCREEN_WIDTH,
@@ -840,6 +841,8 @@ class GameManager:
                     break
         else:
             for entity in self.all_entities:
+                if len(self.selected_entities) >= MAX_SELECTION_SIZE:
+                    break
                 if isinstance(entity, Unit) and entity.team == self.current_team:
                     cx, cy = entity.get_center()
                     if min_x <= cx <= max_x and min_y <= cy <= max_y:
@@ -1005,79 +1008,146 @@ class GameManager:
 
         self.build_peasant_buttons.clear()
 
-        if self.selected_entities:
-            # Avatar drawing
-            avatar_size = 120
-            avatar_x = MINIMAP_WIDTH + MINIMAP_PADDING * 2 + 20
-            avatar_y = SCREEN_HEIGHT - BOTTOM_MENU_HEIGHT + (BOTTOM_MENU_HEIGHT - avatar_size) // 2
+        if not self.selected_entities:
+            return
 
-            primary_entity = self.selected_entities[0]
-            frame_rect = pygame.Rect(avatar_x - 2, avatar_y - 2, avatar_size + 4, avatar_size + 4)
+        primary_entity = self.selected_entities[0]
 
-            if hasattr(primary_entity, "avatar_image") and primary_entity.avatar_image:
-                pygame.draw.rect(screen, (80, 80, 80), frame_rect)
-                pygame.draw.rect(screen, WHITE, frame_rect, 2)
-                screen.blit(primary_entity.avatar_image, (avatar_x, avatar_y))
-            else:
-                pygame.draw.rect(screen, (30, 30, 30), frame_rect)
-                pygame.draw.rect(screen, WHITE, frame_rect, 2)
+        minimap_end_x = MINIMAP_WIDTH + MINIMAP_PADDING * 2
+        command_card_width = 180
+        portrait_size = 120
+        portrait_box_width = portrait_size + 20
 
-            start_x = avatar_x + avatar_size + 30
-            start_y = SCREEN_HEIGHT - BOTTOM_MENU_HEIGHT + 15
-            x_offset = 200
-            y_offset = 40
-            max_cols = max(1, (SCREEN_WIDTH - start_x - 20) // x_offset)
+        command_card_x = SCREEN_WIDTH - command_card_width
+        portrait_x = command_card_x - portrait_box_width
+        center_panel_x = minimap_end_x
+        center_panel_width = portrait_x - minimap_end_x
 
-            font_small = pygame.font.SysFont(None, 24)
+        font_small = pygame.font.SysFont(None, 24)
+
+        if len(self.selected_entities) > 1:
+            icon_size = 40
+            padding = 8
+            max_cols = max(1, center_panel_width // (icon_size + padding))
+
+            start_x = center_panel_x + padding
+            start_y = SCREEN_HEIGHT - BOTTOM_MENU_HEIGHT + padding
+
             for i, entity in enumerate(self.selected_entities):
                 col = i % max_cols
                 row = i // max_cols
-                if start_y + row * y_offset + y_offset > SCREEN_HEIGHT:
+
+                pos_x = start_x + col * (icon_size + padding)
+                pos_y = start_y + row * (icon_size + padding)
+
+                if pos_y + icon_size > SCREEN_HEIGHT:
                     break
 
-                pos_x = start_x + col * x_offset
-                pos_y = start_y + row * y_offset
+                icon_rect = pygame.Rect(pos_x, pos_y, icon_size, icon_size)
 
-                cls_name = type(entity).__name__
-                stats_texts = [f"{cls_name}"]
+                if entity.image:
+                    small_img = pygame.transform.scale(entity.image, (icon_size, icon_size))
+                    screen.blit(small_img, (pos_x, pos_y))
+                else:
+                    pygame.draw.rect(screen, entity.color, icon_rect)
 
-                if isinstance(entity, Unit):
-                    stats_texts.append(f"HP: {entity.life}/{entity.max_life}")
-                    stats_texts.append(f"ATTACK: {entity.attack_damage}")
-                    stats_texts.append(f"RANGE: {entity.attack_range}")
-                    stats_texts.append(f"SHIELD: {entity.shield_modifier}")
-                elif isinstance(entity, Building):
-                    stats_texts.append(f"HP: {entity.life}/{entity.max_life}")
-                    stats_texts.append(f"SHIELD: {entity.shield_modifier}")
-                    if isinstance(entity, Base) and getattr(entity, "team", None) == self.current_team:
-                        if self._has_reached_unit_cap(entity.team):
-                            stats_texts.append("Unit cap reached")
-                        else:
-                            stats_texts.append("[B] Build Peasant (50 Wood)")
-                elif isinstance(entity, Resource):
-                    stats_texts.append(f"Amount: {entity.amount}")
+                if isinstance(entity, (Unit, Building)):
+                    hp_pct = max(0, entity.life / entity.max_life)
+                    hp_width = int(icon_size * hp_pct)
+                    hp_rect = pygame.Rect(pos_x, pos_y + icon_size - 4, icon_size, 4)
+                    pygame.draw.rect(screen, (50, 50, 50), hp_rect)
+                    pygame.draw.rect(screen, GREEN if hp_pct > 0.5 else RED, (pos_x, pos_y + icon_size - 4, hp_width, 4))
 
-                for j, stat_text in enumerate(stats_texts):
-                    color = WHITE
-                    if j == 0 and hasattr(entity, "team"):
-                        if entity.team == TeamColor.BLUE:
-                            color = (130, 130, 255)
-                        elif entity.team == TeamColor.RED:
-                            color = (255, 130, 130)
+                pygame.draw.rect(screen, WHITE, icon_rect, 1)
 
-                    if stat_text == "[B] Build Peasant (50 Wood)":
-                        mouse_pos = self.mouse_pos
-                        temp_surf = font_small.render(stat_text, True, WHITE)
-                        temp_rect = temp_surf.get_rect(topleft=(pos_x, pos_y + j * 16))
-                        # Hover effect for the button
-                        if temp_rect.collidepoint(mouse_pos):
-                            color = (255, 255, 100)
+        else:
+            start_x = center_panel_x + 20
+            start_y = SCREEN_HEIGHT - BOTTOM_MENU_HEIGHT + 15
 
-                    text_surf = font_small.render(stat_text, True, color)
-                    text_rect = screen.blit(text_surf, (pos_x, pos_y + j * 16))
+            cls_name = type(primary_entity).__name__
+            stats_texts = [f"{cls_name}"]
 
-                    if stat_text == "[B] Build Peasant (50 Wood)" and isinstance(entity, Base):
-                        self.build_peasant_buttons.append((text_rect, entity))
+            if isinstance(primary_entity, Unit):
+                stats_texts.append(f"HP: {primary_entity.life}/{primary_entity.max_life}")
+                stats_texts.append(f"ATTACK: {primary_entity.attack_damage}")
+                stats_texts.append(f"RANGE: {primary_entity.attack_range}")
+                stats_texts.append(f"SHIELD: {primary_entity.shield_modifier}")
+            elif isinstance(primary_entity, Building):
+                stats_texts.append(f"HP: {primary_entity.life}/{primary_entity.max_life}")
+                stats_texts.append(f"SHIELD: {primary_entity.shield_modifier}")
+            elif isinstance(primary_entity, Resource):
+                stats_texts.append(f"Amount: {primary_entity.amount}")
+
+            for j, stat_text in enumerate(stats_texts):
+                color = WHITE
+                if j == 0 and hasattr(primary_entity, "team"):
+                    if primary_entity.team == TeamColor.BLUE:
+                        color = (130, 130, 255)
+                    elif primary_entity.team == TeamColor.RED:
+                        color = (255, 130, 130)
+
+                text_surf = font_small.render(stat_text, True, color)
+                screen.blit(text_surf, (start_x, start_y + j * 20))
+
+        avatar_y = SCREEN_HEIGHT - BOTTOM_MENU_HEIGHT + (BOTTOM_MENU_HEIGHT - portrait_size) // 2
+        frame_rect = pygame.Rect(portrait_x - 2, avatar_y - 2, portrait_size + 4, portrait_size + 4)
+
+        if hasattr(primary_entity, "avatar_image") and primary_entity.avatar_image:
+            pygame.draw.rect(screen, (80, 80, 80), frame_rect)
+            pygame.draw.rect(screen, WHITE, frame_rect, 2)
+            screen.blit(primary_entity.avatar_image, (portrait_x, avatar_y))
+        else:
+            pygame.draw.rect(screen, (30, 30, 30), frame_rect)
+            pygame.draw.rect(screen, WHITE, frame_rect, 2)
+
+        cmd_cols = 3
+        cmd_rows = 3
+        cmd_btn_size = 46
+        cmd_padding = 6
+        cmd_start_x = command_card_x + 12
+        cmd_start_y = SCREEN_HEIGHT - BOTTOM_MENU_HEIGHT + 10
+
+        font_tiny = pygame.font.SysFont(None, 16)
+
+        commands = []
+        if isinstance(primary_entity, Base) and getattr(primary_entity, "team", None) == self.current_team:
+            if self._has_reached_unit_cap(primary_entity.team):
+                commands.append(("Cap Reached", False))
+            else:
+                commands.append(("Build Worker", True))
+
+        for i in range(cmd_cols * cmd_rows):
+            col = i % cmd_cols
+            row = i // cmd_cols
+            pos_x = cmd_start_x + col * (cmd_btn_size + cmd_padding)
+            pos_y = cmd_start_y + row * (cmd_btn_size + cmd_padding)
+
+            btn_rect = pygame.Rect(pos_x, pos_y, cmd_btn_size, cmd_btn_size)
+
+            if i < len(commands):
+                cmd_name, cmd_active = commands[i]
+
+                mouse_pos = self.mouse_pos
+                is_hovered = btn_rect.collidepoint(mouse_pos)
+                bg_color = (60, 60, 60)
+                if is_hovered and cmd_active:
+                    bg_color = (100, 100, 60)
+
+                pygame.draw.rect(screen, bg_color, btn_rect)
+                pygame.draw.rect(screen, WHITE, btn_rect, 1)
+
+                words = cmd_name.split()
+                for w_i, word in enumerate(words):
+                    text_surf = font_tiny.render(word, True, WHITE)
+                    text_rect = text_surf.get_rect(center=(pos_x + cmd_btn_size // 2, pos_y + 16 + w_i * 14))
+                    screen.blit(text_surf, text_rect)
+
+                if cmd_active and cmd_name == "Build Worker":
+                    self.build_peasant_buttons.append((btn_rect, primary_entity))
+
+            else:
+                pygame.draw.rect(screen, (30, 30, 30), btn_rect)
+                pygame.draw.rect(screen, (50, 50, 50), btn_rect, 1)
 
     def draw(self, screen: pygame.Surface) -> None:
         """Draw world entities, selection state, HUD, and pause overlay.
