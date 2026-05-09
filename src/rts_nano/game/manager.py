@@ -51,6 +51,7 @@ from rts_nano.game.constants import (
     WHITE,
     AttackType,
 )
+from rts_nano.game.fog import FogOfWar
 from rts_nano.game.pathfinding import find_path
 from rts_nano.game.rules import clamp_point, distance_between_points, find_replacement_resource, nearest_entity
 from rts_nano.game.terrain import TerrainMap
@@ -344,6 +345,8 @@ class GameManager:
         self.camera_y: float = 0
         self.map_width = max(self.terrain.width, SCREEN_WIDTH)
         self.map_height = max(self.terrain.height, PLAY_AREA_HEIGHT)
+
+        self.fog = FogOfWar(self.map_width, self.map_height)
 
         self._load_map_settings()
         self.set_viewport_size(SCREEN_WIDTH, SCREEN_HEIGHT)
@@ -836,6 +839,18 @@ class GameManager:
         if is_click:
             for entity in reversed(self.all_entities):
                 if entity.contains_point(self.drag_start):
+                    cx, cy = entity.get_center()
+                    is_visible = self.fog.is_visible(cx, cy)
+                    is_explored = self.fog.is_explored(cx, cy)
+                    is_allied = getattr(entity, "team", None) == self.current_team
+                    is_resource = isinstance(entity, Resource)
+
+                    if not is_allied:
+                        if is_resource and not (is_explored or is_visible):
+                            continue
+                        if not is_resource and not is_visible:
+                            continue
+                            
                     entity.selected = True
                     self.selected_entities.append(entity)
                     break
@@ -859,6 +874,13 @@ class GameManager:
         self._update_camera()
         if self.paused:
             return
+
+        current_team_group = self.entities.get(self.current_team)
+        if current_team_group:
+            visible_entities = current_team_group.all_entities
+            self.fog.update(visible_entities)
+        else:
+            self.fog.update([])
 
         self._update_entity_height_levels()
         all_ents = self.all_entities
@@ -1163,14 +1185,56 @@ class GameManager:
         camera_offset = (self.camera_x, self.camera_y)
 
         self.terrain.draw(world_surface, camera_offset)
+        
         for entity in self.all_entities:
-            entity.draw(world_surface, camera_offset)
+            cx, cy = entity.get_center()
+            is_visible = self.fog.is_visible(cx, cy)
+            is_explored = self.fog.is_explored(cx, cy)
+            
+            is_allied = getattr(entity, "team", None) == self.current_team
+            is_resource = isinstance(entity, Resource)
+            
+            if is_allied:
+                entity.draw(world_surface, camera_offset)
+            elif is_resource:
+                if is_explored or is_visible:
+                    entity.draw(world_surface, camera_offset)
+            else:
+                if is_visible:
+                    entity.draw(world_surface, camera_offset)
+
         for missile in self.magic_missiles:
-            missile.draw(world_surface, camera_offset)
+            if self.fog.is_visible(missile.x, missile.y):
+                missile.draw(world_surface, camera_offset)
         for shot in self.archer_shots:
-            shot.draw(world_surface, camera_offset)
+            if self.fog.is_visible(shot.x, shot.y):
+                shot.draw(world_surface, camera_offset)
         for marker in self.click_markers:
             marker.draw(world_surface, camera_offset)
+
+        from rts_nano.game.constants import FOG_CELL_SIZE
+        fog_surf = pygame.Surface((SCREEN_WIDTH, PLAY_AREA_HEIGHT), pygame.SRCALPHA)
+        fog_surf.fill((0, 0, 0, 255))
+
+        start_col = max(0, int(self.camera_x // FOG_CELL_SIZE))
+        end_col = min(self.fog.cols - 1, int((self.camera_x + SCREEN_WIDTH) // FOG_CELL_SIZE))
+        start_row = max(0, int(self.camera_y // FOG_CELL_SIZE))
+        end_row = min(self.fog.rows - 1, int((self.camera_y + PLAY_AREA_HEIGHT) // FOG_CELL_SIZE))
+
+        for row in range(start_row, end_row + 1):
+            for col in range(start_col, end_col + 1):
+                state = self.fog.grid[row][col]
+                if state > 0:
+                    rect_x = int(col * FOG_CELL_SIZE - self.camera_x)
+                    rect_y = int(row * FOG_CELL_SIZE - self.camera_y)
+                    # Expand by 1 pixel to prevent visual seams between grid cells
+                    rect = pygame.Rect(rect_x, rect_y, FOG_CELL_SIZE + 1, FOG_CELL_SIZE + 1)
+                    if state == FogOfWar.VISIBLE:
+                        fog_surf.fill((0, 0, 0, 0), rect)
+                    else:
+                        fog_surf.fill((0, 0, 0, 150), rect)
+
+        world_surface.blit(fog_surf, (0, 0))
 
         if self.dragging and self.drag_start and self.drag_end:
             x1, y1 = self._world_to_screen(self.drag_start)
@@ -1258,13 +1322,48 @@ class GameManager:
         for region in self.terrain.ramps:
             pygame.draw.rect(screen, (158, 142, 96), mini_rect(region.rect))
 
+        from rts_nano.game.constants import FOG_CELL_SIZE
+        fog_surf = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
+        fog_surf.fill((0, 0, 0, 255))
+        
+        for row in range(self.fog.rows):
+            for col in range(self.fog.cols):
+                state = self.fog.grid[row][col]
+                if state > 0:
+                    cell_rect = pygame.Rect(
+                        int(col * FOG_CELL_SIZE * scale_x),
+                        int(row * FOG_CELL_SIZE * scale_y),
+                        max(1, int(FOG_CELL_SIZE * scale_x)) + 1,
+                        max(1, int(FOG_CELL_SIZE * scale_y)) + 1
+                    )
+                    if state == FogOfWar.VISIBLE:
+                        fog_surf.fill((0, 0, 0, 0), cell_rect)
+                    else:
+                        fog_surf.fill((0, 0, 0, 150), cell_rect)
+        screen.blit(fog_surf, (rect.left, rect.top))
+
         for entity in self.all_entities:
-            color = getattr(entity, "color", WHITE)
-            if isinstance(entity, Resource):
-                color = (80, 210, 120) if isinstance(entity, Wood) else (90, 220, 240)
-            mini_x = rect.left + int(entity.x * scale_x)
-            mini_y = rect.top + int(entity.y * scale_y)
-            pygame.draw.circle(screen, color, (mini_x, mini_y), 2)
+            cx, cy = entity.get_center()
+            is_visible = self.fog.is_visible(cx, cy)
+            is_explored = self.fog.is_explored(cx, cy)
+            is_allied = getattr(entity, "team", None) == self.current_team
+            is_resource = isinstance(entity, Resource)
+            
+            should_draw = False
+            if is_allied:
+                should_draw = True
+            elif is_resource:
+                should_draw = is_explored or is_visible
+            else:
+                should_draw = is_visible
+                
+            if should_draw:
+                color = getattr(entity, "color", WHITE)
+                if isinstance(entity, Resource):
+                    color = (80, 210, 120) if isinstance(entity, Wood) else (90, 220, 240)
+                mini_x = rect.left + int(entity.x * scale_x)
+                mini_y = rect.top + int(entity.y * scale_y)
+                pygame.draw.circle(screen, color, (mini_x, mini_y), 2)
 
         camera_rect = pygame.Rect(
             rect.left + int(self.camera_x * scale_x),

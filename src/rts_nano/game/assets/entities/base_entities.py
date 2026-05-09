@@ -91,6 +91,7 @@ class Entity(ABC):
         self.original_image: pygame.Surface | None = None
         self.avatar_image: pygame.Surface | None = None
         self.height_level: int = 0
+        self.vision_range: int = 0
 
     @classmethod
     def get_team_color(cls, team: TeamColor) -> tuple[int, int, int]:
@@ -252,6 +253,7 @@ class Building(Entity, ABC):
         self.max_life = self.MAX_LIFE
         self.life = self.MAX_LIFE
         self.shield_modifier = self.DEFAULT_SHIELD_MODIFIER
+        self.vision_range = 400
 
 
 class Unit(Entity, ABC):
@@ -324,6 +326,7 @@ class Unit(Entity, ABC):
         self.progress_anchor_y: float = float(y)
         self.stuck_frames: int = 0
         self.unstuck_cooldown: int = 0
+        self.vision_range: int = 250
 
     def draw(self, screen: pygame.Surface, offset: tuple[float, float] = (0, 0)) -> None:
         """Draw the unit and flip the sprite to match movement direction.
