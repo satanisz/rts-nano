@@ -20,6 +20,7 @@ from rts_nano.actions import (
     ConstructAction,
     DepositAction,
     GatherAction,
+    HoldAction,
     MoveAction,
     NoOpAction,
     SelectAction,
@@ -62,6 +63,7 @@ __all__ = [
     "EntityId",
     "EntitySnapshot",
     "GatherAction",
+    "HoldAction",
     "MoveAction",
     "NoOpAction",
     "Observation",
@@ -266,6 +268,7 @@ class RtsNanoEnv:
         return (
             ActionSpec("move", team_name, "world_point", enabled=bool(units), reason=None if units else "no_units"),
             ActionSpec("stop", team_name, "unit_ids", enabled=bool(units), reason=None if units else "no_units"),
+            ActionSpec("hold", team_name, "unit_ids", enabled=bool(units), reason=None if units else "no_units"),
             ActionSpec(
                 "attack",
                 team_name,

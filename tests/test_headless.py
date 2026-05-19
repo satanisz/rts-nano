@@ -78,6 +78,24 @@ def test_manager_public_stop_order_clears_unit_targets() -> None:
     simulation.close()
 
 
+def test_manager_public_hold_order_keeps_unit_stationary() -> None:
+    """Hold position leaves a unit idle-like but explicitly holding."""
+    simulation = HeadlessSimulation.from_settings(_settings())
+    manager = simulation.manager
+    unit = simulation.units_for_team(TeamColor.BLUE)[0]
+
+    manager.issue_move_order(TeamColor.BLUE, (120, 120))
+    affected = manager.issue_hold_order(TeamColor.BLUE, [unit])
+    simulation.step(3)
+
+    assert affected == 1
+    assert unit.state == "HOLDING"
+    assert unit.target_entity is None
+    assert unit.path == []
+    assert unit.get_center() == (20, 20)
+    simulation.close()
+
+
 def test_manager_public_build_helper_reports_success() -> None:
     """Game manager queues production and spawns a peasant after build time."""
     simulation = HeadlessSimulation.from_settings(_settings())

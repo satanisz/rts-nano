@@ -5,7 +5,14 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from rts_nano.action_translation import ActionTranslator
-from rts_nano.actions import BuildAction, CancelConstructionAction, CancelProductionAction, ConstructAction, StopAction
+from rts_nano.actions import (
+    BuildAction,
+    CancelConstructionAction,
+    CancelProductionAction,
+    ConstructAction,
+    HoldAction,
+    StopAction,
+)
 from rts_nano.env import MoveAction, NoOpAction, RtsNanoEnv
 from rts_nano.game.assets.entities import TeamColor
 from rts_nano.game.observations import EntityIdRegistry, build_observation
@@ -151,6 +158,24 @@ def test_action_translator_applies_stop_orders() -> None:
     simulation.close()
 
 
+def test_action_translator_applies_hold_orders() -> None:
+    """Action translator can hold units through the public DTO."""
+    simulation = HeadlessSimulation.from_settings(_settings())
+    manager = simulation.manager
+    registry = EntityIdRegistry()
+    observation = build_observation(manager, tick=0, registry=registry)
+    unit_id = next(entity.id for entity in observation.entities if entity.kind == "Peasant" and entity.team == "Blue")
+    manager.issue_move_order(TeamColor.BLUE, (120, 120))
+
+    affected = ActionTranslator(manager, registry).apply(HoldAction(TeamColor.BLUE, unit_ids=(unit_id,)))
+
+    unit = manager.units_for_team(TeamColor.BLUE)[0]
+    assert affected == 1
+    assert unit.state == "HOLDING"
+    assert unit.path == []
+    simulation.close()
+
+
 def test_env_action_mask_reports_stateful_legality() -> None:
     """Action masks expose legal action families and denial reasons."""
     env = RtsNanoEnv(settings=_settings())
@@ -160,6 +185,7 @@ def test_env_action_mask_reports_stateful_legality() -> None:
 
     assert specs[("move", "Blue", None)].enabled is True
     assert specs[("stop", "Blue", None)].enabled is True
+    assert specs[("hold", "Blue", None)].enabled is True
     assert specs[("gather", "Blue", None)].enabled is True
     assert specs[("build", "Blue", "peasant")].enabled is False
     assert specs[("build", "Blue", "peasant")].reason == "insufficient_resources"

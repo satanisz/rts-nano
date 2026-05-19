@@ -13,6 +13,7 @@ from rts_nano.actions import (
     ConstructAction,
     DepositAction,
     GatherAction,
+    HoldAction,
     MoveAction,
     NoOpAction,
     SelectAction,
@@ -59,6 +60,8 @@ class ActionTranslator:
             return self._apply_cancel_production(action)
         if isinstance(action, StopAction):
             return self._apply_stop(action)
+        if isinstance(action, HoldAction):
+            return self._apply_hold(action)
         if isinstance(action, SelectAction):
             return self._apply_select(action)
         return 0
@@ -113,6 +116,10 @@ class ActionTranslator:
     def _apply_stop(self, action: StopAction) -> int:
         units = self._units_for_action(action.team, action.unit_ids)
         return self._manager.orders.issue_stop_order(action.team, units)
+
+    def _apply_hold(self, action: HoldAction) -> int:
+        units = self._units_for_action(action.team, action.unit_ids)
+        return self._manager.orders.issue_hold_order(action.team, units)
 
     def _apply_select(self, action: SelectAction) -> int:
         selected = tuple(self._entity_by_id(entity_id) for entity_id in action.entity_ids)

@@ -157,7 +157,7 @@ Ostatni znany stan jakości po bieżącym etapie: `ruff`, `ty`, `pytest`, `tox` 
 - Selekcja jednostek i rozkazy ruchu.
 - Podstawowy pathfinding A*.
 - Podstawowa walka i celowanie.
-- Rozkaz stop przez API/env, managera i hotkey `S`.
+- Rozkazy stop i hold przez API/env, managera oraz hotkeye `S`/`H`.
 - Fog of war w kliencie gry.
 - Headless simulation wrapper.
 - Wczesne publiczne API agenta przez `RtsNanoEnv`.
@@ -191,7 +191,7 @@ Ostatni znany stan jakości po bieżącym etapie: `ruff`, `ty`, `pytest`, `tox` 
 
 ### 5.3 Rozkazy i zachowanie jednostek
 
-- Rozkaz stop jest zaimplementowany. Nadal potrzebne są: hold position, patrol,
+- Rozkazy stop i hold są zaimplementowane. Nadal potrzebne są: patrol,
   follow/guard, attack-move, repair/build, gather i return cargo.
 - Priorytety muszą być spójne: rozkaz ręczny, autoatak, powrót do pracy,
   path replanning, śmierć celu.
@@ -463,9 +463,13 @@ Następne rekomendowane zadanie:
    Status: zrobione. `StopAction`, action mask, manager helper i hotkey `S`
    zatrzymują jednostki oraz czyszczą ich bieżące cele.
 
-12. Następne rekomendowane zadanie: uporządkować command panel i hotkeye.
+12. Hold order.
+   Status: zrobione. `HoldAction`, action mask, manager helper i hotkey `H`
+   ustawiają jednostki w stanie `HOLDING`.
+
+13. Następne rekomendowane zadanie: uporządkować command panel i hotkeye.
    Dodać skróty budowy, czytelniejsze komunikaty odmowy i bardziej kompletne
-   przyciski dla hold/gather/return cargo/attack-move.
+   przyciski dla gather/return cargo/attack-move.
 
 ## 11. Definition of Done pełnej gry
 
@@ -699,7 +703,7 @@ this baseline.
 - Unit selection and movement orders.
 - Basic A* pathfinding.
 - Basic combat and targeting.
-- Stop command through API/env, manager helper, and `S` hotkey.
+- Stop and hold commands through API/env, manager helpers, and `S`/`H` hotkeys.
 - Fog of war in the game client.
 - Headless simulation wrapper.
 - Early public agent API through `RtsNanoEnv`.
@@ -737,8 +741,8 @@ this baseline.
 
 ### 5.3 Orders and Unit Behavior
 
-- Stop command is implemented. Still needed: hold position, patrol,
-  follow/guard, attack-move, repair/build, gather, and return cargo.
+- Stop and hold commands are implemented. Still needed: patrol, follow/guard,
+  attack-move, repair/build, gather, and return cargo.
 - Priorities must be unified: manual player order, auto-attack, return to work,
   path replanning, target death.
 - The project needs a coherent `Order`/`Command` model instead of scattered flags
@@ -1054,9 +1058,13 @@ training API.
    Status: implemented. `StopAction`, action mask support, manager helper, and
    `S` hotkey stop units and clear their current targets.
 
-13. Next task: clean up the command panel and hotkeys.
+13. Hold order.
+   Status: implemented. `HoldAction`, action mask support, manager helper, and
+   `H` hotkey put units into `HOLDING`.
+
+14. Next task: clean up the command panel and hotkeys.
    Add build shortcuts, clearer denial messages, and more complete buttons for
-   hold/gather/return cargo/attack-move.
+   gather/return cargo/attack-move.
 
 ## 11. Definition Of Done For The Full Game
 
