@@ -62,12 +62,14 @@ SPECIAL_TOOLS = {"erase", "flatten"}
 ENTITY_TOOLS = {
     "blue_base",
     "blue_barracks",
+    "blue_house",
     "blue_peasant",
     "blue_knight",
     "blue_archer",
     "blue_mage",
     "red_base",
     "red_barracks",
+    "red_house",
     "red_peasant",
     "red_knight",
     "red_archer",
@@ -87,6 +89,8 @@ TOOL_KEYS = {
     pygame.K_0: "erase",
     pygame.K_t: "blue_barracks",
     pygame.K_g: "red_barracks",
+    pygame.K_y: "blue_house",
+    pygame.K_h: "red_house",
     pygame.K_q: "blue_peasant",
     pygame.K_w: "blue_knight",
     pygame.K_e: "blue_archer",
@@ -111,6 +115,8 @@ TOOL_LABELS = {
     "erase": "0 Erase",
     "blue_barracks": "T Blue barracks",
     "red_barracks": "G Red barracks",
+    "blue_house": "Y Blue house",
+    "red_house": "H Red house",
     "blue_peasant": "Q Blue peasant",
     "blue_knight": "W Blue knight",
     "blue_archer": "E Blue archer",
@@ -182,8 +188,8 @@ class MapEditor:
         ``high_ground`` and ``water``.
         """
         return {
-            "Blue": {"peasant": [], "base": [], "barracks": [], "knight": [], "archer": [], "mage": []},
-            "Red": {"peasant": [], "base": [], "barracks": [], "knight": [], "archer": [], "mage": []},
+            "Blue": {"peasant": [], "base": [], "barracks": [], "house": [], "knight": [], "archer": [], "mage": []},
+            "Red": {"peasant": [], "base": [], "barracks": [], "house": [], "knight": [], "archer": [], "mage": []},
             "Resources": {"wood": [], "cristal": []},
             "Terrain": {
                 "width": width,
@@ -736,7 +742,7 @@ class MapEditor:
                     if not isinstance(point, list):
                         continue
                     pos = self._world_to_screen(cast("Sequence[int]", point))
-                    size = 24 if entity_name in {"base", "barracks"} else 12
+                    size = 24 if entity_name in {"base", "barracks", "house"} else 12
                     rect = pygame.Rect(0, 0, size, size)
                     rect.center = pos
                     pygame.draw.rect(screen, color, rect, width=2)

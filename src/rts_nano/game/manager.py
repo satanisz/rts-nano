@@ -34,7 +34,7 @@ from typing import TYPE_CHECKING, cast
 
 import pygame
 
-from rts_nano.game.assets.entities import Archer, Barracks, Base, Cristal, Knight, Mage, Peasant, TeamColor, Wood
+from rts_nano.game.assets.entities import Archer, Barracks, Base, Cristal, House, Knight, Mage, Peasant, TeamColor, Wood
 from rts_nano.game.assets.entities.base_entities import Building, Entity, Resource, Unit
 from rts_nano.game.constants import (
     BLACK,
@@ -44,7 +44,6 @@ from rts_nano.game.constants import (
     GREEN,
     HARVEST_SEARCH_RADIUS,
     MAX_SELECTION_SIZE,
-    MAX_UNITS,
     RED,
     SCREEN_HEIGHT,
     SCREEN_WIDTH,
@@ -221,6 +220,7 @@ class EntitiesGroup:
         self.resources: dict[str, int] = {"wood": 0, "cristal": 0}
         self.bases: list[Base] = []
         self.barracks: list[Barracks] = []
+        self.houses: list[House] = []
         self.peasents: list[Peasant] = []
         self.knights: list[Knight] = []
         self.archers: list[Archer] = []
@@ -232,6 +232,7 @@ class EntitiesGroup:
         all_ents: list[Entity] = []
         all_ents.extend(self.bases)
         all_ents.extend(self.barracks)
+        all_ents.extend(self.houses)
         all_ents.extend(self.peasents)
         all_ents.extend(self.knights)
         all_ents.extend(self.archers)
@@ -268,6 +269,7 @@ class EntityFactory:
         "mage": Mage,
         "base": Base,
         "barracks": Barracks,
+        "house": House,
     }
     _NEUTRAL_ENTITY_TYPES: dict[str, Callable[[int, int], Entity]] = {
         "wood": Wood,
@@ -385,7 +387,7 @@ class GameManager:
         removed_entities: set[int] = set()
 
         for group in self.entities.values():
-            for attr_name in ("peasents", "knights", "archers", "mages", "bases", "barracks"):
+            for attr_name in ("peasents", "knights", "archers", "mages", "bases", "barracks", "houses"):
                 entities = getattr(group, attr_name)
                 alive_entities = [entity for entity in entities if entity.life > 0]
                 removed_entities.update(id(entity) for entity in entities if entity.life <= 0)
@@ -471,9 +473,20 @@ class GameManager:
 
     def population_cap_for_team(self, team: TeamColor) -> int:
         """Return the current population cap for a team."""
-        if team == TeamColor.RESOURCES:
+        group = self.entities.get(team)
+        if group is None or team == TeamColor.RESOURCES:
             return 0
-        return MAX_UNITS
+
+        population_cap = 0
+        for building in (*group.bases, *group.barracks, *group.houses):
+            if building.life <= 0 or building.is_under_construction:
+                continue
+            try:
+                spec = get_building_spec(getattr(building, "spec_key", type(building).__name__.lower()))
+            except ValueError:
+                continue
+            population_cap += spec.provides_population
+        return population_cap
 
     def _clamp_to_world(self, pos: tuple[float, float]) -> tuple[int, int]:
         """Clamp a world-space point to map bounds.
@@ -690,6 +703,8 @@ class GameManager:
                             group.bases.append(entity)
                         case Barracks():
                             group.barracks.append(entity)
+                        case House():
+                            group.houses.append(entity)
                         case Wood():
                             self.resources.woods.append(entity)
                         case Cristal():
@@ -1361,14 +1376,16 @@ class GameManager:
 
         if team_group:
             res = team_group.resources
-            num_buildings = len(team_group.bases) + len(team_group.barracks)
+            num_buildings = len(team_group.bases) + len(team_group.barracks) + len(team_group.houses)
             num_units = (
                 len(team_group.peasents) + len(team_group.knights) + len(team_group.archers) + len(team_group.mages)
             )
+            population_cap = self.population_cap_for_team(self.current_team)
         else:
             res = {"wood": 0, "cristal": 0}
             num_buildings = 0
             num_units = 0
+            population_cap = 0
 
         hud_parts: list[pygame.Surface] = [
             font.render(f"Team {self.current_team.value} | ", True, ui_color),
@@ -1376,7 +1393,9 @@ class GameManager:
             font.render(f": {res['wood']}   ", True, ui_color),
             emoji_font.render(CRISTAL_ICON, True, ui_color),
             font.render(
-                f": {res['cristal']} | Buildings: {num_buildings}   Units: {num_units}/{MAX_UNITS}", True, ui_color
+                f": {res['cristal']} | Buildings: {num_buildings}   Units: {num_units}/{population_cap}",
+                True,
+                ui_color,
             ),
         ]
 

@@ -129,7 +129,7 @@ def _snapshot_team(manager: GameManager, team: TeamColor, group: EntitiesGroup) 
         wood=group.resources["wood"],
         cristal=group.resources["cristal"],
         units=len(group.peasents) + len(group.knights) + len(group.archers) + len(group.mages),
-        buildings=len(group.bases) + len(group.barracks),
+        buildings=len(group.bases) + len(group.barracks) + len(group.houses),
         population_cap=manager.population_cap_for_team(team),
         queued_units=manager.production.queued_units_for_team(team),
     )

@@ -50,7 +50,7 @@ def test_env_observation_is_serializable_snapshot() -> None:
     assert payload["current_team"] == "Blue"
     assert {entity.kind for entity in observation.entities} == {"Peasant", "Base", "Wood"}
     assert env.available_actions()[0].kind == "no_op"
-    assert observation.teams[0].population_cap == 50
+    assert observation.teams[0].population_cap == 10
 
     env.close()
 
@@ -148,6 +148,8 @@ def test_env_action_mask_reports_stateful_legality() -> None:
     construction_specs = {(spec.kind, spec.team, spec.building_type): spec for spec in mask}
     assert construction_specs[("construct", "Blue", "barracks")].enabled is False
     assert construction_specs[("construct", "Blue", "barracks")].reason == "insufficient_resources"
+    assert construction_specs[("construct", "Blue", "house")].enabled is False
+    assert construction_specs[("construct", "Blue", "house")].reason == "insufficient_resources"
 
     manager = env._require_simulation().manager
     manager.entities[TeamColor.BLUE].resources["wood"] = 50
@@ -183,6 +185,32 @@ def test_env_construct_action_observes_unfinished_barracks() -> None:
     assert barracks.construction_progress == 0
     assert result.observation.teams[0].wood == 0
     assert result.observation.teams[0].cristal == 0
+
+    env.close()
+
+
+def test_env_constructs_house_and_reports_population_cap() -> None:
+    """House construction is available through env actions and raises support on completion."""
+    env = RtsNanoEnv(settings=_settings())
+    manager = env._require_simulation().manager
+    manager.entities[TeamColor.BLUE].resources["wood"] = 80
+    observation = env.observe()
+    builder_id = next(
+        entity.id for entity in observation.entities if entity.kind == "Peasant" and entity.team == "Blue"
+    )
+
+    result = env.step(
+        ConstructAction(TeamColor.BLUE, (160, 90), builder_id=builder_id, building_type="house", frames=0)
+    )
+    house = next(entity for entity in result.observation.entities if entity.kind == "House")
+
+    assert house.is_under_construction is True
+    assert result.observation.teams[0].population_cap == 10
+
+    completed = env.step(NoOpAction(frames=320)).observation
+
+    assert next(entity for entity in completed.entities if entity.kind == "House").is_under_construction is False
+    assert completed.teams[0].population_cap == 16
 
     env.close()
 

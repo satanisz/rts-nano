@@ -88,8 +88,8 @@ Główne moduły:
 
 - `src/rts_nano/game/construction.py`
   Lekki `ConstructionSystem` dla budowy struktur przez workerów. Obecnie
-  obsługuje Barracks: koszt, walidację terenu/kolizji, niedokończony budynek,
-  postęp budowy i aktywację po ukończeniu.
+  obsługuje Barracks i House: koszt, walidację terenu/kolizji, niedokończony
+  budynek, postęp budowy i aktywację po ukończeniu.
 
 - `src/rts_nano/actions.py`
   Publiczne DTO akcji: `NoOpAction`, `MoveAction`, `AttackAction`,
@@ -146,6 +146,8 @@ Ostatni znany stan jakości po bieżącym etapie: `ruff`, `ty`, `pytest`, `tox` 
 - Kolejkowana produkcja knightów i archerów w Barracks.
 - Budowanie Barracks przez peasantów: koszt, placement API, walidacja terenu i
   kolizji, niedokończony budynek z progressem oraz aktywacja po ukończeniu.
+- Budowanie House przez peasantów i limit populacji liczony z ukończonych
+  budynków: Base daje 10, House daje 6.
 - Anulowanie produkcji z częściowym zwrotem zasobów.
 - Statyczne dane gameplayu dla obecnych jednostek/budynków i najbliższych ról RTS.
 - Selekcja jednostek i rozkazy ruchu.
@@ -167,18 +169,19 @@ Ostatni znany stan jakości po bieżącym etapie: `ruff`, `ty`, `pytest`, `tox` 
   podstawowych jednostek z Barracks; Barracks można już zbudować workerem, ale
   nadal trzeba dodać kolejne budynki produkcyjne i wymagania technologiczne.
 - Potrzebne są pełniejsze wymagania technologiczne.
-- Potrzebny jest docelowy model populacji zamiast jednego globalnego limitu.
+- Model populacji jest rozpoczęty: ukończone budynki dodają support, ale nadal
+  trzeba dopracować balans, UI i wymagania technologiczne.
 - Rekomendacja zasobów: zostać przy `wood` i `cristal`, żeby zachować prostotę i
   lekkość, ale nadać im role podobne do drewna i złota.
 
 ### 5.2 Budowanie
 
-- Barracks ma pierwszą wersję placementu przez API/env z walidacją kosztu,
-  terenu i kolizji.
-- Budowa Barracks trwa w czasie, ma progress w obserwacji i blokuje produkcję do
-  ukończenia.
-- Nadal brakuje UI placementu, anulowania budowy z refundem, House/pop cap,
-  pełnych footprintów i dalszych typów budynków.
+- Barracks i House mają pierwszą wersję placementu przez API/env z walidacją
+  kosztu, terenu i kolizji.
+- Budowa trwa w czasie, ma progress w obserwacji i aktywuje efekty budynku
+  dopiero po ukończeniu.
+- Nadal brakuje UI placementu, anulowania budowy z refundem, pełnych footprintów
+  i dalszych typów budynków.
 - Budynki muszą blokować pathfinding zgodnie ze swoim footprintem.
 
 ### 5.3 Rozkazy i zachowanie jednostek
@@ -439,9 +442,13 @@ Następne rekomendowane zadanie:
    Status: zrobione dla Barracks z `ConstructionSystem`, `ConstructAction`,
    action mask, obserwacją progresu oraz testami headless/env.
 
-8. Następne rekomendowane zadanie: dodać House i docelowy model populacji.
-   Rozszerzyć `ConstructionSystem` o House/support, przestać używać jednego
-   globalnego limitu populacji i dodać testy, że cap rośnie po ukończeniu House.
+8. House i model populacji.
+   Status: zrobione. `ConstructionSystem` obsługuje House, schema/map editor
+   znają `house`, a `population_cap` wynika z ukończonych budynków supportu.
+
+9. Następne rekomendowane zadanie: UI placement albo anulowanie budowy.
+   UI powinno umieć wydać `ConstructAction` dla House/Barracks, a API powinno
+   dostać anulowanie niedokończonej budowy z częściowym zwrotem zasobów.
 
 ## 11. Definition of Done pełnej gry
 
@@ -602,9 +609,9 @@ Current main modules:
 
 - `src/rts_nano/game/construction.py`
   Lightweight `ConstructionSystem` for worker-built structures. It currently
-  supports Barracks construction: cost payment, terrain/collision placement
-  validation, unfinished building state, build progress, and activation on
-  completion.
+  supports Barracks and House construction: cost payment, terrain/collision
+  placement validation, unfinished building state, build progress, and
+  activation on completion.
 
 - `src/rts_nano/actions.py`
   Public action DTOs: `NoOpAction`, `MoveAction`, `AttackAction`, `GatherAction`,
@@ -664,6 +671,8 @@ this baseline.
 - Worker construction for Barracks: cost payment, API placement,
   terrain/collision validation, unfinished building progress, and activation on
   completion.
+- Worker construction for House and population capacity from completed
+  buildings: Base provides 10 support, House provides 6.
 - Production cancellation with a partial resource refund.
 - Static gameplay data for current units/buildings and near-term RTS roles.
 - Unit selection and movement orders.
@@ -689,19 +698,19 @@ this baseline.
   and tech requirements are still missing.
 - Buildings need RTS roles: base, population/support building, military
   production, upgrades, and defensive structure.
-- The game needs a population cap or another mechanism that limits mass
-  production.
+- Population capacity is started: completed support buildings provide cap, but
+  balance, UI, and tech requirements still need refinement.
 - Recommended resource direction: keep `wood` and `crystal` for simplicity and
   give them roles similar to wood and gold.
 
 ### 5.2 Construction
 
-- Barracks has the first API/env placement path with cost, terrain, and
-  collision validation.
-- Barracks construction takes time, exposes progress in observations, and blocks
-  production until completion.
-- UI placement, construction cancellation/refunds, House/pop cap, full
-  footprints, and additional building types are still missing.
+- Barracks and House have the first API/env placement path with cost, terrain,
+  and collision validation.
+- Construction takes time, exposes progress in observations, and activates
+  building effects only after completion.
+- UI placement, construction cancellation/refunds, full footprints, and
+  additional building types are still missing.
 - Buildings must block pathfinding according to their footprint.
 
 ### 5.3 Orders and Unit Behavior
@@ -1006,10 +1015,14 @@ training API.
    `ConstructAction`, action mask support, progress observations, and
    headless/env tests.
 
-9. Next task: add House and the target population model.
-   Extend `ConstructionSystem` with a House/support building, replace the single
-   global population cap with completed-building support, and add tests showing
-   the cap increases after House completion.
+9. House and the target population model.
+   Status: implemented. `ConstructionSystem` supports House, the schema/map
+   editor know `house`, and `population_cap` comes from completed support
+   buildings.
+
+10. Next task: UI placement or construction cancellation.
+   The UI should issue `ConstructAction` for House/Barracks, and the API should
+   support canceling unfinished construction with a partial resource refund.
 
 ## 11. Definition Of Done For The Full Game
 

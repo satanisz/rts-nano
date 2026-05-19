@@ -147,6 +147,29 @@ def test_worker_constructs_barracks_before_military_production() -> None:
     simulation.close()
 
 
+def test_completed_house_increases_population_cap() -> None:
+    """Only completed support buildings increase population capacity."""
+    simulation = HeadlessSimulation.from_settings(_settings())
+    manager = simulation.manager
+    group = manager.entities[TeamColor.BLUE]
+    peasant = group.peasents[0]
+    peasant.x, peasant.y = 170, 130
+    group.resources.update({"wood": 80, "cristal": 0})
+
+    assert manager.population_cap_for_team(TeamColor.BLUE) == 10
+    assert manager.construct_building(peasant, "house", (170, 80)) is True
+
+    house = group.houses[0]
+    assert house.is_under_construction is True
+    assert manager.population_cap_for_team(TeamColor.BLUE) == 10
+
+    simulation.step(250)
+
+    assert house.is_under_construction is False
+    assert manager.population_cap_for_team(TeamColor.BLUE) == 16
+    simulation.close()
+
+
 def test_group_move_order_assigns_formation_slots() -> None:
     """Group movement spreads units around the clicked destination."""
     settings = _settings()

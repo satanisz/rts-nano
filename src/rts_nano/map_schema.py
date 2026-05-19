@@ -40,6 +40,7 @@ class TeamSettings(TypedDict, total=False):
     peasant: list[Coordinate]
     base: list[Coordinate]
     barracks: list[Coordinate]
+    house: list[Coordinate]
     knight: list[Coordinate]
     archer: list[Coordinate]
     mage: list[Coordinate]
@@ -134,7 +135,7 @@ def _validate_team(payload: dict[object, object], key: str, errors: list[str]) -
         errors.append(f"{key} must be an object.")
         return
     for entity_name, coords in team.items():
-        if entity_name not in {"peasant", "base", "barracks", "knight", "archer", "mage"}:
+        if entity_name not in {"peasant", "base", "barracks", "house", "knight", "archer", "mage"}:
             errors.append(f"{key}.{entity_name} is not a known entity type.")
             continue
         _validate_coordinate_list(coords, f"{key}.{entity_name}", errors)

@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 
 type WorldPoint = tuple[float, float]
 type UnitType = Literal["peasant", "knight", "archer", "mage"]
-type BuildingType = Literal["barracks"]
+type BuildingType = Literal["barracks", "house"]
 type ActionKind = Literal[
     "no_op",
     "move",

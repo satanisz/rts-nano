@@ -47,7 +47,6 @@ class BuildingSpec:
 
 
 RESOURCE_KINDS: tuple[str, str] = ("wood", "cristal")
-DEFAULT_POPULATION_CAP = 50
 PRODUCTION_REFUND_RATIO = 0.75
 
 UNIT_SPECS: dict[str, UnitSpec] = {

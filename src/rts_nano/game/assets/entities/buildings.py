@@ -33,3 +33,12 @@ class Barracks(Building):
         """Initialize the object."""
         super().__init__(x, y, team)
         self.spec_key = "barracks"
+
+
+class House(Building):
+    """Represent a support building that increases population capacity."""
+
+    def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
+        """Initialize the object."""
+        super().__init__(x, y, team)
+        self.spec_key = "house"
