@@ -54,6 +54,7 @@ from rts_nano.game.constants import (
 from rts_nano.game.fog import FogOfWar
 from rts_nano.game.orders import OrderSystem
 from rts_nano.game.pathfinding import find_path
+from rts_nano.game.production import ProductionSystem
 from rts_nano.game.rules import clamp_point, distance_between_points, find_replacement_resource, nearest_entity
 from rts_nano.game.terrain import TerrainMap
 
@@ -339,6 +340,8 @@ class GameManager:
         self.archer_shots: list[ArcherShot] = []
         self.click_markers: list[ClickMarker] = []
         self.build_peasant_buttons: list[tuple[pygame.Rect, Base]] = []
+        self.cancel_production_buttons: list[tuple[pygame.Rect, Base]] = []
+        self.production = ProductionSystem(self)
         self.orders = OrderSystem(self)
         self.game_over_message: str | None = None
         self.menu_status: str | None = None
@@ -420,8 +423,12 @@ class GameManager:
         return self.orders.issue_target_order(team, target, units)
 
     def build_peasant(self, base: Base) -> bool:
-        """Attempt to build a Peasant at the given base."""
+        """Attempt to queue a Peasant at the given base."""
         return self.orders.build_peasant(base)
+
+    def cancel_peasant_production(self, base: Base) -> bool:
+        """Attempt to cancel active Peasant production at the given base."""
+        return self.orders.cancel_peasant_production(base)
 
     def select_entities_for_team(self, team: TeamColor, entities: Iterable[Entity]) -> int:
         """Select team-owned units/buildings and return the selected count."""
@@ -436,7 +443,15 @@ class GameManager:
 
     def _has_reached_unit_cap(self, team: TeamColor) -> bool:
         """Return whether a team is at the current unit cap."""
-        return self._count_units(team) >= MAX_UNITS
+        return self._count_units(team) + self.production.queued_population_for_team(
+            team
+        ) >= self.population_cap_for_team(team)
+
+    def population_cap_for_team(self, team: TeamColor) -> int:
+        """Return the current population cap for a team."""
+        if team == TeamColor.RESOURCES:
+            return 0
+        return MAX_UNITS
 
     def _clamp_to_world(self, pos: tuple[float, float]) -> tuple[int, int]:
         """Clamp a world-space point to map bounds.
@@ -733,6 +748,10 @@ class GameManager:
                     if rect.collidepoint(mouse_pos):
                         self.build_peasant(base)
                         return
+                for rect, base in self.cancel_production_buttons:
+                    if rect.collidepoint(mouse_pos):
+                        self.cancel_peasant_production(base)
+                        return
                 if mouse_pos[1] >= PLAY_AREA_HEIGHT:
                     return
 
@@ -1007,6 +1026,7 @@ class GameManager:
                         entity.state = "IDLE"
                         entity.source_resource = None
 
+        self.production.update()
         self._remove_dead_entities()
         self._update_entity_height_levels()
         self._update_game_over_state()
@@ -1058,6 +1078,7 @@ class GameManager:
         pygame.draw.rect(screen, (200, 200, 200), menu_rect, 2)
 
         self.build_peasant_buttons.clear()
+        self.cancel_production_buttons.clear()
 
         if not self.selected_entities:
             return
@@ -1166,10 +1187,19 @@ class GameManager:
         selected_base: Base | None = None
         if isinstance(primary_entity, Base) and getattr(primary_entity, "team", None) == self.current_team:
             selected_base = primary_entity
-            if self._has_reached_unit_cap(selected_base.team):
-                commands.append(("Cap Reached", False))
+            can_build, reason = self.production.can_enqueue_unit(selected_base, "peasant")
+            queue = self.production.queue_for(selected_base)
+            if queue:
+                commands.append((f"Worker {queue[0].progress:.0%}", False, None))
+                commands.append(("Cancel", True, "cancel"))
+            if can_build:
+                commands.append(("Build Worker", True, "build"))
+            elif reason == "population_cap":
+                commands.append(("Cap Reached", False, None))
+            elif reason == "insufficient_resources":
+                commands.append(("Need Wood", False, None))
             else:
-                commands.append(("Build Worker", True))
+                commands.append(("Unavailable", False, None))
 
         for i in range(cmd_cols * cmd_rows):
             col = i % cmd_cols
@@ -1180,7 +1210,7 @@ class GameManager:
             btn_rect = pygame.Rect(pos_x, pos_y, cmd_btn_size, cmd_btn_size)
 
             if i < len(commands):
-                cmd_name, cmd_active = commands[i]
+                cmd_name, cmd_active, cmd_action = commands[i]
 
                 mouse_pos = self.mouse_pos
                 is_hovered = btn_rect.collidepoint(mouse_pos)
@@ -1197,8 +1227,10 @@ class GameManager:
                     text_rect = text_surf.get_rect(center=(pos_x + cmd_btn_size // 2, pos_y + 16 + w_i * 14))
                     screen.blit(text_surf, text_rect)
 
-                if cmd_active and cmd_name == "Build Worker" and selected_base is not None:
+                if cmd_active and cmd_action == "build" and selected_base is not None:
                     self.build_peasant_buttons.append((btn_rect, selected_base))
+                elif cmd_active and cmd_action == "cancel" and selected_base is not None:
+                    self.cancel_production_buttons.append((btn_rect, selected_base))
 
             else:
                 pygame.draw.rect(screen, (30, 30, 30), btn_rect)

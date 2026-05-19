@@ -54,7 +54,7 @@ def test_manager_public_move_order_helper_assigns_units() -> None:
 
 
 def test_manager_public_build_helper_reports_success() -> None:
-    """Game manager reports whether a build order could be applied."""
+    """Game manager queues production and spawns a peasant after build time."""
     simulation = HeadlessSimulation.from_settings(_settings())
     manager = simulation.manager
     group = manager.entities[TeamColor.BLUE]
@@ -62,9 +62,34 @@ def test_manager_public_build_helper_reports_success() -> None:
     group.resources["wood"] = 50
 
     assert manager.build_peasant(base) is True
-    assert len(group.peasents) == 2
+    assert len(group.peasents) == 1
     assert group.resources["wood"] == 0
+    assert len(manager.production.queue_for(base)) == 1
     assert manager.build_peasant(base) is False
+
+    simulation.step(60)
+
+    assert len(group.peasents) == 2
+    assert not manager.production.queue_for(base)
+    simulation.close()
+
+
+def test_manager_cancels_queued_peasant_with_partial_refund() -> None:
+    """Queued production can be canceled before the unit spawns."""
+    simulation = HeadlessSimulation.from_settings(_settings())
+    manager = simulation.manager
+    group = manager.entities[TeamColor.BLUE]
+    base = group.bases[0]
+    group.resources["wood"] = 50
+
+    assert manager.build_peasant(base) is True
+    assert manager.cancel_peasant_production(base) is True
+    assert group.resources["wood"] == 37
+    assert not manager.production.queue_for(base)
+
+    simulation.step(60)
+
+    assert len(group.peasents) == 1
     simulation.close()
 
 

@@ -16,6 +16,3 @@ htmlcov/
 
 # Virtual environments
 .venv/
-
-# Local task planning notes
-EXECUTIVE_PLAN.md

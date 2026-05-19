@@ -14,6 +14,7 @@ from rts_nano.actions import (
     ActionSpec,
     AttackAction,
     BuildAction,
+    CancelProductionAction,
     DepositAction,
     GatherAction,
     MoveAction,
@@ -24,17 +25,22 @@ from rts_nano.actions import (
 from rts_nano.actions import (
     ActionKind as ActionKind,
 )
+from rts_nano.game.assets.entities import TeamColor
+from rts_nano.game.assets.entities.base_entities import Building, Unit
+from rts_nano.game.assets.entities.units import Peasant
 from rts_nano.game.observations import (
     EntityId,
     EntityIdRegistry,
     EntitySnapshot,
     Observation,
+    ProductionSnapshot,
     TeamSnapshot,
     build_observation,
 )
 from rts_nano.headless import HeadlessSimulation
 
 if TYPE_CHECKING:
+    from rts_nano.game.assets.entities.buildings import Base
     from rts_nano.map_schema import MapSettings
 
 DEFAULT_MAP_ID = "map_settings_01.json"
@@ -44,6 +50,7 @@ __all__ = [
     "ActionSpec",
     "AttackAction",
     "BuildAction",
+    "CancelProductionAction",
     "DepositAction",
     "EntityId",
     "EntitySnapshot",
@@ -51,6 +58,7 @@ __all__ = [
     "MoveAction",
     "NoOpAction",
     "Observation",
+    "ProductionSnapshot",
     "RtsNanoEnv",
     "SelectAction",
     "StepResult",
@@ -151,20 +159,22 @@ class RtsNanoEnv:
         return build_observation(self._require_simulation().manager, self._tick, self._entity_ids)
 
     def available_actions(self) -> tuple[ActionSpec, ...]:
-        """Return the action families supported by the current environment state."""
-        team_names = tuple(team.team for team in self.observe().teams)
+        """Return currently legal action families."""
+        return tuple(spec for spec in self.action_mask() if spec.enabled)
+
+    def action_mask(self, team: TeamColor | str | None = None) -> tuple[ActionSpec, ...]:
+        """Return legal/illegal action families with denial reasons."""
+        manager = self._require_simulation().manager
+        requested_team = self._normalize_team(team)
+        teams = tuple(
+            candidate_team
+            for candidate_team in manager.entities
+            if candidate_team != TeamColor.RESOURCES and (requested_team is None or candidate_team == requested_team)
+        )
+
         specs: list[ActionSpec] = [ActionSpec("no_op")]
-        for team_name in team_names:
-            specs.extend(
-                (
-                    ActionSpec("move", team_name, "world_point"),
-                    ActionSpec("attack", team_name, "entity_id"),
-                    ActionSpec("gather", team_name, "resource_id"),
-                    ActionSpec("deposit", team_name, "base_id"),
-                    ActionSpec("build", team_name, "base_id"),
-                    ActionSpec("select", team_name, "entity_ids"),
-                )
-            )
+        for candidate_team in teams:
+            specs.extend(self._team_action_specs(candidate_team))
         return tuple(specs)
 
     def is_done(self) -> bool:
@@ -201,6 +211,80 @@ class RtsNanoEnv:
     @staticmethod
     def _frames_for(action: Action) -> int:
         return action.frames
+
+    def _team_action_specs(self, team: TeamColor) -> tuple[ActionSpec, ...]:
+        manager = self._require_simulation().manager
+        units = manager.orders.units_for_team(team)
+        bases = manager.orders.bases_for_team(team)
+        peasants = [unit for unit in units if isinstance(unit, Peasant)]
+        carrying_peasants = [unit for unit in peasants if unit.carry_wood > 0 or unit.carry_cristal > 0]
+        resources = [
+            resource for resource in (manager.resources.woods + manager.resources.cristals) if resource.amount > 0
+        ]
+        hostile_targets = [
+            entity
+            for entity in manager.all_entities
+            if isinstance(entity, (Unit, Building)) and entity.team != team and entity.life > 0
+        ]
+
+        can_build, build_reason = self._can_build_peasant(team, bases)
+        team_name = team.value
+        return (
+            ActionSpec("move", team_name, "world_point", enabled=bool(units), reason=None if units else "no_units"),
+            ActionSpec(
+                "attack",
+                team_name,
+                "entity_id",
+                enabled=bool(units and hostile_targets),
+                reason=None if units and hostile_targets else "no_units_or_targets",
+            ),
+            ActionSpec(
+                "gather",
+                team_name,
+                "resource_id",
+                enabled=bool(peasants and resources),
+                reason=None if peasants and resources else "no_peasants_or_resources",
+            ),
+            ActionSpec(
+                "deposit",
+                team_name,
+                "base_id",
+                enabled=bool(carrying_peasants and bases),
+                reason=None if carrying_peasants and bases else "no_cargo_or_base",
+            ),
+            ActionSpec("build", team_name, "base_id", enabled=can_build, reason=build_reason),
+            ActionSpec(
+                "cancel_production",
+                team_name,
+                "base_id",
+                enabled=any(manager.production.queue_for(base) for base in bases),
+                reason=None if any(manager.production.queue_for(base) for base in bases) else "empty_queue",
+            ),
+            ActionSpec(
+                "select",
+                team_name,
+                "entity_ids",
+                enabled=bool(units or bases),
+                reason=None if units or bases else "no_entities",
+            ),
+        )
+
+    def _can_build_peasant(self, team: TeamColor, bases: list[Base]) -> tuple[bool, str | None]:
+        if not bases:
+            return False, "no_base"
+        last_reason: str | None = None
+        for base in bases:
+            can_build, reason = self._require_simulation().manager.production.can_enqueue_unit(base, "peasant")
+            if can_build:
+                return True, None
+            last_reason = reason
+        return False, last_reason
+
+    @staticmethod
+    def _normalize_team(team: TeamColor | str | None) -> TeamColor | None:
+        if team is None or isinstance(team, TeamColor):
+            return team
+        return TeamColor(team)
 
     @staticmethod
     def _resolve_map_path(map_id: str | Path | None) -> Path:

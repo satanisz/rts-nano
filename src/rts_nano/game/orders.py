@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from rts_nano.game.assets.entities.base_entities import Building, Entity, Unit
-from rts_nano.game.assets.entities.units import Peasant
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -61,15 +60,12 @@ class OrderSystem:
         return len(ordered_units)
 
     def build_peasant(self, base: Base) -> bool:
-        """Attempt to build a Peasant at the given base."""
-        team_group = self._manager.entities.get(base.team)
-        if team_group is None or team_group.resources["wood"] < 50 or self._manager._has_reached_unit_cap(base.team):
-            return False
-        team_group.resources["wood"] -= 50
-        spawn_x, spawn_y = self._manager._clamp_to_world((base.x, base.y + base.size))
-        peasant = Peasant(int(spawn_x), int(spawn_y), base.team)
-        team_group.peasents.append(peasant)
-        return True
+        """Attempt to queue a Peasant at the given base."""
+        return self._manager.production.enqueue_unit(base, "peasant")
+
+    def cancel_peasant_production(self, base: Base) -> bool:
+        """Attempt to cancel the active Peasant production job at a base."""
+        return self._manager.production.cancel_next(base)
 
     def select_entities_for_team(self, team: TeamColor, entities: Iterable[Entity]) -> int:
         """Select team-owned units/buildings and return the selected count."""

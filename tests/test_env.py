@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from rts_nano.action_translation import ActionTranslator
-from rts_nano.actions import BuildAction
+from rts_nano.actions import BuildAction, CancelProductionAction
 from rts_nano.env import MoveAction, NoOpAction, RtsNanoEnv
 from rts_nano.game.assets.entities import TeamColor
 from rts_nano.game.observations import EntityIdRegistry, build_observation
@@ -43,6 +43,7 @@ def test_env_observation_is_serializable_snapshot() -> None:
     assert payload["current_team"] == "Blue"
     assert {entity.kind for entity in observation.entities} == {"Peasant", "Base", "Wood"}
     assert env.available_actions()[0].kind == "no_op"
+    assert observation.teams[0].population_cap == 50
 
     env.close()
 
@@ -74,23 +75,62 @@ def test_action_translator_applies_build_orders() -> None:
     affected = ActionTranslator(manager, registry).apply(BuildAction(TeamColor.BLUE, base_id=base_id))
 
     assert affected == 1
+    assert len(manager.production.queue_for(manager.bases_for_team(TeamColor.BLUE)[0])) == 1
+    simulation.step(60)
     assert len(manager.units_for_team(TeamColor.BLUE)) == 2
     simulation.close()
 
 
+def test_env_action_mask_reports_stateful_legality() -> None:
+    """Action masks expose legal action families and denial reasons."""
+    env = RtsNanoEnv(settings=_settings())
+
+    mask = {(spec.kind, spec.team): spec for spec in env.action_mask(TeamColor.BLUE)}
+
+    assert mask[("move", "Blue")].enabled is True
+    assert mask[("gather", "Blue")].enabled is True
+    assert mask[("build", "Blue")].enabled is False
+    assert mask[("build", "Blue")].reason == "insufficient_resources"
+    assert mask[("cancel_production", "Blue")].enabled is False
+
+    manager = env._require_simulation().manager
+    manager.entities[TeamColor.BLUE].resources["wood"] = 50
+    observation = env.observe()
+    base_id = next(entity.id for entity in observation.entities if entity.kind == "Base" and entity.team == "Blue")
+
+    env.step(BuildAction(TeamColor.BLUE, base_id=base_id, frames=0))
+    mask = {(spec.kind, spec.team): spec for spec in env.action_mask(TeamColor.BLUE)}
+
+    assert mask[("cancel_production", "Blue")].enabled is True
+
+    cancel_result = env.step(CancelProductionAction(TeamColor.BLUE, base_id=base_id, frames=0))
+
+    assert cancel_result.observation.teams[0].wood == 37
+
+    env.close()
+
+
 def test_env_replays_same_action_sequence_deterministically() -> None:
-    """Same settings, seed, and actions produce the same snapshot sequence."""
-    actions = (
-        MoveAction(TeamColor.BLUE, (120, 120)),
-        NoOpAction(frames=2),
-    )
+    """Same settings, seed, actions, and production queue produce same snapshots."""
 
     def run_sequence() -> list[dict[str, object]]:
         env = RtsNanoEnv(settings=_settings())
-        snapshots = [env.reset(seed=11).to_dict()]
+        observation = env.reset(seed=11)
+        manager = env._require_simulation().manager
+        manager.entities[TeamColor.BLUE].resources["wood"] = 50
+        observation = env.observe()
+        base_id = next(entity.id for entity in observation.entities if entity.kind == "Base" and entity.team == "Blue")
+        actions = (
+            MoveAction(TeamColor.BLUE, (120, 120)),
+            BuildAction(TeamColor.BLUE, base_id=base_id, frames=1),
+            NoOpAction(frames=60),
+        )
+        snapshots = [observation.to_dict()]
         for action in actions:
             snapshots.append(env.step(action).observation.to_dict())
         env.close()
         return snapshots
 
-    assert run_sequence() == run_sequence()
+    first_run = run_sequence()
+    assert first_run == run_sequence()
+    assert first_run[-1]["teams"][0]["units"] == 2

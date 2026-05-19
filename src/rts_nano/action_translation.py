@@ -8,6 +8,7 @@ from rts_nano.actions import (
     Action,
     AttackAction,
     BuildAction,
+    CancelProductionAction,
     DepositAction,
     GatherAction,
     MoveAction,
@@ -47,6 +48,8 @@ class ActionTranslator:
             return self._apply_deposit(action)
         if isinstance(action, BuildAction):
             return self._apply_build(action)
+        if isinstance(action, CancelProductionAction):
+            return self._apply_cancel_production(action)
         if isinstance(action, SelectAction):
             return self._apply_select(action)
         return 0
@@ -81,6 +84,12 @@ class ActionTranslator:
         if base is None:
             return 0
         return int(self._manager.orders.build_peasant(base))
+
+    def _apply_cancel_production(self, action: CancelProductionAction) -> int:
+        base = self._base_for_action(action.team, action.base_id)
+        if base is None:
+            return 0
+        return int(self._manager.orders.cancel_peasant_production(base))
 
     def _apply_select(self, action: SelectAction) -> int:
         selected = tuple(self._entity_by_id(entity_id) for entity_id in action.entity_ids)

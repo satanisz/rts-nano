@@ -6,6 +6,7 @@ from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING
 
 from rts_nano.game.assets.entities import TeamColor
+from rts_nano.game.assets.entities.buildings import Base
 
 if TYPE_CHECKING:
     from rts_nano.game.assets.entities.base_entities import Entity
@@ -23,6 +24,18 @@ class TeamSnapshot:
     cristal: int
     units: int
     buildings: int
+    population_cap: int
+    queued_units: int
+
+
+@dataclass(frozen=True, slots=True)
+class ProductionSnapshot:
+    """Serializable view of one queued production job."""
+
+    unit_type: str
+    remaining_frames: int
+    total_frames: int
+    progress: float
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,6 +54,7 @@ class EntitySnapshot:
     carry_wood: int
     carry_cristal: int
     selected: bool
+    production_queue: tuple[ProductionSnapshot, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -99,23 +113,27 @@ def build_observation(manager: GameManager, tick: int, registry: EntityIdRegistr
         current_team=manager.current_team.value,
         game_over=manager.game_over_message,
         teams=tuple(
-            _snapshot_team(team, group) for team, group in manager.entities.items() if team != TeamColor.RESOURCES
+            _snapshot_team(manager, team, group)
+            for team, group in manager.entities.items()
+            if team != TeamColor.RESOURCES
         ),
-        entities=tuple(_snapshot_entity(entity, registry) for entity in manager.all_entities),
+        entities=tuple(_snapshot_entity(manager, entity, registry) for entity in manager.all_entities),
     )
 
 
-def _snapshot_team(team: TeamColor, group: EntitiesGroup) -> TeamSnapshot:
+def _snapshot_team(manager: GameManager, team: TeamColor, group: EntitiesGroup) -> TeamSnapshot:
     return TeamSnapshot(
         team=team.value,
         wood=group.resources["wood"],
         cristal=group.resources["cristal"],
         units=len(group.peasents) + len(group.knights) + len(group.archers) + len(group.mages),
         buildings=len(group.bases),
+        population_cap=manager.population_cap_for_team(team),
+        queued_units=manager.production.queued_units_for_team(team),
     )
 
 
-def _snapshot_entity(entity: Entity, registry: EntityIdRegistry) -> EntitySnapshot:
+def _snapshot_entity(manager: GameManager, entity: Entity, registry: EntityIdRegistry) -> EntitySnapshot:
     team = getattr(entity, "team", None)
     return EntitySnapshot(
         id=registry.id_for(entity),
@@ -130,4 +148,19 @@ def _snapshot_entity(entity: Entity, registry: EntityIdRegistry) -> EntitySnapsh
         carry_wood=getattr(entity, "carry_wood", 0),
         carry_cristal=getattr(entity, "carry_cristal", 0),
         selected=entity.selected,
+        production_queue=_snapshot_production_queue(manager, entity),
+    )
+
+
+def _snapshot_production_queue(manager: GameManager, entity: Entity) -> tuple[ProductionSnapshot, ...]:
+    if not isinstance(entity, Base):
+        return ()
+    return tuple(
+        ProductionSnapshot(
+            unit_type=item.unit_type,
+            remaining_frames=item.remaining_frames,
+            total_frames=item.total_frames,
+            progress=item.progress,
+        )
+        for item in manager.production.queue_for(entity)
     )

@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from rts_nano.game.observations import EntityId
 
 type WorldPoint = tuple[float, float]
-type ActionKind = Literal["no_op", "move", "attack", "gather", "deposit", "build", "select"]
+type ActionKind = Literal["no_op", "move", "attack", "gather", "deposit", "build", "cancel_production", "select"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,6 +71,15 @@ class BuildAction:
 
 
 @dataclass(frozen=True, slots=True)
+class CancelProductionAction:
+    """Cancel the active production job at a team base."""
+
+    team: TeamColor
+    base_id: EntityId | None = None
+    frames: int = 1
+
+
+@dataclass(frozen=True, slots=True)
 class SelectAction:
     """Set the manager selection from entity snapshot IDs for parity with UI flows."""
 
@@ -79,13 +88,24 @@ class SelectAction:
     frames: int = 1
 
 
-type Action = NoOpAction | MoveAction | AttackAction | GatherAction | DepositAction | BuildAction | SelectAction
+type Action = (
+    NoOpAction
+    | MoveAction
+    | AttackAction
+    | GatherAction
+    | DepositAction
+    | BuildAction
+    | CancelProductionAction
+    | SelectAction
+)
 
 
 @dataclass(frozen=True, slots=True)
 class ActionSpec:
-    """Describe an action family currently accepted by the environment."""
+    """Describe an action family and whether it is currently legal."""
 
     kind: ActionKind
     team: str | None = None
     target: str | None = None
+    enabled: bool = True
+    reason: str | None = None
