@@ -16,21 +16,21 @@ that the next agent can quickly understand where the project is and what changed
 
 ## Current Baseline
 
-Last reviewed: 2026-05-19.
+Last reviewed: 2026-05-20.
 
 Known verification results from the latest implementation pass:
 
 - `uv run pytest`: passed, 19 tests.
 - `uv run ruff check --no-fix src tests`: passed.
 - `uv run ty check`: passed.
-- `uv run tox -e py313`: passed.
-- `uv run tox`: passed for default `py313` and `coverage` environments.
+- `uv run tox -e py314`: passed.
+- `uv run tox`: passed for default `py314` and `coverage` environments.
 - `uv run pre-commit run --all-files`: passed.
-- Working tree contains this plan update and implementation changes from the first sprint.
+- Working tree contains the Python 3.14 migration changes from the 2026-05-20 pass.
 
 Important observations:
 
-- Runtime code uses Pygame throughout `main.py`, `manager.py`, `terrain.py`, entities, editor, tests, and headless mode; `pygame` is now declared and locked.
+- Runtime code imports `pygame` throughout `main.py`, `manager.py`, `terrain.py`, entities, editor, tests, and headless mode; `pygame-ce` is now declared and locked because it provides Python 3.14 wheels while retaining the `pygame` import API.
 - `python-json-logger` was removed because no active runtime logging module used it.
 - `pre-commit` is configured for basic file hygiene, Ruff, Ruff format, and Ty.
 - Local/generated directories are ignored: `.venv`, `.pytest_cache`, `.ruff_cache`, `__pycache__`, `.tox`, and coverage outputs.
@@ -66,7 +66,7 @@ Status: DONE
 
 Actions:
 
-- Add missing runtime dependency: `pygame`.
+- Add missing Pygame-compatible runtime dependency: `pygame-ce`.
 - Regenerate `uv.lock` from a clean environment.
 - Decide whether `python-json-logger` is needed; remove it if unused or add real logging infrastructure if desired.
 - Add `.pre-commit-config.yaml` for Ruff, Ty, and basic file hygiene.
@@ -104,14 +104,14 @@ Actions:
   - import ordering in `manager.py`.
 - Fix current Ty issue in `GameManager.draw_bottom_menu` by narrowing `primary_entity` to `Base` before appending to `build_peasant_buttons`.
 - Align Python target versions:
-  - `pyproject.toml` requires Python `>=3.13`,
-  - `ty.toml` targets 3.13,
-  - `ruff.toml` currently targets `py314`.
+  - `pyproject.toml` requires Python `>=3.14`,
+  - `ty.toml` targets 3.14,
+  - `ruff.toml` targets `py314`.
 - Make these commands pass:
   - `uv run pytest`
   - `uv run ruff check --no-fix src tests`
   - `uv run ty check`
-  - `uv run tox -e py313`
+  - `uv run tox -e py314`
 - Decide whether `coverage.fail_under = 100` is realistic for this Pygame project; keep it only if exclusions are intentional and documented.
 
 Definition of done:
@@ -302,9 +302,9 @@ Status: TODO
 
 Priority order:
 
-1. Add and lock `pygame`.
+1. Add and lock Pygame-compatible runtime dependency.
 2. Fix Ruff and Ty baseline issues.
-3. Make `tox -e py313` pass.
+3. Make `tox -e py314` pass.
 4. Add pre-commit configuration.
 5. Update ignore rules for generated artifacts.
 6. Document and clean the asset policy.
@@ -317,11 +317,11 @@ Update this section after each completed phase.
 
 | Workstream | Status | Last Update | Notes |
 | --- | --- | --- | --- |
-| Repository hygiene | DONE | 2026-05-19 | Added and locked pygame, removed unused python-json-logger, moved source art to `assets/development`, added asset policy, removed empty `src/__init__.py`, expanded `.gitignore`. |
-| Quality gates | DONE | 2026-05-19 | `pytest`, Ruff, Ty, tox, and pre-commit pass. Coverage gate reset to realistic baseline `fail_under = 50`; tox defaults to `py313` plus `coverage`. |
-| Game API for AI/RL | IN PROGRESS | 2026-05-19 | Added `RtsNanoEnv`, typed actions, serializable snapshots, injectable reward, and deterministic replay tests. |
-| Pythonic architecture | TODO | 2026-05-19 | Large classes identified. |
-| SOLID and Law of Demeter | TODO | 2026-05-19 | Coupling and dynamic access hotspots identified. |
+| Repository hygiene | DONE | 2026-05-20 | Added and locked `pygame-ce`, removed unused python-json-logger, moved source art to `assets/development`, added asset policy, removed empty `src/__init__.py`, expanded `.gitignore`. |
+| Quality gates | DONE | 2026-05-20 | `pytest`, Ruff, Ty, tox, and pre-commit pass. Coverage gate reset to realistic baseline `fail_under = 50`; tox defaults to `py314` plus `coverage`. |
+| Game API for AI/RL | IN PROGRESS | 2026-05-20 | Added `RtsNanoEnv`, typed action DTOs, `ActionTranslator`, serializable snapshots, injectable reward, deterministic replay tests, and `game.observations` snapshot helpers. |
+| Pythonic architecture | IN PROGRESS | 2026-05-20 | Large classes identified; first small split extracted observation helpers, action DTOs, `OrderSystem`, and public manager order helpers used by headless/env APIs. |
+| SOLID and Law of Demeter | IN PROGRESS | 2026-05-20 | Reduced `RtsNanoEnv` access to private `GameManager` methods by adding `ActionTranslator` and named order/query helpers. |
 | Typing and docstrings | TODO | 2026-05-19 | Existing docstrings are useful but uneven. |
 | Testing and CI | IN PROGRESS | 2026-05-19 | Local pre-commit configured; CI still needs to be added. |
 
@@ -336,6 +336,11 @@ Add decisions here when architecture choices are made.
 | 2026-05-19 | Use `coverage.fail_under = 50` as the temporary baseline. | The previous 100% threshold did not match the current Pygame-heavy test coverage and blocked tox despite passing tests. |
 | 2026-05-19 | Keep runtime assets in `src/rts_nano/assets` and source art in top-level `assets/development`. | Runtime package contents stay small and intentional while source art remains versioned and documented. |
 | 2026-05-19 | Expose AI/RL access through `RtsNanoEnv` DTOs instead of live `GameManager` entities. | Neural-network callers need deterministic serializable snapshots and typed actions without depending on Pygame rendering or manager internals. |
+| 2026-05-20 | Upgrade the project baseline to Python 3.14.4. | Python 3.14.4 is the newest locally installed interpreter and the project should track the current local runtime. |
+| 2026-05-20 | Use `pygame-ce` for the Pygame runtime on Python 3.14. | `pygame-ce` publishes CPython 3.14 Windows wheels and preserves the `pygame` import API used by the game. |
+| 2026-05-20 | Extract serializable observation building from `RtsNanoEnv` into `game.observations`. | The RL facade should not know broad `GameManager` internals when a named snapshot helper can own that boundary. |
+| 2026-05-20 | Add public `GameManager` order/query helpers for env and headless callers. | AI-facing facades should issue named orders instead of reaching into private manager methods. |
+| 2026-05-20 | Add `actions`, `action_translation`, and `game.orders` modules. | Action DTOs, translation, and order application should be separate concepts so env stays small and manager can continue shrinking. |
 
 ## Agent Handoff Notes
 
