@@ -254,6 +254,36 @@ class Building(Entity, ABC):
         self.life = self.MAX_LIFE
         self.shield_modifier = self.DEFAULT_SHIELD_MODIFIER
         self.vision_range = 400
+        self.construction_total_frames = 0
+        self.construction_remaining_frames = 0
+        self.is_under_construction = False
+
+    @property
+    def construction_progress(self) -> float:
+        """Return construction progress in the inclusive range [0.0, 1.0]."""
+        if self.construction_total_frames <= 0:
+            return 1.0
+        completed = self.construction_total_frames - self.construction_remaining_frames
+        return min(1.0, max(0.0, completed / self.construction_total_frames))
+
+    def start_construction(self, total_frames: int) -> None:
+        """Mark the building as unfinished and ready for worker construction."""
+        self.construction_total_frames = max(1, total_frames)
+        self.construction_remaining_frames = self.construction_total_frames
+        self.is_under_construction = True
+        self.life = 1
+
+    def advance_construction(self, frames: int = 1) -> bool:
+        """Advance construction and return whether the building is complete."""
+        if not self.is_under_construction:
+            return True
+        self.construction_remaining_frames = max(0, self.construction_remaining_frames - max(0, frames))
+        self.life = max(1, int(self.max_life * self.construction_progress))
+        if self.construction_remaining_frames == 0:
+            self.is_under_construction = False
+            self.life = self.max_life
+            return True
+        return False
 
 
 class Unit(Entity, ABC):

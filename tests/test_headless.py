@@ -120,6 +120,33 @@ def test_manager_trains_military_units_from_barracks() -> None:
     simulation.close()
 
 
+def test_worker_constructs_barracks_before_military_production() -> None:
+    """A peasant can place, build, and unlock a Barracks over time."""
+    simulation = HeadlessSimulation.from_settings(_settings())
+    manager = simulation.manager
+    group = manager.entities[TeamColor.BLUE]
+    peasant = group.peasents[0]
+    peasant.x, peasant.y = 150, 120
+    group.resources.update({"wood": 220, "cristal": 60})
+
+    assert manager.construct_building(peasant, "barracks", (150, 70)) is True
+    assert group.resources == {"wood": 0, "cristal": 0}
+
+    barracks = group.barracks[0]
+    assert barracks.is_under_construction is True
+    assert barracks.construction_progress == 0
+    assert manager.produce_unit(barracks, "knight") is False
+
+    simulation.step(430)
+
+    assert barracks.is_under_construction is False
+    assert barracks.construction_progress == 1
+
+    group.resources.update({"wood": 100, "cristal": 25})
+    assert manager.produce_unit(barracks, "knight") is True
+    simulation.close()
+
+
 def test_group_move_order_assigns_formation_slots() -> None:
     """Group movement spreads units around the clicked destination."""
     settings = _settings()

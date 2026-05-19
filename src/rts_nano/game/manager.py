@@ -51,6 +51,7 @@ from rts_nano.game.constants import (
     WHITE,
     AttackType,
 )
+from rts_nano.game.construction import ConstructionSystem
 from rts_nano.game.data import UNIT_SPECS, get_building_spec
 from rts_nano.game.fog import FogOfWar
 from rts_nano.game.orders import OrderSystem
@@ -346,6 +347,7 @@ class GameManager:
         self.production_buttons: list[tuple[pygame.Rect, Building, str]] = []
         self.cancel_production_buttons: list[tuple[pygame.Rect, Building]] = []
         self.production = ProductionSystem(self)
+        self.construction = ConstructionSystem(self)
         self.orders = OrderSystem(self)
         self.game_over_message: str | None = None
         self.menu_status: str | None = None
@@ -437,6 +439,10 @@ class GameManager:
     def produce_unit(self, producer: Building, unit_type: str) -> bool:
         """Attempt to queue a unit at a production building."""
         return self.orders.produce_unit(producer, unit_type)
+
+    def construct_building(self, builder: Peasant, building_type: str, position: tuple[float, float]) -> bool:
+        """Attempt to place a new building and assign a worker to construct it."""
+        return self.orders.construct_building(builder, building_type, position)
 
     def cancel_production(self, producer: Building) -> bool:
         """Attempt to cancel active production at a production building."""
@@ -1044,6 +1050,7 @@ class GameManager:
                         entity.state = "IDLE"
                         entity.source_resource = None
 
+        self.construction.update()
         self.production.update()
         self._remove_dead_entities()
         self._update_entity_height_levels()
@@ -1166,6 +1173,8 @@ class GameManager:
                 stats_texts.append(f"SHIELD: {primary_entity.shield_modifier}")
             elif isinstance(primary_entity, Building):
                 stats_texts.append(f"HP: {primary_entity.life}/{primary_entity.max_life}")
+                if primary_entity.is_under_construction:
+                    stats_texts.append(f"Build: {primary_entity.construction_progress:.0%}")
                 stats_texts.append(f"SHIELD: {primary_entity.shield_modifier}")
             elif isinstance(primary_entity, Resource):
                 stats_texts.append(f"Amount: {primary_entity.amount}")

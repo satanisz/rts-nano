@@ -50,6 +50,9 @@ class Peasant(Unit):
             if isinstance(self.target_entity, Resource):
                 self.state = "GATHERING"
             elif isinstance(self.target_entity, Building) and self.target_entity.team == self.team:
+                if getattr(self.target_entity, "is_under_construction", False):
+                    self.state = "BUILDING"
+                    return
                 self.state = "DEPOSITING"
             elif self._is_hostile_target(self.target_entity):
                 self.state = "ATTACKING"

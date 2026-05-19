@@ -55,6 +55,8 @@ class EntitySnapshot:
     carry_cristal: int
     selected: bool
     production_queue: tuple[ProductionSnapshot, ...]
+    is_under_construction: bool = False
+    construction_progress: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -149,6 +151,8 @@ def _snapshot_entity(manager: GameManager, entity: Entity, registry: EntityIdReg
         carry_cristal=getattr(entity, "carry_cristal", 0),
         selected=entity.selected,
         production_queue=_snapshot_production_queue(manager, entity),
+        is_under_construction=isinstance(entity, Building) and entity.is_under_construction,
+        construction_progress=entity.construction_progress if isinstance(entity, Building) else None,
     )
 
 

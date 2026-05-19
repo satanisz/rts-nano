@@ -83,12 +83,18 @@ Główne moduły:
   Lekki `ProductionSystem` dla kolejek produkcji. Peasant w bazie jest teraz
   opłacany z góry, rezerwuje populację, postępuje w tickach headless i pojawia
   się dopiero po czasie produkcji. Barracks produkuje podstawowe jednostki
-  wojskowe. Produkcję można anulować z częściowym zwrotem.
+  wojskowe. Produkcję można anulować z częściowym zwrotem. Niedokończone
+  budynki nie mogą produkować.
+
+- `src/rts_nano/game/construction.py`
+  Lekki `ConstructionSystem` dla budowy struktur przez workerów. Obecnie
+  obsługuje Barracks: koszt, walidację terenu/kolizji, niedokończony budynek,
+  postęp budowy i aktywację po ukończeniu.
 
 - `src/rts_nano/actions.py`
   Publiczne DTO akcji: `NoOpAction`, `MoveAction`, `AttackAction`,
-  `GatherAction`, `DepositAction`, `BuildAction`, `CancelProductionAction`,
-  `SelectAction`, `ActionSpec` i `WorldPoint`.
+  `GatherAction`, `DepositAction`, `BuildAction`, `ConstructAction`,
+  `CancelProductionAction`, `SelectAction`, `ActionSpec` i `WorldPoint`.
 
 - `src/rts_nano/action_translation.py`
   `ActionTranslator` tłumaczy publiczne akcje API na wywołania managera i
@@ -138,6 +144,8 @@ Ostatni znany stan jakości po bieżącym etapie: `ruff`, `ty`, `pytest`, `tox` 
 - Podstawowe zbieranie i deponowanie zasobów.
 - Kolejkowana produkcja peasantów w bazie.
 - Kolejkowana produkcja knightów i archerów w Barracks.
+- Budowanie Barracks przez peasantów: koszt, placement API, walidacja terenu i
+  kolizji, niedokończony budynek z progressem oraz aktywacja po ukończeniu.
 - Anulowanie produkcji z częściowym zwrotem zasobów.
 - Statyczne dane gameplayu dla obecnych jednostek/budynków i najbliższych ról RTS.
 - Selekcja jednostek i rozkazy ruchu.
@@ -156,8 +164,8 @@ Ostatni znany stan jakości po bieżącym etapie: `ruff`, `ty`, `pytest`, `tox` 
 ### 5.1 Ekonomia i produkcja
 
 - Produkcja ma pierwszą implementację kolejek/czasu/anulowania dla peasantów oraz
-  podstawowych jednostek z Barracks; nadal trzeba dodać budowę tych struktur,
-  kolejne budynki produkcyjne i wymagania technologiczne.
+  podstawowych jednostek z Barracks; Barracks można już zbudować workerem, ale
+  nadal trzeba dodać kolejne budynki produkcyjne i wymagania technologiczne.
 - Potrzebne są pełniejsze wymagania technologiczne.
 - Potrzebny jest docelowy model populacji zamiast jednego globalnego limitu.
 - Rekomendacja zasobów: zostać przy `wood` i `cristal`, żeby zachować prostotę i
@@ -165,10 +173,12 @@ Ostatni znany stan jakości po bieżącym etapie: `ruff`, `ty`, `pytest`, `tox` 
 
 ### 5.2 Budowanie
 
-- Brakuje placementu budynków z footprintami, kolizją i walidacją terenu.
-- Budowa powinna trwać w czasie i mieć progress.
-- Worker powinien mieć rozkaz budowy, dojście na miejsce, pracę budowy,
-  anulowanie i częściowy zwrot.
+- Barracks ma pierwszą wersję placementu przez API/env z walidacją kosztu,
+  terenu i kolizji.
+- Budowa Barracks trwa w czasie, ma progress w obserwacji i blokuje produkcję do
+  ukończenia.
+- Nadal brakuje UI placementu, anulowania budowy z refundem, House/pop cap,
+  pełnych footprintów i dalszych typów budynków.
 - Budynki muszą blokować pathfinding zgodnie ze swoim footprintem.
 
 ### 5.3 Rozkazy i zachowanie jednostek
@@ -425,9 +435,13 @@ Następne rekomendowane zadanie:
    Status: zrobione dla Barracks, knightów i archerów, z map schema, map editor,
    action masks, obserwacjami i testami headless/env.
 
-7. Następne rekomendowane zadanie: budowanie struktur przez workerów.
-   Dodać placement/action dla Barracks albo House, walidację kosztu i terenu,
-   niedokończony budynek z progressem oraz test headless.
+7. Budowanie struktur przez workerów.
+   Status: zrobione dla Barracks z `ConstructionSystem`, `ConstructAction`,
+   action mask, obserwacją progresu oraz testami headless/env.
+
+8. Następne rekomendowane zadanie: dodać House i docelowy model populacji.
+   Rozszerzyć `ConstructionSystem` o House/support, przestać używać jednego
+   globalnego limitu populacji i dodać testy, że cap rośnie po ukończeniu House.
 
 ## 11. Definition of Done pełnej gry
 
@@ -584,12 +598,18 @@ Current main modules:
   Lightweight `ProductionSystem` for base production queues. Peasant production
   now pays cost up front, reserves population through queued jobs, advances in
   headless ticks, and spawns only after the configured production time. Barracks
-  can train basic military units.
+  can train basic military units. Unfinished buildings cannot produce units.
+
+- `src/rts_nano/game/construction.py`
+  Lightweight `ConstructionSystem` for worker-built structures. It currently
+  supports Barracks construction: cost payment, terrain/collision placement
+  validation, unfinished building state, build progress, and activation on
+  completion.
 
 - `src/rts_nano/actions.py`
   Public action DTOs: `NoOpAction`, `MoveAction`, `AttackAction`, `GatherAction`,
-  `DepositAction`, `BuildAction`, `CancelProductionAction`, `SelectAction`,
-  `ActionSpec`, and `WorldPoint`.
+  `DepositAction`, `BuildAction`, `ConstructAction`, `CancelProductionAction`,
+  `SelectAction`, `ActionSpec`, and `WorldPoint`.
 
 - `src/rts_nano/action_translation.py`
   `ActionTranslator` converts public API actions into manager/order system
@@ -641,6 +661,9 @@ this baseline.
 - Basic harvesting and depositing.
 - Basic queued peasant production from the base.
 - Basic queued knight and archer production from Barracks.
+- Worker construction for Barracks: cost payment, API placement,
+  terrain/collision validation, unfinished building progress, and activation on
+  completion.
 - Production cancellation with a partial resource refund.
 - Static gameplay data for current units/buildings and near-term RTS roles.
 - Unit selection and movement orders.
@@ -662,8 +685,8 @@ this baseline.
   requirements.
 - Unit production has an initial queue/time implementation for peasants, but
   includes cancellation, partial refunds, and Barracks military production.
-  Construction, additional production buildings, and tech requirements are still
-  missing.
+  Barracks can now be constructed by workers; additional production buildings
+  and tech requirements are still missing.
 - Buildings need RTS roles: base, population/support building, military
   production, upgrades, and defensive structure.
 - The game needs a population cap or another mechanism that limits mass
@@ -673,10 +696,12 @@ this baseline.
 
 ### 5.2 Construction
 
-- Building placement needs footprints, collision, and terrain validation.
-- Construction should take time and expose progress.
-- Workers need build orders, movement to the build site, construction work,
-  cancellation, and optional refunds.
+- Barracks has the first API/env placement path with cost, terrain, and
+  collision validation.
+- Barracks construction takes time, exposes progress in observations, and blocks
+  production until completion.
+- UI placement, construction cancellation/refunds, House/pop cap, full
+  footprints, and additional building types are still missing.
 - Buildings must block pathfinding according to their footprint.
 
 ### 5.3 Orders and Unit Behavior
@@ -976,9 +1001,15 @@ training API.
    Status: implemented for Barracks, knights, and archers, including map schema,
    map editor, action masks, observations, and headless/env tests.
 
-8. Next task: add worker construction for structures.
-   Add placement/action support for Barracks or House, cost and terrain
-   validation, unfinished building progress, and a headless test.
+8. Worker construction for structures.
+   Status: implemented for Barracks with `ConstructionSystem`,
+   `ConstructAction`, action mask support, progress observations, and
+   headless/env tests.
+
+9. Next task: add House and the target population model.
+   Extend `ConstructionSystem` with a House/support building, replace the single
+   global population cap with completed-building support, and add tests showing
+   the cap increases after House completion.
 
 ## 11. Definition Of Done For The Full Game
 

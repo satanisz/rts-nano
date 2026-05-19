@@ -11,6 +11,7 @@ if TYPE_CHECKING:
 
     from rts_nano.game.assets.entities import TeamColor
     from rts_nano.game.assets.entities.buildings import Base
+    from rts_nano.game.assets.entities.units import Peasant
     from rts_nano.game.manager import GameManager
 
 
@@ -73,6 +74,10 @@ class OrderSystem:
     def produce_unit(self, producer: Building, unit_type: str) -> bool:
         """Attempt to queue a unit at a production building."""
         return self._manager.production.enqueue_unit(producer, unit_type)
+
+    def construct_building(self, builder: Peasant, building_type: str, position: tuple[float, float]) -> bool:
+        """Attempt to place a new building and assign a worker to construct it."""
+        return self._manager.construction.start_construction(builder, building_type, position) is not None
 
     def cancel_peasant_production(self, base: Base) -> bool:
         """Attempt to cancel the active Peasant production job at a base."""

@@ -80,7 +80,7 @@ class ProductionSystem:
 
         if spec.produced_at != producer_key or spec.key not in producer_spec.produces:
             return False, "wrong_production_building"
-        if producer.life <= 0:
+        if producer.life <= 0 or producer.is_under_construction:
             return False, "inactive_building"
 
         team_group = self._manager.entities.get(producer.team)
@@ -135,7 +135,7 @@ class ProductionSystem:
             producer
             for group in self._manager.entities.values()
             for producer in (*group.bases, *group.barracks)
-            if producer.life > 0
+            if producer.life > 0 and not producer.is_under_construction
         }
         for producer in tuple(self._queues):
             if producer not in live_producers:

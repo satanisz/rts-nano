@@ -11,7 +11,18 @@ if TYPE_CHECKING:
 
 type WorldPoint = tuple[float, float]
 type UnitType = Literal["peasant", "knight", "archer", "mage"]
-type ActionKind = Literal["no_op", "move", "attack", "gather", "deposit", "build", "cancel_production", "select"]
+type BuildingType = Literal["barracks"]
+type ActionKind = Literal[
+    "no_op",
+    "move",
+    "attack",
+    "gather",
+    "deposit",
+    "build",
+    "construct",
+    "cancel_production",
+    "select",
+]
 
 
 @dataclass(frozen=True, slots=True)
@@ -76,6 +87,17 @@ class BuildAction:
 
 
 @dataclass(frozen=True, slots=True)
+class ConstructAction:
+    """Attempt to place and construct a building with a worker."""
+
+    team: TeamColor
+    position: WorldPoint
+    builder_id: EntityId | None = None
+    building_type: BuildingType = "barracks"
+    frames: int = 1
+
+
+@dataclass(frozen=True, slots=True)
 class CancelProductionAction:
     """Cancel the active production job at a team production building."""
 
@@ -100,6 +122,7 @@ type Action = (
     | GatherAction
     | DepositAction
     | BuildAction
+    | ConstructAction
     | CancelProductionAction
     | SelectAction
 )
@@ -115,3 +138,4 @@ class ActionSpec:
     enabled: bool = True
     reason: str | None = None
     unit_type: str | None = None
+    building_type: str | None = None

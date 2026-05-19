@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from rts_nano.action_translation import ActionTranslator
-from rts_nano.actions import BuildAction, CancelProductionAction
+from rts_nano.actions import BuildAction, CancelProductionAction, ConstructAction
 from rts_nano.env import MoveAction, NoOpAction, RtsNanoEnv
 from rts_nano.game.assets.entities import TeamColor
 from rts_nano.game.observations import EntityIdRegistry, build_observation
@@ -112,6 +112,27 @@ def test_action_translator_applies_military_build_orders() -> None:
     simulation.close()
 
 
+def test_action_translator_applies_worker_construction_orders() -> None:
+    """Action translator can place unfinished structures through a worker."""
+    simulation = HeadlessSimulation.from_settings(_settings())
+    manager = simulation.manager
+    manager.entities[TeamColor.BLUE].resources.update({"wood": 220, "cristal": 60})
+    registry = EntityIdRegistry()
+    observation = build_observation(manager, tick=0, registry=registry)
+    builder_id = next(
+        entity.id for entity in observation.entities if entity.kind == "Peasant" and entity.team == "Blue"
+    )
+
+    affected = ActionTranslator(manager, registry).apply(
+        ConstructAction(TeamColor.BLUE, (160, 90), builder_id=builder_id)
+    )
+
+    assert affected == 1
+    assert len(manager.entities[TeamColor.BLUE].barracks) == 1
+    assert manager.entities[TeamColor.BLUE].barracks[0].is_under_construction is True
+    simulation.close()
+
+
 def test_env_action_mask_reports_stateful_legality() -> None:
     """Action masks expose legal action families and denial reasons."""
     env = RtsNanoEnv(settings=_settings())
@@ -124,6 +145,9 @@ def test_env_action_mask_reports_stateful_legality() -> None:
     assert specs[("build", "Blue", "peasant")].enabled is False
     assert specs[("build", "Blue", "peasant")].reason == "insufficient_resources"
     assert specs[("cancel_production", "Blue", None)].enabled is False
+    construction_specs = {(spec.kind, spec.team, spec.building_type): spec for spec in mask}
+    assert construction_specs[("construct", "Blue", "barracks")].enabled is False
+    assert construction_specs[("construct", "Blue", "barracks")].reason == "insufficient_resources"
 
     manager = env._require_simulation().manager
     manager.entities[TeamColor.BLUE].resources["wood"] = 50
@@ -138,6 +162,27 @@ def test_env_action_mask_reports_stateful_legality() -> None:
     cancel_result = env.step(CancelProductionAction(TeamColor.BLUE, base_id=base_id, frames=0))
 
     assert cancel_result.observation.teams[0].wood == 37
+
+    env.close()
+
+
+def test_env_construct_action_observes_unfinished_barracks() -> None:
+    """Environment exposes worker construction through actions and snapshots."""
+    env = RtsNanoEnv(settings=_settings())
+    manager = env._require_simulation().manager
+    manager.entities[TeamColor.BLUE].resources.update({"wood": 220, "cristal": 60})
+    observation = env.observe()
+    builder_id = next(
+        entity.id for entity in observation.entities if entity.kind == "Peasant" and entity.team == "Blue"
+    )
+
+    result = env.step(ConstructAction(TeamColor.BLUE, (160, 90), builder_id=builder_id, frames=0))
+    barracks = next(entity for entity in result.observation.entities if entity.kind == "Barracks")
+
+    assert barracks.is_under_construction is True
+    assert barracks.construction_progress == 0
+    assert result.observation.teams[0].wood == 0
+    assert result.observation.teams[0].cristal == 0
 
     env.close()
 

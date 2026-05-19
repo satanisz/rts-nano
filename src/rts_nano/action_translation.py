@@ -9,6 +9,7 @@ from rts_nano.actions import (
     AttackAction,
     BuildAction,
     CancelProductionAction,
+    ConstructAction,
     DepositAction,
     GatherAction,
     MoveAction,
@@ -48,6 +49,8 @@ class ActionTranslator:
             return self._apply_deposit(action)
         if isinstance(action, BuildAction):
             return self._apply_build(action)
+        if isinstance(action, ConstructAction):
+            return self._apply_construct(action)
         if isinstance(action, CancelProductionAction):
             return self._apply_cancel_production(action)
         if isinstance(action, SelectAction):
@@ -82,6 +85,12 @@ class ActionTranslator:
         if producer is None:
             return 0
         return int(self._manager.orders.produce_unit(producer, action.unit_type))
+
+    def _apply_construct(self, action: ConstructAction) -> int:
+        builder = self._builder_for_action(action.team, action.builder_id, action.building_type, action.position)
+        if builder is None:
+            return 0
+        return int(self._manager.orders.construct_building(builder, action.building_type, action.position))
 
     def _apply_cancel_production(self, action: CancelProductionAction) -> int:
         producer = self._producer_for_action(action.team, action.base_id)
@@ -131,6 +140,29 @@ class ActionTranslator:
             return next((producer for producer in producers if self._manager.production.queue_for(producer)), None)
         return next(
             (producer for producer in producers if self._manager.production.can_enqueue_unit(producer, unit_type)[0]),
+            None,
+        )
+
+    def _builder_for_action(
+        self,
+        team: TeamColor,
+        builder_id: EntityId | None,
+        building_type: str,
+        position: tuple[float, float],
+    ) -> Peasant | None:
+        if builder_id is not None:
+            builder = self._entity_by_id(builder_id)
+            if not isinstance(builder, Peasant):
+                raise ValueError(f"Entity is not a peasant builder: {builder_id}")
+            return builder if builder.team == team else None
+
+        return next(
+            (
+                unit
+                for unit in self._manager.orders.units_for_team(team)
+                if isinstance(unit, Peasant)
+                and self._manager.construction.can_start_construction(unit, building_type, position)[0]
+            ),
             None,
         )
 

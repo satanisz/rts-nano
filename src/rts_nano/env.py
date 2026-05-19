@@ -14,7 +14,9 @@ from rts_nano.actions import (
     ActionSpec,
     AttackAction,
     BuildAction,
+    BuildingType,
     CancelProductionAction,
+    ConstructAction,
     DepositAction,
     GatherAction,
     MoveAction,
@@ -49,8 +51,10 @@ __all__ = [
     "Action",
     "ActionSpec",
     "AttackAction",
+    "BuildingType",
     "BuildAction",
     "CancelProductionAction",
+    "ConstructAction",
     "DepositAction",
     "EntityId",
     "EntitySnapshot",
@@ -241,6 +245,18 @@ class RtsNanoEnv:
             for unit_type in UNIT_SPECS
             for can_build, reason in (self._can_build_unit(team, production_buildings, unit_type),)
         )
+        construct_specs = tuple(
+            ActionSpec(
+                "construct",
+                team_name,
+                "world_point",
+                enabled=can_construct,
+                reason=reason,
+                building_type=building_type,
+            )
+            for building_type in manager.construction.supported_building_types()
+            for can_construct, reason in (manager.construction.can_team_construct(team, building_type),)
+        )
         can_cancel = any(manager.production.queue_for(producer) for producer in production_buildings)
         return (
             ActionSpec("move", team_name, "world_point", enabled=bool(units), reason=None if units else "no_units"),
@@ -266,6 +282,7 @@ class RtsNanoEnv:
                 reason=None if carrying_peasants and bases else "no_cargo_or_base",
             ),
             *build_specs,
+            *construct_specs,
             ActionSpec(
                 "cancel_production",
                 team_name,
@@ -277,8 +294,8 @@ class RtsNanoEnv:
                 "select",
                 team_name,
                 "entity_ids",
-                enabled=bool(units or bases),
-                reason=None if units or bases else "no_entities",
+                enabled=bool(units or production_buildings),
+                reason=None if units or production_buildings else "no_entities",
             ),
         )
 
