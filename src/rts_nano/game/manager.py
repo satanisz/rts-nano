@@ -348,6 +348,10 @@ class GameManager:
         self.click_markers: list[ClickMarker] = []
         self.production_buttons: list[tuple[pygame.Rect, Building, str]] = []
         self.cancel_production_buttons: list[tuple[pygame.Rect, Building]] = []
+        self.construction_buttons: list[tuple[pygame.Rect, str]] = []
+        self.cancel_construction_buttons: list[tuple[pygame.Rect, Building]] = []
+        self.pending_construction_type: str | None = None
+        self.pending_construction_builder: Peasant | None = None
         self.production = ProductionSystem(self)
         self.construction = ConstructionSystem(self)
         self.orders = OrderSystem(self)
@@ -449,6 +453,49 @@ class GameManager:
     def cancel_construction(self, building: Building) -> bool:
         """Attempt to cancel an unfinished building."""
         return self.orders.cancel_construction(building)
+
+    def begin_construction_placement(self, building_type: str) -> bool:
+        """Enter placement mode for a selected peasant construction command."""
+        builder = self._selected_construction_builder()
+        if builder is None:
+            self.menu_status = "Select a peasant"
+            return False
+
+        can_construct, reason = self.construction.can_team_construct(builder.team, building_type)
+        if not can_construct:
+            self.menu_status = f"Cannot build: {reason}"
+            return False
+
+        self.pending_construction_type = building_type
+        self.pending_construction_builder = builder
+        self.menu_status = f"Place {get_building_spec(building_type).display_name}"
+        return True
+
+    def cancel_pending_construction_placement(self) -> None:
+        """Leave placement mode without issuing a build order."""
+        self.pending_construction_type = None
+        self.pending_construction_builder = None
+
+    def place_pending_construction(self, position: tuple[float, float]) -> bool:
+        """Place the active construction command at a world position."""
+        building_type = self.pending_construction_type
+        builder = self._pending_construction_builder()
+        if building_type is None or builder is None:
+            self.cancel_pending_construction_placement()
+            return False
+
+        can_start, reason = self.construction.can_start_construction(builder, building_type, position)
+        if not can_start:
+            self.menu_status = f"Cannot place: {reason}"
+            return False
+
+        if not self.construct_building(builder, building_type, position):
+            self.menu_status = "Cannot place"
+            return False
+
+        self.menu_status = None
+        self.cancel_pending_construction_placement()
+        return True
 
     def cancel_production(self, producer: Building) -> bool:
         """Attempt to cancel active production at a production building."""
@@ -566,6 +613,22 @@ class GameManager:
         """Refresh entity height levels from the terrain map."""
         for entity in self.all_entities:
             entity.height_level = self.terrain.height_at(entity.get_center())
+
+    def _selected_construction_builder(self) -> Peasant | None:
+        return next(
+            (
+                entity
+                for entity in self.selected_entities
+                if isinstance(entity, Peasant) and entity.team == self.current_team and entity.life > 0
+            ),
+            None,
+        )
+
+    def _pending_construction_builder(self) -> Peasant | None:
+        builder = self.pending_construction_builder
+        if builder is not None and builder.team == self.current_team and builder.life > 0:
+            return builder
+        return self._selected_construction_builder()
 
     def _can_unit_move_to(self, unit: Unit, next_point: tuple[float, float]) -> bool:
         """Return whether terrain permits a unit movement step."""
@@ -750,6 +813,7 @@ class GameManager:
         """
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_TAB:
+                self.cancel_pending_construction_placement()
                 if self.current_team == TeamColor.BLUE:
                     self.current_team = TeamColor.RED
                 else:
@@ -795,15 +859,30 @@ class GameManager:
                     if rect.collidepoint(mouse_pos):
                         self.cancel_production(producer)
                         return
+                for rect, building_type in self.construction_buttons:
+                    if rect.collidepoint(mouse_pos):
+                        self.begin_construction_placement(building_type)
+                        return
+                for rect, building in self.cancel_construction_buttons:
+                    if rect.collidepoint(mouse_pos):
+                        self.cancel_construction(building)
+                        return
                 if mouse_pos[1] >= PLAY_AREA_HEIGHT:
                     return
 
-                self.dragging = True
                 world_pos = self._screen_to_world(mouse_pos)
+                if self.pending_construction_type is not None:
+                    self.place_pending_construction(world_pos)
+                    return
+
+                self.dragging = True
                 self.drag_start = world_pos
                 self.drag_end = world_pos
 
             elif event.button == 3:
+                if self.pending_construction_type is not None:
+                    self.cancel_pending_construction_placement()
+                    return
                 if mouse_pos[1] >= PLAY_AREA_HEIGHT:
                     return
                 order_pos = self._screen_to_world(mouse_pos)
@@ -1123,6 +1202,8 @@ class GameManager:
 
         self.production_buttons.clear()
         self.cancel_production_buttons.clear()
+        self.construction_buttons.clear()
+        self.cancel_construction_buttons.clear()
 
         if not self.selected_entities:
             return
@@ -1239,7 +1320,10 @@ class GameManager:
             except ValueError:
                 building_spec = None
 
-            if building_spec is not None and building_spec.produces:
+            if selected_producer.is_under_construction:
+                commands.append((f"Build {selected_producer.construction_progress:.0%}", False, None, None))
+                commands.append(("Cancel Build", True, "cancel_construction", None))
+            elif building_spec is not None and building_spec.produces:
                 queue = self.production.queue_for(selected_producer)
                 if queue:
                     active_unit = UNIT_SPECS[queue[0].unit_type].display_name
@@ -1257,6 +1341,19 @@ class GameManager:
                         commands.append((f"Need {unit_name}", False, None, None))
                     else:
                         commands.append(("Unavailable", False, None, None))
+        elif isinstance(primary_entity, Peasant) and primary_entity.team == self.current_team:
+            for building_type in self.construction.supported_building_types():
+                try:
+                    building_spec = get_building_spec(building_type)
+                except ValueError:
+                    continue
+                can_construct, reason = self.construction.can_team_construct(self.current_team, building_type)
+                if can_construct:
+                    commands.append((f"Build {building_spec.display_name}", True, "construct", building_type))
+                elif reason == "insufficient_resources":
+                    commands.append((f"Need {building_spec.display_name}", False, None, None))
+                else:
+                    commands.append(("Unavailable", False, None, None))
 
         for i in range(cmd_cols * cmd_rows):
             col = i % cmd_cols
@@ -1288,6 +1385,10 @@ class GameManager:
                     self.production_buttons.append((btn_rect, selected_producer, cmd_unit_type))
                 elif cmd_active and cmd_action == "cancel" and selected_producer is not None:
                     self.cancel_production_buttons.append((btn_rect, selected_producer))
+                elif cmd_active and cmd_action == "construct" and cmd_unit_type:
+                    self.construction_buttons.append((btn_rect, cmd_unit_type))
+                elif cmd_active and cmd_action == "cancel_construction" and selected_producer is not None:
+                    self.cancel_construction_buttons.append((btn_rect, selected_producer))
 
             else:
                 pygame.draw.rect(screen, (30, 30, 30), btn_rect)
@@ -1333,6 +1434,8 @@ class GameManager:
                 shot.draw(world_surface, camera_offset)
         for marker in self.click_markers:
             marker.draw(world_surface, camera_offset)
+
+        self._draw_pending_construction(world_surface, camera_offset)
 
         from rts_nano.game.constants import FOG_CELL_SIZE
 
@@ -1419,6 +1522,26 @@ class GameManager:
 
         if self.menu_active:
             self.draw_main_menu(screen)
+
+    def _draw_pending_construction(self, screen: pygame.Surface, offset: tuple[float, float]) -> None:
+        """Draw a simple placement preview for the pending construction command."""
+        building_type = self.pending_construction_type
+        builder = self._pending_construction_builder()
+        if building_type is None or builder is None or self.mouse_pos[1] >= PLAY_AREA_HEIGHT:
+            return
+
+        world_pos = self._screen_to_world(self.mouse_pos)
+        can_start, _ = self.construction.can_start_construction(builder, building_type, world_pos)
+        color = (80, 255, 120) if can_start else (255, 80, 80)
+        screen_pos = self._world_to_screen(world_pos)
+        preview_rect = pygame.Rect(0, 0, Building.SIZE, Building.SIZE)
+        preview_rect.center = screen_pos
+
+        preview_surface = pygame.Surface((Building.SIZE, Building.SIZE), pygame.SRCALPHA)
+        preview_surface.fill((*color, 55))
+        screen.blit(preview_surface, preview_rect)
+        pygame.draw.rect(screen, color, preview_rect, width=2)
+        pygame.draw.circle(screen, color, screen_pos, int(Building.RADIUS), width=1)
 
     def draw_minimap(self, screen: pygame.Surface) -> None:
         """Draw a compact world overview and the current camera rectangle.

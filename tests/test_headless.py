@@ -192,6 +192,26 @@ def test_canceling_unfinished_house_refunds_and_removes_building() -> None:
     simulation.close()
 
 
+def test_manager_placement_helpers_place_selected_worker_building() -> None:
+    """Pygame UI placement helpers use the same construction validation."""
+    simulation = HeadlessSimulation.from_settings(_settings())
+    manager = simulation.manager
+    group = manager.entities[TeamColor.BLUE]
+    peasant = group.peasents[0]
+    peasant.x, peasant.y = 170, 130
+    group.resources.update({"wood": 80, "cristal": 0})
+    manager.select_entities_for_team(TeamColor.BLUE, [peasant])
+
+    assert manager.begin_construction_placement("house") is True
+    assert manager.pending_construction_type == "house"
+    assert manager.place_pending_construction((170, 80)) is True
+
+    assert manager.pending_construction_type is None
+    assert len(group.houses) == 1
+    assert group.houses[0].is_under_construction is True
+    simulation.close()
+
+
 def test_group_move_order_assigns_formation_slots() -> None:
     """Group movement spreads units around the clicked destination."""
     settings = _settings()

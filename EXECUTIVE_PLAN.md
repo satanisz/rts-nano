@@ -150,6 +150,8 @@ Ostatni znany stan jakości po bieżącym etapie: `ruff`, `ty`, `pytest`, `tox` 
 - Budowanie House przez peasantów i limit populacji liczony z ukończonych
   budynków: Base daje 10, House daje 6.
 - Anulowanie niedokończonej budowy z częściowym zwrotem zasobów przez API/env.
+- Pierwszy UI placement w Pygame: Peasant ma komendy budowy House/Barracks,
+  kliknięcie w świecie stawia budynek, a ghost pokazuje poprawność miejsca.
 - Anulowanie produkcji z częściowym zwrotem zasobów.
 - Statyczne dane gameplayu dla obecnych jednostek/budynków i najbliższych ról RTS.
 - Selekcja jednostek i rozkazy ruchu.
@@ -182,7 +184,8 @@ Ostatni znany stan jakości po bieżącym etapie: `ruff`, `ty`, `pytest`, `tox` 
   kosztu, terenu i kolizji.
 - Budowa trwa w czasie, ma progress w obserwacji i aktywuje efekty budynku
   dopiero po ukończeniu.
-- Nadal brakuje UI placementu, pełnych footprintów i dalszych typów budynków.
+- UI placement jest rozpoczęty, ale nadal brakuje pełnych komunikatów UX, hotkeyów
+  budowy, pełnych footprintów i dalszych typów budynków.
 - Budynki muszą blokować pathfinding zgodnie ze swoim footprintem.
 
 ### 5.3 Rozkazy i zachowanie jednostek
@@ -451,9 +454,13 @@ Następne rekomendowane zadanie:
    Status: zrobione. `CancelConstructionAction`, action mask i testy headless/env
    obsługują niedokończone budynki.
 
-10. Następne rekomendowane zadanie: UI placement.
-   UI powinno umieć wydać `ConstructAction` dla House/Barracks, pokazać stan
-   placementu i komunikować odmowy typu brak zasobów albo złe miejsce.
+10. UI placement.
+   Status: pierwsza wersja zrobiona. Peasant ma przyciski budowy House/Barracks,
+   kliknięcie w świecie odpala placement, a ghost pokazuje poprawność miejsca.
+
+11. Następne rekomendowane zadanie: uporządkować command panel i hotkeye.
+   Dodać skróty budowy, czytelniejsze komunikaty odmowy i bardziej kompletne
+   przyciski dla stop/hold/gather/return cargo.
 
 ## 11. Definition of Done pełnej gry
 
@@ -680,6 +687,8 @@ this baseline.
   buildings: Base provides 10 support, House provides 6.
 - Cancellation of unfinished construction with a partial resource refund through
   the API/env.
+- First Pygame UI placement path: Peasant has House/Barracks build commands,
+  world clicks place buildings, and a ghost preview shows placement validity.
 - Production cancellation with a partial resource refund.
 - Static gameplay data for current units/buildings and near-term RTS roles.
 - Unit selection and movement orders.
@@ -716,8 +725,8 @@ this baseline.
   and collision validation.
 - Construction takes time, exposes progress in observations, and activates
   building effects only after completion.
-- UI placement, full footprints, and additional building types are still
-  missing.
+- UI placement has started, but richer UX messages, build hotkeys, full
+  footprints, and additional building types are still missing.
 - Buildings must block pathfinding according to their footprint.
 
 ### 5.3 Orders and Unit Behavior
@@ -1031,10 +1040,13 @@ training API.
    Status: implemented. `CancelConstructionAction`, action mask support, and
    headless/env tests cover unfinished buildings.
 
-11. Next task: UI placement.
-   The UI should issue `ConstructAction` for House/Barracks, show placement
-   state, and report denial reasons such as insufficient resources or invalid
-   placement.
+11. UI placement.
+   Status: first version implemented. Peasant has House/Barracks build buttons,
+   world clicks perform placement, and a ghost preview shows placement validity.
+
+12. Next task: clean up the command panel and hotkeys.
+   Add build shortcuts, clearer denial messages, and more complete buttons for
+   stop/hold/gather/return cargo.
 
 ## 11. Definition Of Done For The Full Game
 
