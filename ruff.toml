@@ -1,7 +1,7 @@
 line-length = 120
 indent-width = 4
 fix = true
-target-version = "py313"
+target-version = "py314"
 
 [lint]
 select = [

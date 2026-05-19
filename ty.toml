@@ -1,6 +1,6 @@
 # Target Python version
 [environment]
-python-version = "3.13"
+python-version = "3.14"
 
 # Source files to check
 [src]

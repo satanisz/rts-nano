@@ -52,12 +52,13 @@ from rts_nano.game.constants import (
     AttackType,
 )
 from rts_nano.game.fog import FogOfWar
+from rts_nano.game.orders import OrderSystem
 from rts_nano.game.pathfinding import find_path
 from rts_nano.game.rules import clamp_point, distance_between_points, find_replacement_resource, nearest_entity
 from rts_nano.game.terrain import TerrainMap
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Iterable
 
     from rts_nano.map_schema import MapSettings
 
@@ -338,6 +339,7 @@ class GameManager:
         self.archer_shots: list[ArcherShot] = []
         self.click_markers: list[ClickMarker] = []
         self.build_peasant_buttons: list[tuple[pygame.Rect, Base]] = []
+        self.orders = OrderSystem(self)
         self.game_over_message: str | None = None
         self.menu_status: str | None = None
         self.mouse_pos: tuple[int, int] = (0, 0)
@@ -390,6 +392,40 @@ class GameManager:
         ents.extend(self.resources.woods)
         ents.extend(self.resources.cristals)
         return ents
+
+    def units_for_team(self, team: TeamColor) -> list[Unit]:
+        """Return all living units owned by a team."""
+        return self.orders.units_for_team(team)
+
+    def bases_for_team(self, team: TeamColor) -> list[Base]:
+        """Return all bases owned by a team."""
+        return self.orders.bases_for_team(team)
+
+    def issue_move_order(
+        self,
+        team: TeamColor,
+        destination: tuple[float, float],
+        units: Iterable[Unit] | None = None,
+    ) -> int:
+        """Assign a move order to team units and return the affected count."""
+        return self.orders.issue_move_order(team, destination, units)
+
+    def issue_target_order(
+        self,
+        team: TeamColor,
+        target: Entity,
+        units: Iterable[Unit] | None = None,
+    ) -> int:
+        """Assign a target interaction order and return the affected count."""
+        return self.orders.issue_target_order(team, target, units)
+
+    def build_peasant(self, base: Base) -> bool:
+        """Attempt to build a Peasant at the given base."""
+        return self.orders.build_peasant(base)
+
+    def select_entities_for_team(self, team: TeamColor, entities: Iterable[Entity]) -> int:
+        """Select team-owned units/buildings and return the selected count."""
+        return self.orders.select_entities_for_team(team, entities)
 
     def _count_units(self, team: TeamColor) -> int:
         """Return the number of living units owned by a team."""
@@ -695,7 +731,7 @@ class GameManager:
                 # Check UI buttons first
                 for rect, base in self.build_peasant_buttons:
                     if rect.collidepoint(mouse_pos):
-                        self._build_peasant(base)
+                        self.build_peasant(base)
                         return
                 if mouse_pos[1] >= PLAY_AREA_HEIGHT:
                     return
@@ -745,20 +781,11 @@ class GameManager:
             elif self.dragging:
                 self.drag_end = self._screen_to_world(event.pos)
 
-    def _build_peasant(self, base: Base) -> None:
-        """Attempt to build a Peasant at the given base."""
-        team_group = self.entities.get(base.team)
-        if team_group and team_group.resources["wood"] >= 50 and not self._has_reached_unit_cap(base.team):
-            team_group.resources["wood"] -= 50
-            spawn_x, spawn_y = self._clamp_to_world((base.x, base.y + base.size))
-            peasant = Peasant(int(spawn_x), int(spawn_y), base.team)
-            team_group.peasents.append(peasant)
-
     def _try_build_peasant_from_selection(self) -> None:
         """Attempt to build a peasant from the first selected base."""
         for entity in self.selected_entities:
             if isinstance(entity, Base) and entity.team == self.current_team:
-                self._build_peasant(entity)
+                self.build_peasant(entity)
                 break
 
     def _handle_menu_click(self, mouse_pos: tuple[int, int]) -> None:

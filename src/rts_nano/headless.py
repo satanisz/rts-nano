@@ -67,16 +67,11 @@ class HeadlessSimulation:
 
     def units_for_team(self, team: TeamColor) -> list[Unit]:
         """Return all living units for a team."""
-        group = self.manager.entities.get(team)
-        if group is None:
-            return []
-        return [*group.peasents, *group.knights, *group.archers, *group.mages]
+        return self.manager.units_for_team(team)
 
     def issue_move_order(self, team: TeamColor, destination: tuple[float, float]) -> int:
         """Assign all units on a team a move order and return affected count."""
-        units = self.units_for_team(team)
-        self.manager._assign_group_move_order(units, (int(destination[0]), int(destination[1])))
-        return len(units)
+        return self.manager.issue_move_order(team, destination)
 
     def close(self) -> None:
         """Shut pygame down after a headless run."""

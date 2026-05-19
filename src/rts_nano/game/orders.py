@@ -1,0 +1,89 @@
+"""Order application helpers for game and headless callers."""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from rts_nano.game.assets.entities.base_entities import Building, Entity, Unit
+from rts_nano.game.assets.entities.units import Peasant
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from rts_nano.game.assets.entities import TeamColor
+    from rts_nano.game.assets.entities.buildings import Base
+    from rts_nano.game.manager import GameManager
+
+
+class OrderSystem:
+    """Apply high-level unit, building, and selection orders to a manager."""
+
+    def __init__(self, manager: GameManager) -> None:
+        """Initialize the order system for one game manager."""
+        self._manager = manager
+
+    def units_for_team(self, team: TeamColor) -> list[Unit]:
+        """Return all living units owned by a team."""
+        group = self._manager.entities.get(team)
+        if group is None:
+            return []
+        return [*group.peasents, *group.knights, *group.archers, *group.mages]
+
+    def bases_for_team(self, team: TeamColor) -> list[Base]:
+        """Return all bases owned by a team."""
+        group = self._manager.entities.get(team)
+        if group is None:
+            return []
+        return group.bases.copy()
+
+    def issue_move_order(
+        self,
+        team: TeamColor,
+        destination: tuple[float, float],
+        units: Iterable[Unit] | None = None,
+    ) -> int:
+        """Assign a move order to team units and return the affected count."""
+        ordered_units = self._order_units_for_team(team, units)
+        self._manager._assign_group_move_order(ordered_units, (int(destination[0]), int(destination[1])))
+        return len(ordered_units)
+
+    def issue_target_order(
+        self,
+        team: TeamColor,
+        target: Entity,
+        units: Iterable[Unit] | None = None,
+    ) -> int:
+        """Assign a target interaction order and return the affected count."""
+        ordered_units = self._order_units_for_team(team, units)
+        target_center = target.get_center()
+        for unit in ordered_units:
+            self._manager._assign_unit_target(unit, target_center, target)
+        return len(ordered_units)
+
+    def build_peasant(self, base: Base) -> bool:
+        """Attempt to build a Peasant at the given base."""
+        team_group = self._manager.entities.get(base.team)
+        if team_group is None or team_group.resources["wood"] < 50 or self._manager._has_reached_unit_cap(base.team):
+            return False
+        team_group.resources["wood"] -= 50
+        spawn_x, spawn_y = self._manager._clamp_to_world((base.x, base.y + base.size))
+        peasant = Peasant(int(spawn_x), int(spawn_y), base.team)
+        team_group.peasents.append(peasant)
+        return True
+
+    def select_entities_for_team(self, team: TeamColor, entities: Iterable[Entity]) -> int:
+        """Select team-owned units/buildings and return the selected count."""
+        for entity in self._manager.all_entities:
+            entity.selected = False
+        self._manager.selected_entities.clear()
+
+        for entity in entities:
+            if getattr(entity, "team", None) == team and isinstance(entity, (Unit, Building)):
+                entity.selected = True
+                self._manager.selected_entities.append(entity)
+        return len(self._manager.selected_entities)
+
+    def _order_units_for_team(self, team: TeamColor, units: Iterable[Unit] | None = None) -> list[Unit]:
+        """Normalize an optional unit iterable to units owned by a team."""
+        source_units = self.units_for_team(team) if units is None else units
+        return [unit for unit in source_units if unit.team == team and unit.life > 0]

@@ -41,6 +41,33 @@ def test_headless_simulation_steps_and_issues_orders() -> None:
     simulation.close()
 
 
+def test_manager_public_move_order_helper_assigns_units() -> None:
+    """Game manager exposes move orders without requiring private helper access."""
+    simulation = HeadlessSimulation.from_settings(_settings())
+
+    affected = simulation.manager.issue_move_order(TeamColor.BLUE, (120, 120))
+    simulation.step(3)
+
+    assert affected == 1
+    assert simulation.manager.units_for_team(TeamColor.BLUE)[0].state == "MOVING"
+    simulation.close()
+
+
+def test_manager_public_build_helper_reports_success() -> None:
+    """Game manager reports whether a build order could be applied."""
+    simulation = HeadlessSimulation.from_settings(_settings())
+    manager = simulation.manager
+    group = manager.entities[TeamColor.BLUE]
+    base = group.bases[0]
+    group.resources["wood"] = 50
+
+    assert manager.build_peasant(base) is True
+    assert len(group.peasents) == 2
+    assert group.resources["wood"] == 0
+    assert manager.build_peasant(base) is False
+    simulation.close()
+
+
 def test_group_move_order_assigns_formation_slots() -> None:
     """Group movement spreads units around the clicked destination."""
     settings = _settings()

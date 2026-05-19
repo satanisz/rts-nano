@@ -14,8 +14,9 @@ While the game features basic RTS mechanics (resource gathering, base building, 
 ## Getting Started
 
 ### Prerequisites
-* Python 3.13 or newer
+* Python 3.14 or newer
 * Dependencies are managed via `uv` or `hatchling`.
+* The runtime uses `pygame-ce`, which is imported as `pygame` by the codebase.
 
 ### Installation
 

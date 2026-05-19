@@ -7,9 +7,9 @@ name = "rts-nano"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.14"
 dependencies = [
-    "pygame>=2.6.1",
+    "pygame-ce>=2.5.7",
 ]
 
 
