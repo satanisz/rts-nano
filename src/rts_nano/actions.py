@@ -22,6 +22,7 @@ type ActionKind = Literal[
     "construct",
     "cancel_construction",
     "cancel_production",
+    "stop",
     "select",
 ]
 
@@ -117,6 +118,15 @@ class CancelProductionAction:
 
 
 @dataclass(frozen=True, slots=True)
+class StopAction:
+    """Stop a team's units and clear their current unit orders."""
+
+    team: TeamColor
+    unit_ids: tuple[EntityId, ...] = ()
+    frames: int = 1
+
+
+@dataclass(frozen=True, slots=True)
 class SelectAction:
     """Set the manager selection from entity snapshot IDs for parity with UI flows."""
 
@@ -135,6 +145,7 @@ type Action = (
     | ConstructAction
     | CancelConstructionAction
     | CancelProductionAction
+    | StopAction
     | SelectAction
 )
 

@@ -60,6 +60,24 @@ def test_manager_public_move_order_helper_assigns_units() -> None:
     simulation.close()
 
 
+def test_manager_public_stop_order_clears_unit_targets() -> None:
+    """Game manager exposes a stop order for selected or explicit units."""
+    simulation = HeadlessSimulation.from_settings(_settings())
+    manager = simulation.manager
+    unit = simulation.units_for_team(TeamColor.BLUE)[0]
+
+    manager.issue_move_order(TeamColor.BLUE, (120, 120))
+    assert unit.state == "MOVING"
+
+    affected = manager.issue_stop_order(TeamColor.BLUE, [unit])
+
+    assert affected == 1
+    assert unit.state == "IDLE"
+    assert unit.target_entity is None
+    assert unit.path == []
+    simulation.close()
+
+
 def test_manager_public_build_helper_reports_success() -> None:
     """Game manager queues production and spawns a peasant after build time."""
     simulation = HeadlessSimulation.from_settings(_settings())

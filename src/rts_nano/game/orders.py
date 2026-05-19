@@ -67,6 +67,16 @@ class OrderSystem:
             self._manager._assign_unit_target(unit, target_center, target)
         return len(ordered_units)
 
+    def issue_stop_order(self, team: TeamColor, units: Iterable[Unit] | None = None) -> int:
+        """Stop team units and clear their active targets."""
+        ordered_units = self._order_units_for_team(team, units)
+        for unit in ordered_units:
+            unit.target_entity = None
+            unit.source_resource = None
+            unit.path.clear()
+            unit.state = "IDLE"
+        return len(ordered_units)
+
     def build_peasant(self, base: Base) -> bool:
         """Attempt to queue a Peasant at the given base."""
         return self.produce_unit(base, "peasant")

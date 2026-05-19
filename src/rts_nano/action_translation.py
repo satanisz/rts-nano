@@ -16,6 +16,7 @@ from rts_nano.actions import (
     MoveAction,
     NoOpAction,
     SelectAction,
+    StopAction,
 )
 from rts_nano.game.assets.entities.base_entities import Building, Resource, Unit
 from rts_nano.game.assets.entities.buildings import Base
@@ -56,6 +57,8 @@ class ActionTranslator:
             return self._apply_cancel_construction(action)
         if isinstance(action, CancelProductionAction):
             return self._apply_cancel_production(action)
+        if isinstance(action, StopAction):
+            return self._apply_stop(action)
         if isinstance(action, SelectAction):
             return self._apply_select(action)
         return 0
@@ -106,6 +109,10 @@ class ActionTranslator:
         if producer is None:
             return 0
         return int(self._manager.orders.cancel_production(producer))
+
+    def _apply_stop(self, action: StopAction) -> int:
+        units = self._units_for_action(action.team, action.unit_ids)
+        return self._manager.orders.issue_stop_order(action.team, units)
 
     def _apply_select(self, action: SelectAction) -> int:
         selected = tuple(self._entity_by_id(entity_id) for entity_id in action.entity_ids)

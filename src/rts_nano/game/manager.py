@@ -438,6 +438,10 @@ class GameManager:
         """Assign a target interaction order and return the affected count."""
         return self.orders.issue_target_order(team, target, units)
 
+    def issue_stop_order(self, team: TeamColor, units: Iterable[Unit] | None = None) -> int:
+        """Stop team units and clear their active targets."""
+        return self.orders.issue_stop_order(team, units)
+
     def build_peasant(self, base: Base) -> bool:
         """Attempt to queue a Peasant at the given base."""
         return self.orders.build_peasant(base)
@@ -833,6 +837,9 @@ class GameManager:
                 self._request_fullscreen_toggle()
             elif event.key == pygame.K_b:
                 self._try_build_peasant_from_selection()
+            elif event.key == pygame.K_s:
+                selected_units = [entity for entity in self.selected_entities if isinstance(entity, Unit)]
+                self.issue_stop_order(self.current_team, selected_units)
 
         elif event.type == pygame.MOUSEBUTTONDOWN:
             mouse_pos = event.pos

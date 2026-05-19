@@ -23,6 +23,7 @@ from rts_nano.actions import (
     MoveAction,
     NoOpAction,
     SelectAction,
+    StopAction,
     WorldPoint,
 )
 from rts_nano.actions import (
@@ -68,6 +69,7 @@ __all__ = [
     "RtsNanoEnv",
     "SelectAction",
     "StepResult",
+    "StopAction",
     "TeamSnapshot",
     "WorldPoint",
 ]
@@ -263,6 +265,7 @@ class RtsNanoEnv:
         can_cancel = any(manager.production.queue_for(producer) for producer in production_buildings)
         return (
             ActionSpec("move", team_name, "world_point", enabled=bool(units), reason=None if units else "no_units"),
+            ActionSpec("stop", team_name, "unit_ids", enabled=bool(units), reason=None if units else "no_units"),
             ActionSpec(
                 "attack",
                 team_name,

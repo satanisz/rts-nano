@@ -157,6 +157,7 @@ Ostatni znany stan jakości po bieżącym etapie: `ruff`, `ty`, `pytest`, `tox` 
 - Selekcja jednostek i rozkazy ruchu.
 - Podstawowy pathfinding A*.
 - Podstawowa walka i celowanie.
+- Rozkaz stop przez API/env, managera i hotkey `S`.
 - Fog of war w kliencie gry.
 - Headless simulation wrapper.
 - Wczesne publiczne API agenta przez `RtsNanoEnv`.
@@ -190,8 +191,8 @@ Ostatni znany stan jakości po bieżącym etapie: `ruff`, `ty`, `pytest`, `tox` 
 
 ### 5.3 Rozkazy i zachowanie jednostek
 
-- Potrzebne rozkazy: stop, hold position, patrol, follow/guard, attack-move,
-  repair/build, gather i return cargo.
+- Rozkaz stop jest zaimplementowany. Nadal potrzebne są: hold position, patrol,
+  follow/guard, attack-move, repair/build, gather i return cargo.
 - Priorytety muszą być spójne: rozkaz ręczny, autoatak, powrót do pracy,
   path replanning, śmierć celu.
 - Projekt potrzebuje modelu `Order`/`Command` zamiast rozproszonych flag.
@@ -458,9 +459,13 @@ Następne rekomendowane zadanie:
    Status: pierwsza wersja zrobiona. Peasant ma przyciski budowy House/Barracks,
    kliknięcie w świecie odpala placement, a ghost pokazuje poprawność miejsca.
 
-11. Następne rekomendowane zadanie: uporządkować command panel i hotkeye.
+11. Stop order.
+   Status: zrobione. `StopAction`, action mask, manager helper i hotkey `S`
+   zatrzymują jednostki oraz czyszczą ich bieżące cele.
+
+12. Następne rekomendowane zadanie: uporządkować command panel i hotkeye.
    Dodać skróty budowy, czytelniejsze komunikaty odmowy i bardziej kompletne
-   przyciski dla stop/hold/gather/return cargo.
+   przyciski dla hold/gather/return cargo/attack-move.
 
 ## 11. Definition of Done pełnej gry
 
@@ -694,6 +699,7 @@ this baseline.
 - Unit selection and movement orders.
 - Basic A* pathfinding.
 - Basic combat and targeting.
+- Stop command through API/env, manager helper, and `S` hotkey.
 - Fog of war in the game client.
 - Headless simulation wrapper.
 - Early public agent API through `RtsNanoEnv`.
@@ -731,8 +737,8 @@ this baseline.
 
 ### 5.3 Orders and Unit Behavior
 
-- Needed commands: stop, hold position, patrol, follow/guard, attack-move,
-  repair/build, gather, and return cargo.
+- Stop command is implemented. Still needed: hold position, patrol,
+  follow/guard, attack-move, repair/build, gather, and return cargo.
 - Priorities must be unified: manual player order, auto-attack, return to work,
   path replanning, target death.
 - The project needs a coherent `Order`/`Command` model instead of scattered flags
@@ -1044,9 +1050,13 @@ training API.
    Status: first version implemented. Peasant has House/Barracks build buttons,
    world clicks perform placement, and a ghost preview shows placement validity.
 
-12. Next task: clean up the command panel and hotkeys.
+12. Stop order.
+   Status: implemented. `StopAction`, action mask support, manager helper, and
+   `S` hotkey stop units and clear their current targets.
+
+13. Next task: clean up the command panel and hotkeys.
    Add build shortcuts, clearer denial messages, and more complete buttons for
-   stop/hold/gather/return cargo.
+   hold/gather/return cargo/attack-move.
 
 ## 11. Definition Of Done For The Full Game
 

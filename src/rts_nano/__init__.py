@@ -19,6 +19,7 @@ from rts_nano.env import (
     RtsNanoEnv,
     SelectAction,
     StepResult,
+    StopAction,
     TeamSnapshot,
 )
 
@@ -41,5 +42,6 @@ __all__ = [
     "RtsNanoEnv",
     "SelectAction",
     "StepResult",
+    "StopAction",
     "TeamSnapshot",
 ]
