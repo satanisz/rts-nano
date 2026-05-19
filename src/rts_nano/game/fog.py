@@ -1,16 +1,17 @@
 from __future__ import annotations
 
 import math
+from typing import TYPE_CHECKING
 
-import pygame
-
-from rts_nano.game.assets.entities.base_entities import Entity
 from rts_nano.game.constants import FOG_CELL_SIZE
+
+if TYPE_CHECKING:
+    from rts_nano.game.assets.entities.base_entities import Entity
 
 
 class FogOfWar:
     """Manages the map grid visibility state for the fog of war system.
-    
+
     Grid states:
       0 = Unexplored (pure black)
       1 = Explored (dark overlay, cannot see enemy units)
@@ -31,7 +32,7 @@ class FogOfWar:
 
     def update(self, visible_entities: list[Entity] | None) -> None:
         """Recalculate visibility based on current team's units and structures.
-        
+
         All previously visible cells are downgraded to explored.
         Then, new visible cells are calculated using entity vision ranges.
         """
@@ -51,8 +52,7 @@ class FogOfWar:
                 continue
 
             cx, cy = entity.get_center()
-            cell_radius = int(math.ceil(vision / FOG_CELL_SIZE))
-            
+
             start_col = max(0, int((cx - vision) // FOG_CELL_SIZE))
             end_col = min(self.cols - 1, int((cx + vision) // FOG_CELL_SIZE))
             start_row = max(0, int((cy - vision) // FOG_CELL_SIZE))

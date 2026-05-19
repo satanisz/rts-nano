@@ -41,7 +41,7 @@ class Peasant(Unit):
         super().__init__(x, y, team, self.SIZE, self.RADIUS)
         self.load_image(
             str(BASE_DIR / "assets" / "sprites" / f"{team.value.lower()}_peasant.png"),
-            str(BASE_DIR / "assets" / "portraits" / "peasant.png")
+            str(BASE_DIR / "assets" / "portraits" / "peasant.png"),
         )
 
     def _handle_target_reached(self) -> None:
@@ -80,7 +80,7 @@ class Knight(Unit):
         super().__init__(x, y, team, self.SIZE, self.RADIUS)
         self.load_image(
             str(BASE_DIR / "assets" / "sprites" / f"{team.value.lower()}_knight.png"),
-            str(BASE_DIR / "assets" / "portraits" / "knight.png")
+            str(BASE_DIR / "assets" / "portraits" / "knight.png"),
         )
 
     def _attack(self, target: Entity) -> None:
@@ -122,7 +122,7 @@ class Archer(Unit):
         super().__init__(x, y, team, self.SIZE, self.RADIUS)
         self.load_image(
             str(BASE_DIR / "assets" / "sprites" / f"{team.value.lower()}_archer.png"),
-            str(BASE_DIR / "assets" / "portraits" / "archer.png")
+            str(BASE_DIR / "assets" / "portraits" / "archer.png"),
         )
 
     def _get_attack_distance(self, target: Entity) -> float:
@@ -179,5 +179,5 @@ class Mage(Unit):
         super().__init__(x, y, team, self.SIZE, self.RADIUS)
         self.load_image(
             str(BASE_DIR / "assets" / "sprites" / f"{team.value.lower()}_mage.png"),
-            str(BASE_DIR / "assets" / "portraits" / "mage.png")
+            str(BASE_DIR / "assets" / "portraits" / "mage.png"),
         )

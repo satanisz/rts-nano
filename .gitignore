@@ -5,11 +5,14 @@ build/
 dist/
 wheels/
 *.egg-info
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.tox/
 
 # Virtual environments
-.venv
-
-/src/rts_nano/assets/*.xcf
-/src/rts_nano/assets/*.jpg
-/src/rts_nano/assets/*.png
-/src/rts_nano/game/assets/*.png
+.venv/

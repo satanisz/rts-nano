@@ -1,7 +1,7 @@
 # rts-nano
 
-A simple and easy real-time strategy (RTS) game built with Python and Pygame. 
-The main goal of this project is to serve as an environment for learning Reinforcement Learning (RL) using PyTorch. 
+A simple and easy real-time strategy (RTS) game built with Python and Pygame.
+The main goal of this project is to serve as an environment for learning Reinforcement Learning (RL) using PyTorch.
 
 ## Overview
 While the game features basic RTS mechanics (resource gathering, base building, unit production, and combat), it is intentionally designed to include certain unbalanced mechanics. These imbalances create unique challenges and complex scenarios for RL agents to explore and solve.

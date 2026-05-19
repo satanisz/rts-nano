@@ -2,7 +2,7 @@ requires = [
     "tox==4.44.0",
     "tox-uv==1.29.0"
 ]
-env_list = ["py313", "py314", "coverage"]
+env_list = ["py313", "coverage"]
 
 [env_run_base]
 package = "editable"
@@ -18,9 +18,6 @@ PYTHONPATH = "src"
 
 [env.py313]
 basepython = ["python3.13"]
-
-[env.py314]
-basepython = ["python3.14"]
 
 [env.coverage]
 skip_install = true

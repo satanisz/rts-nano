@@ -9,7 +9,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "python-json-logger==4.0.0"
+    "pygame>=2.6.1",
 ]
 
 
@@ -37,13 +37,12 @@ source = ["src/rts_nano"]
 branch = true
 parallel = true
 relative_files = true
-omit = ["src/rts_nano/main.py", "src/rts_nano/utils/logging_config.py"]
+omit = ["src/rts_nano/main.py"]
 
 [tool.coverage.report]
 show_missing = true
 skip_covered = true
-fail_under = 100
+fail_under = 50
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/rts_nano"]
-

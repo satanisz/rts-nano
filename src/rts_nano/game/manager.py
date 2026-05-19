@@ -43,8 +43,8 @@ from rts_nano.game.constants import (
     CYAN,
     GREEN,
     HARVEST_SEARCH_RADIUS,
-    MAX_UNITS,
     MAX_SELECTION_SIZE,
+    MAX_UNITS,
     RED,
     SCREEN_HEIGHT,
     SCREEN_WIDTH,
@@ -521,7 +521,9 @@ class GameManager:
             return
         slots = self._formation_destinations(destination, len(units))
         remaining_slots = slots.copy()
-        for unit in sorted(units, key=lambda selected_unit: distance_between_points(selected_unit.get_center(), destination)):
+        for unit in sorted(
+            units, key=lambda selected_unit: distance_between_points(selected_unit.get_center(), destination)
+        ):
             slot = min(remaining_slots, key=lambda candidate: distance_between_points(unit.get_center(), candidate))
             remaining_slots.remove(slot)
             self._assign_unit_target(unit, slot)
@@ -850,7 +852,7 @@ class GameManager:
                             continue
                         if not is_resource and not is_visible:
                             continue
-                            
+
                     entity.selected = True
                     self.selected_entities.append(entity)
                     break
@@ -1078,7 +1080,9 @@ class GameManager:
                     hp_width = int(icon_size * hp_pct)
                     hp_rect = pygame.Rect(pos_x, pos_y + icon_size - 4, icon_size, 4)
                     pygame.draw.rect(screen, (50, 50, 50), hp_rect)
-                    pygame.draw.rect(screen, GREEN if hp_pct > 0.5 else RED, (pos_x, pos_y + icon_size - 4, hp_width, 4))
+                    pygame.draw.rect(
+                        screen, GREEN if hp_pct > 0.5 else RED, (pos_x, pos_y + icon_size - 4, hp_width, 4)
+                    )
 
                 pygame.draw.rect(screen, WHITE, icon_rect, 1)
 
@@ -1132,8 +1136,10 @@ class GameManager:
         font_tiny = pygame.font.SysFont(None, 16)
 
         commands = []
+        selected_base: Base | None = None
         if isinstance(primary_entity, Base) and getattr(primary_entity, "team", None) == self.current_team:
-            if self._has_reached_unit_cap(primary_entity.team):
+            selected_base = primary_entity
+            if self._has_reached_unit_cap(selected_base.team):
                 commands.append(("Cap Reached", False))
             else:
                 commands.append(("Build Worker", True))
@@ -1164,8 +1170,8 @@ class GameManager:
                     text_rect = text_surf.get_rect(center=(pos_x + cmd_btn_size // 2, pos_y + 16 + w_i * 14))
                     screen.blit(text_surf, text_rect)
 
-                if cmd_active and cmd_name == "Build Worker":
-                    self.build_peasant_buttons.append((btn_rect, primary_entity))
+                if cmd_active and cmd_name == "Build Worker" and selected_base is not None:
+                    self.build_peasant_buttons.append((btn_rect, selected_base))
 
             else:
                 pygame.draw.rect(screen, (30, 30, 30), btn_rect)
@@ -1185,15 +1191,15 @@ class GameManager:
         camera_offset = (self.camera_x, self.camera_y)
 
         self.terrain.draw(world_surface, camera_offset)
-        
+
         for entity in self.all_entities:
             cx, cy = entity.get_center()
             is_visible = self.fog.is_visible(cx, cy)
             is_explored = self.fog.is_explored(cx, cy)
-            
+
             is_allied = getattr(entity, "team", None) == self.current_team
             is_resource = isinstance(entity, Resource)
-            
+
             if is_allied:
                 entity.draw(world_surface, camera_offset)
             elif is_resource:
@@ -1213,6 +1219,7 @@ class GameManager:
             marker.draw(world_surface, camera_offset)
 
         from rts_nano.game.constants import FOG_CELL_SIZE
+
         fog_surf = pygame.Surface((SCREEN_WIDTH, PLAY_AREA_HEIGHT), pygame.SRCALPHA)
         fog_surf.fill((0, 0, 0, 255))
 
@@ -1323,9 +1330,10 @@ class GameManager:
             pygame.draw.rect(screen, (158, 142, 96), mini_rect(region.rect))
 
         from rts_nano.game.constants import FOG_CELL_SIZE
+
         fog_surf = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
         fog_surf.fill((0, 0, 0, 255))
-        
+
         for row in range(self.fog.rows):
             for col in range(self.fog.cols):
                 state = self.fog.grid[row][col]
@@ -1334,7 +1342,7 @@ class GameManager:
                         int(col * FOG_CELL_SIZE * scale_x),
                         int(row * FOG_CELL_SIZE * scale_y),
                         max(1, int(FOG_CELL_SIZE * scale_x)) + 1,
-                        max(1, int(FOG_CELL_SIZE * scale_y)) + 1
+                        max(1, int(FOG_CELL_SIZE * scale_y)) + 1,
                     )
                     if state == FogOfWar.VISIBLE:
                         fog_surf.fill((0, 0, 0, 0), cell_rect)
@@ -1348,7 +1356,7 @@ class GameManager:
             is_explored = self.fog.is_explored(cx, cy)
             is_allied = getattr(entity, "team", None) == self.current_team
             is_resource = isinstance(entity, Resource)
-            
+
             should_draw = False
             if is_allied:
                 should_draw = True
@@ -1356,7 +1364,7 @@ class GameManager:
                 should_draw = is_explored or is_visible
             else:
                 should_draw = is_visible
-                
+
             if should_draw:
                 color = getattr(entity, "color", WHITE)
                 if isinstance(entity, Resource):

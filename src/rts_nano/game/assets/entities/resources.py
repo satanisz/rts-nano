@@ -19,8 +19,7 @@ class Cristal(Resource):
         """Initialize the object."""
         super().__init__(x, y, "Cristal")
         self.load_image(
-            str(BASE_DIR / "assets" / "sprites" / "cristal.png"),
-            str(BASE_DIR / "assets" / "portraits" / "cristal.png")
+            str(BASE_DIR / "assets" / "sprites" / "cristal.png"), str(BASE_DIR / "assets" / "portraits" / "cristal.png")
         )
 
 
@@ -36,6 +35,5 @@ class Wood(Resource):
         """Initialize the object."""
         super().__init__(x, y, "Wood")
         self.load_image(
-            str(BASE_DIR / "assets" / "sprites" / "wood.png"),
-            str(BASE_DIR / "assets" / "portraits" / "wood.png")
+            str(BASE_DIR / "assets" / "sprites" / "wood.png"), str(BASE_DIR / "assets" / "portraits" / "wood.png")
         )

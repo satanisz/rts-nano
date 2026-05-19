@@ -124,7 +124,7 @@ class Entity(ABC):
         if image_path:
             try:
                 raw_image = pygame.image.load(image_path)
-                
+
                 if avatar_path:
                     try:
                         raw_avatar = pygame.image.load(avatar_path)
@@ -134,7 +134,7 @@ class Entity(ABC):
                         self.avatar_image = pygame.transform.scale(raw_image, (120, 120))
                 else:
                     self.avatar_image = pygame.transform.scale(raw_image, (120, 120))
-                    
+
                 self.image = pygame.transform.scale(raw_image, (int(self.size), int(self.size)))
                 self.original_image = self.image
             except Exception as exc:

@@ -21,5 +21,5 @@ class Base(Building):
         super().__init__(x, y, team)
         self.load_image(
             str(BASE_DIR / "assets" / "sprites" / f"{team.value.lower()}_base.png"),
-            str(BASE_DIR / "assets" / "portraits" / "base.png")
+            str(BASE_DIR / "assets" / "portraits" / "base.png"),
         )
