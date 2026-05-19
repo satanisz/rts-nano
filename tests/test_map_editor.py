@@ -73,3 +73,5 @@ def test_create_new_map_writes_blank_schema(tmp_path: Path) -> None:
     assert payload["Terrain"]["width"] == 123
     assert payload["Terrain"]["height"] == 456
     assert payload["Terrain"]["high_ground"] == []
+    assert payload["Blue"]["barracks"] == []
+    assert payload["Red"]["barracks"] == []

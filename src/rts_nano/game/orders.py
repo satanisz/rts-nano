@@ -35,6 +35,13 @@ class OrderSystem:
             return []
         return group.bases.copy()
 
+    def production_buildings_for_team(self, team: TeamColor) -> list[Building]:
+        """Return production-capable buildings owned by a team."""
+        group = self._manager.entities.get(team)
+        if group is None:
+            return []
+        return [*group.bases, *group.barracks]
+
     def issue_move_order(
         self,
         team: TeamColor,
@@ -61,11 +68,19 @@ class OrderSystem:
 
     def build_peasant(self, base: Base) -> bool:
         """Attempt to queue a Peasant at the given base."""
-        return self._manager.production.enqueue_unit(base, "peasant")
+        return self.produce_unit(base, "peasant")
+
+    def produce_unit(self, producer: Building, unit_type: str) -> bool:
+        """Attempt to queue a unit at a production building."""
+        return self._manager.production.enqueue_unit(producer, unit_type)
 
     def cancel_peasant_production(self, base: Base) -> bool:
         """Attempt to cancel the active Peasant production job at a base."""
-        return self._manager.production.cancel_next(base)
+        return self.cancel_production(base)
+
+    def cancel_production(self, producer: Building) -> bool:
+        """Attempt to cancel the active production job at a building."""
+        return self._manager.production.cancel_next(producer)
 
     def select_entities_for_team(self, team: TeamColor, entities: Iterable[Entity]) -> int:
         """Select team-owned units/buildings and return the selected count."""

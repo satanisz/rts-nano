@@ -10,6 +10,7 @@ if TYPE_CHECKING:
     from rts_nano.game.observations import EntityId
 
 type WorldPoint = tuple[float, float]
+type UnitType = Literal["peasant", "knight", "archer", "mage"]
 type ActionKind = Literal["no_op", "move", "attack", "gather", "deposit", "build", "cancel_production", "select"]
 
 
@@ -62,17 +63,21 @@ class DepositAction:
 
 @dataclass(frozen=True, slots=True)
 class BuildAction:
-    """Attempt to produce a unit from a team base."""
+    """Attempt to produce a unit from a team production building.
+
+    ``base_id`` is kept for backward compatibility; it accepts any production
+    building snapshot ID.
+    """
 
     team: TeamColor
     base_id: EntityId | None = None
-    unit_type: Literal["peasant"] = "peasant"
+    unit_type: UnitType = "peasant"
     frames: int = 1
 
 
 @dataclass(frozen=True, slots=True)
 class CancelProductionAction:
-    """Cancel the active production job at a team base."""
+    """Cancel the active production job at a team production building."""
 
     team: TeamColor
     base_id: EntityId | None = None
@@ -109,3 +114,4 @@ class ActionSpec:
     target: str | None = None
     enabled: bool = True
     reason: str | None = None
+    unit_type: str | None = None

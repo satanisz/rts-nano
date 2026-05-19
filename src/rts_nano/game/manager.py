@@ -34,7 +34,7 @@ from typing import TYPE_CHECKING, cast
 
 import pygame
 
-from rts_nano.game.assets.entities import Archer, Base, Cristal, Knight, Mage, Peasant, TeamColor, Wood
+from rts_nano.game.assets.entities import Archer, Barracks, Base, Cristal, Knight, Mage, Peasant, TeamColor, Wood
 from rts_nano.game.assets.entities.base_entities import Building, Entity, Resource, Unit
 from rts_nano.game.constants import (
     BLACK,
@@ -51,6 +51,7 @@ from rts_nano.game.constants import (
     WHITE,
     AttackType,
 )
+from rts_nano.game.data import UNIT_SPECS, get_building_spec
 from rts_nano.game.fog import FogOfWar
 from rts_nano.game.orders import OrderSystem
 from rts_nano.game.pathfinding import find_path
@@ -218,6 +219,7 @@ class EntitiesGroup:
         self.name: TeamColor = name
         self.resources: dict[str, int] = {"wood": 0, "cristal": 0}
         self.bases: list[Base] = []
+        self.barracks: list[Barracks] = []
         self.peasents: list[Peasant] = []
         self.knights: list[Knight] = []
         self.archers: list[Archer] = []
@@ -228,6 +230,7 @@ class EntitiesGroup:
         """Return all entities owned by the team."""
         all_ents: list[Entity] = []
         all_ents.extend(self.bases)
+        all_ents.extend(self.barracks)
         all_ents.extend(self.peasents)
         all_ents.extend(self.knights)
         all_ents.extend(self.archers)
@@ -263,6 +266,7 @@ class EntityFactory:
         "archer": Archer,
         "mage": Mage,
         "base": Base,
+        "barracks": Barracks,
     }
     _NEUTRAL_ENTITY_TYPES: dict[str, Callable[[int, int], Entity]] = {
         "wood": Wood,
@@ -339,8 +343,8 @@ class GameManager:
         self.magic_missiles: list[MagicMissile] = []
         self.archer_shots: list[ArcherShot] = []
         self.click_markers: list[ClickMarker] = []
-        self.build_peasant_buttons: list[tuple[pygame.Rect, Base]] = []
-        self.cancel_production_buttons: list[tuple[pygame.Rect, Base]] = []
+        self.production_buttons: list[tuple[pygame.Rect, Building, str]] = []
+        self.cancel_production_buttons: list[tuple[pygame.Rect, Building]] = []
         self.production = ProductionSystem(self)
         self.orders = OrderSystem(self)
         self.game_over_message: str | None = None
@@ -379,7 +383,7 @@ class GameManager:
         removed_entities: set[int] = set()
 
         for group in self.entities.values():
-            for attr_name in ("peasents", "knights", "archers", "mages", "bases"):
+            for attr_name in ("peasents", "knights", "archers", "mages", "bases", "barracks"):
                 entities = getattr(group, attr_name)
                 alive_entities = [entity for entity in entities if entity.life > 0]
                 removed_entities.update(id(entity) for entity in entities if entity.life <= 0)
@@ -404,6 +408,10 @@ class GameManager:
         """Return all bases owned by a team."""
         return self.orders.bases_for_team(team)
 
+    def production_buildings_for_team(self, team: TeamColor) -> list[Building]:
+        """Return all production-capable buildings owned by a team."""
+        return self.orders.production_buildings_for_team(team)
+
     def issue_move_order(
         self,
         team: TeamColor,
@@ -426,9 +434,17 @@ class GameManager:
         """Attempt to queue a Peasant at the given base."""
         return self.orders.build_peasant(base)
 
+    def produce_unit(self, producer: Building, unit_type: str) -> bool:
+        """Attempt to queue a unit at a production building."""
+        return self.orders.produce_unit(producer, unit_type)
+
+    def cancel_production(self, producer: Building) -> bool:
+        """Attempt to cancel active production at a production building."""
+        return self.orders.cancel_production(producer)
+
     def cancel_peasant_production(self, base: Base) -> bool:
         """Attempt to cancel active Peasant production at the given base."""
-        return self.orders.cancel_peasant_production(base)
+        return self.cancel_production(base)
 
     def select_entities_for_team(self, team: TeamColor, entities: Iterable[Entity]) -> int:
         """Select team-owned units/buildings and return the selected count."""
@@ -666,6 +682,8 @@ class GameManager:
                             group.mages.append(entity)
                         case Base():
                             group.bases.append(entity)
+                        case Barracks():
+                            group.barracks.append(entity)
                         case Wood():
                             self.resources.woods.append(entity)
                         case Cristal():
@@ -744,13 +762,13 @@ class GameManager:
                     return
 
                 # Check UI buttons first
-                for rect, base in self.build_peasant_buttons:
+                for rect, producer, unit_type in self.production_buttons:
                     if rect.collidepoint(mouse_pos):
-                        self.build_peasant(base)
+                        self.produce_unit(producer, unit_type)
                         return
-                for rect, base in self.cancel_production_buttons:
+                for rect, producer in self.cancel_production_buttons:
                     if rect.collidepoint(mouse_pos):
-                        self.cancel_peasant_production(base)
+                        self.cancel_production(producer)
                         return
                 if mouse_pos[1] >= PLAY_AREA_HEIGHT:
                     return
@@ -1077,7 +1095,7 @@ class GameManager:
         pygame.draw.rect(screen, (40, 40, 40), menu_rect)
         pygame.draw.rect(screen, (200, 200, 200), menu_rect, 2)
 
-        self.build_peasant_buttons.clear()
+        self.production_buttons.clear()
         self.cancel_production_buttons.clear()
 
         if not self.selected_entities:
@@ -1183,23 +1201,34 @@ class GameManager:
 
         font_tiny = pygame.font.SysFont(None, 16)
 
-        commands = []
-        selected_base: Base | None = None
-        if isinstance(primary_entity, Base) and getattr(primary_entity, "team", None) == self.current_team:
-            selected_base = primary_entity
-            can_build, reason = self.production.can_enqueue_unit(selected_base, "peasant")
-            queue = self.production.queue_for(selected_base)
-            if queue:
-                commands.append((f"Worker {queue[0].progress:.0%}", False, None))
-                commands.append(("Cancel", True, "cancel"))
-            if can_build:
-                commands.append(("Build Worker", True, "build"))
-            elif reason == "population_cap":
-                commands.append(("Cap Reached", False, None))
-            elif reason == "insufficient_resources":
-                commands.append(("Need Wood", False, None))
-            else:
-                commands.append(("Unavailable", False, None))
+        commands: list[tuple[str, bool, str | None, str | None]] = []
+        selected_producer: Building | None = None
+        if isinstance(primary_entity, Building) and getattr(primary_entity, "team", None) == self.current_team:
+            selected_producer = primary_entity
+            try:
+                producer_key = getattr(selected_producer, "spec_key", type(selected_producer).__name__.lower())
+                building_spec = get_building_spec(producer_key)
+            except ValueError:
+                building_spec = None
+
+            if building_spec is not None and building_spec.produces:
+                queue = self.production.queue_for(selected_producer)
+                if queue:
+                    active_unit = UNIT_SPECS[queue[0].unit_type].display_name
+                    commands.append((f"{active_unit} {queue[0].progress:.0%}", False, None, None))
+                    commands.append(("Cancel", True, "cancel", None))
+
+                for unit_type in building_spec.produces:
+                    can_build, reason = self.production.can_enqueue_unit(selected_producer, unit_type)
+                    unit_name = UNIT_SPECS[unit_type].display_name
+                    if can_build:
+                        commands.append((f"Train {unit_name}", True, "produce", unit_type))
+                    elif reason == "population_cap":
+                        commands.append(("Cap Reached", False, None, None))
+                    elif reason == "insufficient_resources":
+                        commands.append((f"Need {unit_name}", False, None, None))
+                    else:
+                        commands.append(("Unavailable", False, None, None))
 
         for i in range(cmd_cols * cmd_rows):
             col = i % cmd_cols
@@ -1210,7 +1239,7 @@ class GameManager:
             btn_rect = pygame.Rect(pos_x, pos_y, cmd_btn_size, cmd_btn_size)
 
             if i < len(commands):
-                cmd_name, cmd_active, cmd_action = commands[i]
+                cmd_name, cmd_active, cmd_action, cmd_unit_type = commands[i]
 
                 mouse_pos = self.mouse_pos
                 is_hovered = btn_rect.collidepoint(mouse_pos)
@@ -1227,10 +1256,10 @@ class GameManager:
                     text_rect = text_surf.get_rect(center=(pos_x + cmd_btn_size // 2, pos_y + 16 + w_i * 14))
                     screen.blit(text_surf, text_rect)
 
-                if cmd_active and cmd_action == "build" and selected_base is not None:
-                    self.build_peasant_buttons.append((btn_rect, selected_base))
-                elif cmd_active and cmd_action == "cancel" and selected_base is not None:
-                    self.cancel_production_buttons.append((btn_rect, selected_base))
+                if cmd_active and cmd_action == "produce" and selected_producer is not None and cmd_unit_type:
+                    self.production_buttons.append((btn_rect, selected_producer, cmd_unit_type))
+                elif cmd_active and cmd_action == "cancel" and selected_producer is not None:
+                    self.cancel_production_buttons.append((btn_rect, selected_producer))
 
             else:
                 pygame.draw.rect(screen, (30, 30, 30), btn_rect)
@@ -1323,7 +1352,7 @@ class GameManager:
 
         if team_group:
             res = team_group.resources
-            num_buildings = len(team_group.bases)
+            num_buildings = len(team_group.bases) + len(team_group.barracks)
             num_units = (
                 len(team_group.peasents) + len(team_group.knights) + len(team_group.archers) + len(team_group.mages)
             )

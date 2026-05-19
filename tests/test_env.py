@@ -32,6 +32,13 @@ def _settings() -> MapSettings:
     }
 
 
+def _settings_with_barracks() -> MapSettings:
+    settings = _settings()
+    settings["Blue"]["barracks"] = [[90, 60]]
+    settings["Red"]["barracks"] = []
+    return settings
+
+
 def test_env_observation_is_serializable_snapshot() -> None:
     """Environment observations expose DTOs rather than live entities."""
     env = RtsNanoEnv(settings=_settings())
@@ -81,17 +88,42 @@ def test_action_translator_applies_build_orders() -> None:
     simulation.close()
 
 
+def test_action_translator_applies_military_build_orders() -> None:
+    """Action translator can produce military units from barracks."""
+    simulation = HeadlessSimulation.from_settings(_settings_with_barracks())
+    manager = simulation.manager
+    manager.entities[TeamColor.BLUE].resources.update({"wood": 100, "cristal": 25})
+    registry = EntityIdRegistry()
+    observation = build_observation(manager, tick=0, registry=registry)
+    barracks_id = next(
+        entity.id for entity in observation.entities if entity.kind == "Barracks" and entity.team == "Blue"
+    )
+
+    affected = ActionTranslator(manager, registry).apply(
+        BuildAction(TeamColor.BLUE, base_id=barracks_id, unit_type="knight")
+    )
+
+    assert affected == 1
+    assert (
+        manager.production.queue_for(manager.production_buildings_for_team(TeamColor.BLUE)[1])[0].unit_type == "knight"
+    )
+    simulation.step(120)
+    assert len(manager.entities[TeamColor.BLUE].knights) == 1
+    simulation.close()
+
+
 def test_env_action_mask_reports_stateful_legality() -> None:
     """Action masks expose legal action families and denial reasons."""
     env = RtsNanoEnv(settings=_settings())
 
-    mask = {(spec.kind, spec.team): spec for spec in env.action_mask(TeamColor.BLUE)}
+    mask = env.action_mask(TeamColor.BLUE)
+    specs = {(spec.kind, spec.team, spec.unit_type): spec for spec in mask}
 
-    assert mask[("move", "Blue")].enabled is True
-    assert mask[("gather", "Blue")].enabled is True
-    assert mask[("build", "Blue")].enabled is False
-    assert mask[("build", "Blue")].reason == "insufficient_resources"
-    assert mask[("cancel_production", "Blue")].enabled is False
+    assert specs[("move", "Blue", None)].enabled is True
+    assert specs[("gather", "Blue", None)].enabled is True
+    assert specs[("build", "Blue", "peasant")].enabled is False
+    assert specs[("build", "Blue", "peasant")].reason == "insufficient_resources"
+    assert specs[("cancel_production", "Blue", None)].enabled is False
 
     manager = env._require_simulation().manager
     manager.entities[TeamColor.BLUE].resources["wood"] = 50
@@ -99,13 +131,28 @@ def test_env_action_mask_reports_stateful_legality() -> None:
     base_id = next(entity.id for entity in observation.entities if entity.kind == "Base" and entity.team == "Blue")
 
     env.step(BuildAction(TeamColor.BLUE, base_id=base_id, frames=0))
-    mask = {(spec.kind, spec.team): spec for spec in env.action_mask(TeamColor.BLUE)}
+    specs = {(spec.kind, spec.team, spec.unit_type): spec for spec in env.action_mask(TeamColor.BLUE)}
 
-    assert mask[("cancel_production", "Blue")].enabled is True
+    assert specs[("cancel_production", "Blue", None)].enabled is True
 
     cancel_result = env.step(CancelProductionAction(TeamColor.BLUE, base_id=base_id, frames=0))
 
     assert cancel_result.observation.teams[0].wood == 37
+
+    env.close()
+
+
+def test_env_action_mask_reports_military_production() -> None:
+    """Action masks expose barracks production as unit-specific build options."""
+    env = RtsNanoEnv(settings=_settings_with_barracks())
+    manager = env._require_simulation().manager
+    manager.entities[TeamColor.BLUE].resources.update({"wood": 100, "cristal": 25})
+
+    specs = {(spec.kind, spec.team, spec.unit_type): spec for spec in env.action_mask(TeamColor.BLUE)}
+
+    assert specs[("build", "Blue", "knight")].enabled is True
+    assert specs[("build", "Blue", "archer")].enabled is False
+    assert specs[("build", "Blue", "archer")].reason == "insufficient_resources"
 
     env.close()
 

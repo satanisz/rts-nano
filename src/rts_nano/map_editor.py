@@ -61,11 +61,13 @@ MERGED_RECT_TOOLS = {"high_ground", "water"}
 SPECIAL_TOOLS = {"erase", "flatten"}
 ENTITY_TOOLS = {
     "blue_base",
+    "blue_barracks",
     "blue_peasant",
     "blue_knight",
     "blue_archer",
     "blue_mage",
     "red_base",
+    "red_barracks",
     "red_peasant",
     "red_knight",
     "red_archer",
@@ -83,6 +85,8 @@ TOOL_KEYS = {
     pygame.K_8: "blue_base",
     pygame.K_9: "red_base",
     pygame.K_0: "erase",
+    pygame.K_t: "blue_barracks",
+    pygame.K_g: "red_barracks",
     pygame.K_q: "blue_peasant",
     pygame.K_w: "blue_knight",
     pygame.K_e: "blue_archer",
@@ -105,6 +109,8 @@ TOOL_LABELS = {
     "blue_base": "8 Blue base",
     "red_base": "9 Red base",
     "erase": "0 Erase",
+    "blue_barracks": "T Blue barracks",
+    "red_barracks": "G Red barracks",
     "blue_peasant": "Q Blue peasant",
     "blue_knight": "W Blue knight",
     "blue_archer": "E Blue archer",
@@ -176,8 +182,8 @@ class MapEditor:
         ``high_ground`` and ``water``.
         """
         return {
-            "Blue": {"peasant": [], "base": [], "knight": [], "archer": [], "mage": []},
-            "Red": {"peasant": [], "base": [], "knight": [], "archer": [], "mage": []},
+            "Blue": {"peasant": [], "base": [], "barracks": [], "knight": [], "archer": [], "mage": []},
+            "Red": {"peasant": [], "base": [], "barracks": [], "knight": [], "archer": [], "mage": []},
             "Resources": {"wood": [], "cristal": []},
             "Terrain": {
                 "width": width,
@@ -730,7 +736,7 @@ class MapEditor:
                     if not isinstance(point, list):
                         continue
                     pos = self._world_to_screen(cast("Sequence[int]", point))
-                    size = 24 if entity_name == "base" else 12
+                    size = 24 if entity_name in {"base", "barracks"} else 12
                     rect = pygame.Rect(0, 0, size, size)
                     rect.center = pos
                     pygame.draw.rect(screen, color, rect, width=2)

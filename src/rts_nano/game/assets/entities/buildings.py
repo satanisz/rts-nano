@@ -19,7 +19,17 @@ class Base(Building):
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
         """Initialize the object."""
         super().__init__(x, y, team)
+        self.spec_key = "base"
         self.load_image(
             str(BASE_DIR / "assets" / "sprites" / f"{team.value.lower()}_base.png"),
             str(BASE_DIR / "assets" / "portraits" / "base.png"),
         )
+
+
+class Barracks(Building):
+    """Represent a basic military production building."""
+
+    def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
+        """Initialize the object."""
+        super().__init__(x, y, team)
+        self.spec_key = "barracks"

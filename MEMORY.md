@@ -1,0 +1,3 @@
+# MEMORY
+
+Przed dalszą pracą przeczytaj `EXECUTIVE_PLAN.md`, bo jest śledzonym źródłem aktualnego kierunku projektu i następnych zadań. RTS Nano ma iść w stronę pełnej funkcjonalnie gry RTS w stylu WarCraft II, ale z lekką, deterministyczną symulacją headless pod trening wielu instancji sieci neuronowych. Core gry nie powinien zależeć od Pygame, PyTorch, Gymnasium ani ciężkich integracji; takie rzeczy mają trafiać do adapterów. Obecny etap ma już kolejki produkcji w bazie i Barracks; następny ważny kierunek to budowanie struktur przez workerów, action masks, obserwacje i testy headless dla każdej nowej mechaniki.

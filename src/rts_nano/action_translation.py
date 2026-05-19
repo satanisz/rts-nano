@@ -15,7 +15,7 @@ from rts_nano.actions import (
     NoOpAction,
     SelectAction,
 )
-from rts_nano.game.assets.entities.base_entities import Resource, Unit
+from rts_nano.game.assets.entities.base_entities import Building, Resource, Unit
 from rts_nano.game.assets.entities.buildings import Base
 from rts_nano.game.assets.entities.units import Peasant
 
@@ -78,18 +78,16 @@ class ActionTranslator:
         return self._manager.orders.issue_target_order(action.team, base, peasants)
 
     def _apply_build(self, action: BuildAction) -> int:
-        if action.unit_type != "peasant":
-            raise ValueError(f"Unsupported unit type: {action.unit_type}")
-        base = self._base_for_action(action.team, action.base_id)
-        if base is None:
+        producer = self._producer_for_action(action.team, action.base_id, action.unit_type)
+        if producer is None:
             return 0
-        return int(self._manager.orders.build_peasant(base))
+        return int(self._manager.orders.produce_unit(producer, action.unit_type))
 
     def _apply_cancel_production(self, action: CancelProductionAction) -> int:
-        base = self._base_for_action(action.team, action.base_id)
-        if base is None:
+        producer = self._producer_for_action(action.team, action.base_id)
+        if producer is None:
             return 0
-        return int(self._manager.orders.cancel_peasant_production(base))
+        return int(self._manager.orders.cancel_production(producer))
 
     def _apply_select(self, action: SelectAction) -> int:
         selected = tuple(self._entity_by_id(entity_id) for entity_id in action.entity_ids)
@@ -115,6 +113,26 @@ class ActionTranslator:
         if not bases:
             return None
         return bases[0]
+
+    def _producer_for_action(
+        self,
+        team: TeamColor,
+        producer_id: EntityId | None,
+        unit_type: str | None = None,
+    ) -> Building | None:
+        if producer_id is not None:
+            producer = self._entity_by_id(producer_id)
+            if not isinstance(producer, Building):
+                raise ValueError(f"Entity is not a production building: {producer_id}")
+            return producer if producer.team == team else None
+
+        producers = self._manager.orders.production_buildings_for_team(team)
+        if unit_type is None:
+            return next((producer for producer in producers if self._manager.production.queue_for(producer)), None)
+        return next(
+            (producer for producer in producers if self._manager.production.can_enqueue_unit(producer, unit_type)[0]),
+            None,
+        )
 
     def _entity_by_id(self, entity_id: EntityId) -> Entity:
         return self._entity_ids.entity_by_id(self._manager, entity_id)

@@ -82,7 +82,8 @@ Główne moduły:
 - `src/rts_nano/game/production.py`
   Lekki `ProductionSystem` dla kolejek produkcji. Peasant w bazie jest teraz
   opłacany z góry, rezerwuje populację, postępuje w tickach headless i pojawia
-  się dopiero po czasie produkcji. Produkcję można anulować z częściowym zwrotem.
+  się dopiero po czasie produkcji. Barracks produkuje podstawowe jednostki
+  wojskowe. Produkcję można anulować z częściowym zwrotem.
 
 - `src/rts_nano/actions.py`
   Publiczne DTO akcji: `NoOpAction`, `MoveAction`, `AttackAction`,
@@ -136,6 +137,7 @@ Ostatni znany stan jakości po bieżącym etapie: `ruff`, `ty`, `pytest`, `tox` 
 - Zasoby: wood i crystal/cristal.
 - Podstawowe zbieranie i deponowanie zasobów.
 - Kolejkowana produkcja peasantów w bazie.
+- Kolejkowana produkcja knightów i archerów w Barracks.
 - Anulowanie produkcji z częściowym zwrotem zasobów.
 - Statyczne dane gameplayu dla obecnych jednostek/budynków i najbliższych ról RTS.
 - Selekcja jednostek i rozkazy ruchu.
@@ -153,8 +155,9 @@ Ostatni znany stan jakości po bieżącym etapie: `ruff`, `ty`, `pytest`, `tox` 
 
 ### 5.1 Ekonomia i produkcja
 
-- Produkcja ma pierwszą implementację kolejek/czasu/anulowania dla peasantów, ale
-  nadal trzeba dodać więcej budynków produkcyjnych i więcej typów jednostek.
+- Produkcja ma pierwszą implementację kolejek/czasu/anulowania dla peasantów oraz
+  podstawowych jednostek z Barracks; nadal trzeba dodać budowę tych struktur,
+  kolejne budynki produkcyjne i wymagania technologiczne.
 - Potrzebne są pełniejsze wymagania technologiczne.
 - Potrzebny jest docelowy model populacji zamiast jednego globalnego limitu.
 - Rekomendacja zasobów: zostać przy `wood` i `cristal`, żeby zachować prostotę i
@@ -419,9 +422,12 @@ Status ostatnich zadań:
 Następne rekomendowane zadanie:
 
 6. Rozszerzyć produkcję poza peasantów w bazie.
-   Dodać co najmniej jeden budynek produkcji wojskowej albo tymczasową
-   data-driven ścieżkę dla knightów/archerów, potem wystawić to przez akcje,
-   maski, obserwacje i testy.
+   Status: zrobione dla Barracks, knightów i archerów, z map schema, map editor,
+   action masks, obserwacjami i testami headless/env.
+
+7. Następne rekomendowane zadanie: budowanie struktur przez workerów.
+   Dodać placement/action dla Barracks albo House, walidację kosztu i terenu,
+   niedokończony budynek z progressem oraz test headless.
 
 ## 11. Definition of Done pełnej gry
 
@@ -577,7 +583,8 @@ Current main modules:
 - `src/rts_nano/game/production.py`
   Lightweight `ProductionSystem` for base production queues. Peasant production
   now pays cost up front, reserves population through queued jobs, advances in
-  headless ticks, and spawns only after the configured production time.
+  headless ticks, and spawns only after the configured production time. Barracks
+  can train basic military units.
 
 - `src/rts_nano/actions.py`
   Public action DTOs: `NoOpAction`, `MoveAction`, `AttackAction`, `GatherAction`,
@@ -633,6 +640,7 @@ this baseline.
 - Resources: wood and crystal.
 - Basic harvesting and depositing.
 - Basic queued peasant production from the base.
+- Basic queued knight and archer production from Barracks.
 - Production cancellation with a partial resource refund.
 - Static gameplay data for current units/buildings and near-term RTS roles.
 - Unit selection and movement orders.
@@ -653,8 +661,9 @@ this baseline.
 - The game needs a complete catalog of costs, build times, and tech
   requirements.
 - Unit production has an initial queue/time implementation for peasants, but
-  includes cancellation and partial refunds, but still needs support for more
-  production buildings and more unit types.
+  includes cancellation, partial refunds, and Barracks military production.
+  Construction, additional production buildings, and tech requirements are still
+  missing.
 - Buildings need RTS roles: base, population/support building, military
   production, upgrades, and defensive structure.
 - The game needs a population cap or another mechanism that limits mass
@@ -964,9 +973,12 @@ training API.
    action mask support, observations, and command-panel cancellation.
 
 7. Next task: expand production beyond base peasants.
-   Add at least one military production building or interim data-driven route
-   for knights/archers, then expose it through actions, masks, observations,
-   and tests.
+   Status: implemented for Barracks, knights, and archers, including map schema,
+   map editor, action masks, observations, and headless/env tests.
+
+8. Next task: add worker construction for structures.
+   Add placement/action support for Barracks or House, cost and terrain
+   validation, unfinished building progress, and a headless test.
 
 ## 11. Definition Of Done For The Full Game
 

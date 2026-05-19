@@ -6,11 +6,10 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from rts_nano.game.assets.entities import Archer, Knight, Mage, Peasant
-from rts_nano.game.data import PRODUCTION_REFUND_RATIO, ResourceCost, UnitSpec, get_unit_spec
+from rts_nano.game.data import PRODUCTION_REFUND_RATIO, ResourceCost, UnitSpec, get_building_spec, get_unit_spec
 
 if TYPE_CHECKING:
-    from rts_nano.game.assets.entities.base_entities import TeamColor, Unit
-    from rts_nano.game.assets.entities.buildings import Base
+    from rts_nano.game.assets.entities.base_entities import Building, TeamColor, Unit
     from rts_nano.game.manager import GameManager
 
 
@@ -44,61 +43,69 @@ class ProductionSystem:
     def __init__(self, manager: GameManager) -> None:
         """Initialize production state for one manager."""
         self._manager = manager
-        self._queues: dict[Base, list[ProductionItem]] = {}
+        self._queues: dict[Building, list[ProductionItem]] = {}
 
-    def queue_for(self, base: Base) -> tuple[ProductionItem, ...]:
-        """Return the immutable production queue for a base."""
-        return tuple(self._queues.get(base, ()))
+    def queue_for(self, producer: Building) -> tuple[ProductionItem, ...]:
+        """Return the immutable production queue for a production building."""
+        return tuple(self._queues.get(producer, ()))
 
     def queued_units_for_team(self, team: TeamColor) -> int:
         """Return queued unit count for a team."""
-        return sum(len(queue) for base, queue in self._queues.items() if base.team == team and base.life > 0)
+        return sum(
+            len(queue) for producer, queue in self._queues.items() if producer.team == team and producer.life > 0
+        )
 
     def queued_population_for_team(self, team: TeamColor) -> int:
         """Return population reserved by queued units for a team."""
         total = 0
-        for base, queue in self._queues.items():
-            if base.team != team or base.life <= 0:
+        for producer, queue in self._queues.items():
+            if producer.team != team or producer.life <= 0:
                 continue
             for item in queue:
                 total += get_unit_spec(item.unit_type).population
         return total
 
-    def can_enqueue_unit(self, base: Base, unit_type: str = "peasant") -> tuple[bool, str | None]:
-        """Return whether a base can queue a unit and, if not, why."""
+    def can_enqueue_unit(self, producer: Building, unit_type: str = "peasant") -> tuple[bool, str | None]:
+        """Return whether a building can queue a unit and, if not, why."""
         try:
             spec = get_unit_spec(unit_type)
         except ValueError:
             return False, "unsupported_unit"
 
-        if spec.produced_at != "base":
+        producer_key = self._producer_key(producer)
+        try:
+            producer_spec = get_building_spec(producer_key)
+        except ValueError:
+            return False, "unsupported_building"
+
+        if spec.produced_at != producer_key or spec.key not in producer_spec.produces:
             return False, "wrong_production_building"
-        if base.life <= 0:
+        if producer.life <= 0:
             return False, "inactive_building"
 
-        team_group = self._manager.entities.get(base.team)
+        team_group = self._manager.entities.get(producer.team)
         if team_group is None:
             return False, "missing_team"
 
         if not self._can_pay(team_group.resources, spec.cost):
             return False, "insufficient_resources"
 
-        reserved_population = self._manager._count_units(base.team) + self.queued_population_for_team(base.team)
-        if reserved_population + spec.population > self._manager.population_cap_for_team(base.team):
+        reserved_population = self._manager._count_units(producer.team) + self.queued_population_for_team(producer.team)
+        if reserved_population + spec.population > self._manager.population_cap_for_team(producer.team):
             return False, "population_cap"
 
         return True, None
 
-    def enqueue_unit(self, base: Base, unit_type: str = "peasant") -> bool:
-        """Pay for and queue a unit from a base."""
-        can_enqueue, _ = self.can_enqueue_unit(base, unit_type)
+    def enqueue_unit(self, producer: Building, unit_type: str = "peasant") -> bool:
+        """Pay for and queue a unit from a production building."""
+        can_enqueue, _ = self.can_enqueue_unit(producer, unit_type)
         if not can_enqueue:
             return False
 
         spec = get_unit_spec(unit_type)
-        team_group = self._manager.entities[base.team]
+        team_group = self._manager.entities[producer.team]
         self._pay(team_group.resources, spec.cost)
-        self._queues.setdefault(base, []).append(
+        self._queues.setdefault(producer, []).append(
             ProductionItem(
                 unit_type=unit_type,
                 remaining_frames=spec.production_frames,
@@ -107,38 +114,43 @@ class ProductionSystem:
         )
         return True
 
-    def cancel_next(self, base: Base) -> bool:
+    def cancel_next(self, producer: Building) -> bool:
         """Cancel the active production job and refund part of its cost."""
-        queue = self._queues.get(base)
+        queue = self._queues.get(producer)
         if not queue:
             return False
 
         item = queue.pop(0)
         if not queue:
-            del self._queues[base]
+            del self._queues[producer]
 
-        team_group = self._manager.entities.get(base.team)
+        team_group = self._manager.entities.get(producer.team)
         if team_group is not None:
             self._refund(team_group.resources, get_unit_spec(item.unit_type).cost)
         return True
 
     def update(self) -> None:
         """Advance active queues and spawn completed jobs."""
-        live_bases = {base for group in self._manager.entities.values() for base in group.bases if base.life > 0}
-        for base in tuple(self._queues):
-            if base not in live_bases:
-                del self._queues[base]
+        live_producers = {
+            producer
+            for group in self._manager.entities.values()
+            for producer in (*group.bases, *group.barracks)
+            if producer.life > 0
+        }
+        for producer in tuple(self._queues):
+            if producer not in live_producers:
+                del self._queues[producer]
 
-        for base, queue in list(self._queues.items()):
+        for producer, queue in list(self._queues.items()):
             if not queue:
                 continue
             current = queue[0]
             current.remaining_frames -= 1
             if current.remaining_frames <= 0:
                 queue.pop(0)
-                self._spawn_unit(base, get_unit_spec(current.unit_type))
+                self._spawn_unit(producer, get_unit_spec(current.unit_type))
             if not queue:
-                del self._queues[base]
+                del self._queues[producer]
 
     @staticmethod
     def _can_pay(resources: dict[str, int], cost: ResourceCost) -> bool:
@@ -154,8 +166,8 @@ class ProductionSystem:
         resources["wood"] = resources.get("wood", 0) + int(cost.wood * PRODUCTION_REFUND_RATIO)
         resources["cristal"] = resources.get("cristal", 0) + int(cost.cristal * PRODUCTION_REFUND_RATIO)
 
-    def _spawn_unit(self, base: Base, spec: UnitSpec) -> None:
-        team_group = self._manager.entities.get(base.team)
+    def _spawn_unit(self, producer: Building, spec: UnitSpec) -> None:
+        team_group = self._manager.entities.get(producer.team)
         if team_group is None:
             return
 
@@ -163,7 +175,11 @@ class ProductionSystem:
         if unit_factory is None:
             return
 
-        spawn_x, spawn_y = self._manager._clamp_to_world((base.x, base.y + base.size))
-        unit: Unit = unit_factory(int(spawn_x), int(spawn_y), base.team)
+        spawn_x, spawn_y = self._manager._clamp_to_world((producer.x, producer.y + producer.size))
+        unit: Unit = unit_factory(int(spawn_x), int(spawn_y), producer.team)
         roster = getattr(team_group, spec.roster_attribute)
         roster.append(unit)
+
+    @staticmethod
+    def _producer_key(producer: Building) -> str:
+        return getattr(producer, "spec_key", type(producer).__name__.lower())

@@ -14,8 +14,8 @@ if TYPE_CHECKING:
 
 def _valid_payload() -> dict[str, object]:
     return {
-        "Blue": {"base": [[10, 10]], "peasant": []},
-        "Red": {"base": [[100, 100]]},
+        "Blue": {"base": [[10, 10]], "barracks": [[60, 60]], "peasant": []},
+        "Red": {"base": [[100, 100]], "barracks": []},
         "Resources": {"wood": [[20, 20]], "cristal": []},
         "Terrain": {
             "width": 500,

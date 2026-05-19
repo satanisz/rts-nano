@@ -28,6 +28,7 @@ from rts_nano.actions import (
 from rts_nano.game.assets.entities import TeamColor
 from rts_nano.game.assets.entities.base_entities import Building, Unit
 from rts_nano.game.assets.entities.units import Peasant
+from rts_nano.game.data import UNIT_SPECS
 from rts_nano.game.observations import (
     EntityId,
     EntityIdRegistry,
@@ -40,7 +41,6 @@ from rts_nano.game.observations import (
 from rts_nano.headless import HeadlessSimulation
 
 if TYPE_CHECKING:
-    from rts_nano.game.assets.entities.buildings import Base
     from rts_nano.map_schema import MapSettings
 
 DEFAULT_MAP_ID = "map_settings_01.json"
@@ -216,6 +216,7 @@ class RtsNanoEnv:
         manager = self._require_simulation().manager
         units = manager.orders.units_for_team(team)
         bases = manager.orders.bases_for_team(team)
+        production_buildings = manager.orders.production_buildings_for_team(team)
         peasants = [unit for unit in units if isinstance(unit, Peasant)]
         carrying_peasants = [unit for unit in peasants if unit.carry_wood > 0 or unit.carry_cristal > 0]
         resources = [
@@ -227,8 +228,20 @@ class RtsNanoEnv:
             if isinstance(entity, (Unit, Building)) and entity.team != team and entity.life > 0
         ]
 
-        can_build, build_reason = self._can_build_peasant(team, bases)
         team_name = team.value
+        build_specs = tuple(
+            ActionSpec(
+                "build",
+                team_name,
+                "producer_id",
+                enabled=can_build,
+                reason=reason,
+                unit_type=unit_type,
+            )
+            for unit_type in UNIT_SPECS
+            for can_build, reason in (self._can_build_unit(team, production_buildings, unit_type),)
+        )
+        can_cancel = any(manager.production.queue_for(producer) for producer in production_buildings)
         return (
             ActionSpec("move", team_name, "world_point", enabled=bool(units), reason=None if units else "no_units"),
             ActionSpec(
@@ -252,13 +265,13 @@ class RtsNanoEnv:
                 enabled=bool(carrying_peasants and bases),
                 reason=None if carrying_peasants and bases else "no_cargo_or_base",
             ),
-            ActionSpec("build", team_name, "base_id", enabled=can_build, reason=build_reason),
+            *build_specs,
             ActionSpec(
                 "cancel_production",
                 team_name,
-                "base_id",
-                enabled=any(manager.production.queue_for(base) for base in bases),
-                reason=None if any(manager.production.queue_for(base) for base in bases) else "empty_queue",
+                "producer_id",
+                enabled=can_cancel,
+                reason=None if can_cancel else "empty_queue",
             ),
             ActionSpec(
                 "select",
@@ -269,12 +282,19 @@ class RtsNanoEnv:
             ),
         )
 
-    def _can_build_peasant(self, team: TeamColor, bases: list[Base]) -> tuple[bool, str | None]:
-        if not bases:
-            return False, "no_base"
+    def _can_build_unit(
+        self,
+        team: TeamColor,
+        producers: list[Building],
+        unit_type: str,
+    ) -> tuple[bool, str | None]:
+        if not producers:
+            return False, "no_producer"
         last_reason: str | None = None
-        for base in bases:
-            can_build, reason = self._require_simulation().manager.production.can_enqueue_unit(base, "peasant")
+        for producer in producers:
+            if producer.team != team:
+                continue
+            can_build, reason = self._require_simulation().manager.production.can_enqueue_unit(producer, unit_type)
             if can_build:
                 return True, None
             last_reason = reason

@@ -6,7 +6,7 @@ from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING
 
 from rts_nano.game.assets.entities import TeamColor
-from rts_nano.game.assets.entities.buildings import Base
+from rts_nano.game.assets.entities.base_entities import Building
 
 if TYPE_CHECKING:
     from rts_nano.game.assets.entities.base_entities import Entity
@@ -127,7 +127,7 @@ def _snapshot_team(manager: GameManager, team: TeamColor, group: EntitiesGroup) 
         wood=group.resources["wood"],
         cristal=group.resources["cristal"],
         units=len(group.peasents) + len(group.knights) + len(group.archers) + len(group.mages),
-        buildings=len(group.bases),
+        buildings=len(group.bases) + len(group.barracks),
         population_cap=manager.population_cap_for_team(team),
         queued_units=manager.production.queued_units_for_team(team),
     )
@@ -153,7 +153,7 @@ def _snapshot_entity(manager: GameManager, entity: Entity, registry: EntityIdReg
 
 
 def _snapshot_production_queue(manager: GameManager, entity: Entity) -> tuple[ProductionSnapshot, ...]:
-    if not isinstance(entity, Base):
+    if not isinstance(entity, Building):
         return ()
     return tuple(
         ProductionSnapshot(

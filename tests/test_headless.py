@@ -29,6 +29,13 @@ def _settings() -> MapSettings:
     }
 
 
+def _settings_with_barracks() -> MapSettings:
+    settings = _settings()
+    settings["Blue"]["barracks"] = [[90, 60]]
+    settings["Red"]["barracks"] = []
+    return settings
+
+
 def test_headless_simulation_steps_and_issues_orders() -> None:
     """Headless mode can move simulation forward without drawing."""
     simulation = HeadlessSimulation.from_settings(_settings())
@@ -90,6 +97,26 @@ def test_manager_cancels_queued_peasant_with_partial_refund() -> None:
     simulation.step(60)
 
     assert len(group.peasents) == 1
+    simulation.close()
+
+
+def test_manager_trains_military_units_from_barracks() -> None:
+    """Barracks can queue and complete basic military production."""
+    simulation = HeadlessSimulation.from_settings(_settings_with_barracks())
+    manager = simulation.manager
+    group = manager.entities[TeamColor.BLUE]
+    barracks = group.barracks[0]
+    group.resources["wood"] = 100
+    group.resources["cristal"] = 25
+
+    assert manager.produce_unit(barracks, "knight") is True
+    assert group.resources == {"wood": 0, "cristal": 0}
+    assert manager.production.queue_for(barracks)[0].unit_type == "knight"
+
+    simulation.step(120)
+
+    assert len(group.knights) == 1
+    assert not manager.production.queue_for(barracks)
     simulation.close()
 
 
