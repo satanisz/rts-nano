@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from rts_nano.action_translation import ActionTranslator
-from rts_nano.actions import BuildAction, CancelProductionAction, ConstructAction
+from rts_nano.actions import BuildAction, CancelConstructionAction, CancelProductionAction, ConstructAction
 from rts_nano.env import MoveAction, NoOpAction, RtsNanoEnv
 from rts_nano.game.assets.entities import TeamColor
 from rts_nano.game.observations import EntityIdRegistry, build_observation
@@ -150,6 +150,8 @@ def test_env_action_mask_reports_stateful_legality() -> None:
     assert construction_specs[("construct", "Blue", "barracks")].reason == "insufficient_resources"
     assert construction_specs[("construct", "Blue", "house")].enabled is False
     assert construction_specs[("construct", "Blue", "house")].reason == "insufficient_resources"
+    assert specs[("cancel_construction", "Blue", None)].enabled is False
+    assert specs[("cancel_construction", "Blue", None)].reason == "no_unfinished_building"
 
     manager = env._require_simulation().manager
     manager.entities[TeamColor.BLUE].resources["wood"] = 50
@@ -211,6 +213,31 @@ def test_env_constructs_house_and_reports_population_cap() -> None:
 
     assert next(entity for entity in completed.entities if entity.kind == "House").is_under_construction is False
     assert completed.teams[0].population_cap == 16
+
+    env.close()
+
+
+def test_env_cancel_construction_refunds_resources() -> None:
+    """Environment can cancel unfinished construction and remove it from observations."""
+    env = RtsNanoEnv(settings=_settings())
+    manager = env._require_simulation().manager
+    manager.entities[TeamColor.BLUE].resources["wood"] = 80
+    observation = env.observe()
+    builder_id = next(
+        entity.id for entity in observation.entities if entity.kind == "Peasant" and entity.team == "Blue"
+    )
+    constructed = env.step(
+        ConstructAction(TeamColor.BLUE, (160, 90), builder_id=builder_id, building_type="house", frames=0)
+    ).observation
+    house_id = next(entity.id for entity in constructed.entities if entity.kind == "House")
+
+    specs = {(spec.kind, spec.team, spec.unit_type): spec for spec in env.action_mask(TeamColor.BLUE)}
+    assert specs[("cancel_construction", "Blue", None)].enabled is True
+
+    canceled = env.step(CancelConstructionAction(TeamColor.BLUE, building_id=house_id, frames=0)).observation
+
+    assert canceled.teams[0].wood == 60
+    assert not any(entity.kind == "House" for entity in canceled.entities)
 
     env.close()
 

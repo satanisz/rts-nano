@@ -79,6 +79,10 @@ class OrderSystem:
         """Attempt to place a new building and assign a worker to construct it."""
         return self._manager.construction.start_construction(builder, building_type, position) is not None
 
+    def cancel_construction(self, building: Building) -> bool:
+        """Attempt to cancel an unfinished building."""
+        return self._manager.construction.cancel_construction(building)
+
     def cancel_peasant_production(self, base: Base) -> bool:
         """Attempt to cancel the active Peasant production job at a base."""
         return self.cancel_production(base)

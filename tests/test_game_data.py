@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from rts_nano.game.data import (
     BUILDING_SPECS,
+    CONSTRUCTION_REFUND_RATIO,
     PRODUCTION_REFUND_RATIO,
     RESOURCE_KINDS,
     UNIT_SPECS,
@@ -17,6 +18,7 @@ def test_game_data_defines_current_worker_production() -> None:
 
     assert RESOURCE_KINDS == ("wood", "cristal")
     assert PRODUCTION_REFUND_RATIO == 0.75
+    assert CONSTRUCTION_REFUND_RATIO == 0.75
     assert peasant.cost.wood == 50
     assert peasant.production_frames == 60
     assert peasant.produced_at == "base"

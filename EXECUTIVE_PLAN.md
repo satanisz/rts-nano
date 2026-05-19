@@ -89,7 +89,8 @@ Główne moduły:
 - `src/rts_nano/game/construction.py`
   Lekki `ConstructionSystem` dla budowy struktur przez workerów. Obecnie
   obsługuje Barracks i House: koszt, walidację terenu/kolizji, niedokończony
-  budynek, postęp budowy i aktywację po ukończeniu.
+  budynek, postęp budowy, anulowanie z częściowym zwrotem i aktywację po
+  ukończeniu.
 
 - `src/rts_nano/actions.py`
   Publiczne DTO akcji: `NoOpAction`, `MoveAction`, `AttackAction`,
@@ -148,6 +149,7 @@ Ostatni znany stan jakości po bieżącym etapie: `ruff`, `ty`, `pytest`, `tox` 
   kolizji, niedokończony budynek z progressem oraz aktywacja po ukończeniu.
 - Budowanie House przez peasantów i limit populacji liczony z ukończonych
   budynków: Base daje 10, House daje 6.
+- Anulowanie niedokończonej budowy z częściowym zwrotem zasobów przez API/env.
 - Anulowanie produkcji z częściowym zwrotem zasobów.
 - Statyczne dane gameplayu dla obecnych jednostek/budynków i najbliższych ról RTS.
 - Selekcja jednostek i rozkazy ruchu.
@@ -180,8 +182,7 @@ Ostatni znany stan jakości po bieżącym etapie: `ruff`, `ty`, `pytest`, `tox` 
   kosztu, terenu i kolizji.
 - Budowa trwa w czasie, ma progress w obserwacji i aktywuje efekty budynku
   dopiero po ukończeniu.
-- Nadal brakuje UI placementu, anulowania budowy z refundem, pełnych footprintów
-  i dalszych typów budynków.
+- Nadal brakuje UI placementu, pełnych footprintów i dalszych typów budynków.
 - Budynki muszą blokować pathfinding zgodnie ze swoim footprintem.
 
 ### 5.3 Rozkazy i zachowanie jednostek
@@ -446,9 +447,13 @@ Następne rekomendowane zadanie:
    Status: zrobione. `ConstructionSystem` obsługuje House, schema/map editor
    znają `house`, a `population_cap` wynika z ukończonych budynków supportu.
 
-9. Następne rekomendowane zadanie: UI placement albo anulowanie budowy.
-   UI powinno umieć wydać `ConstructAction` dla House/Barracks, a API powinno
-   dostać anulowanie niedokończonej budowy z częściowym zwrotem zasobów.
+9. Anulowanie budowy z refundem.
+   Status: zrobione. `CancelConstructionAction`, action mask i testy headless/env
+   obsługują niedokończone budynki.
+
+10. Następne rekomendowane zadanie: UI placement.
+   UI powinno umieć wydać `ConstructAction` dla House/Barracks, pokazać stan
+   placementu i komunikować odmowy typu brak zasobów albo złe miejsce.
 
 ## 11. Definition of Done pełnej gry
 
@@ -610,8 +615,8 @@ Current main modules:
 - `src/rts_nano/game/construction.py`
   Lightweight `ConstructionSystem` for worker-built structures. It currently
   supports Barracks and House construction: cost payment, terrain/collision
-  placement validation, unfinished building state, build progress, and
-  activation on completion.
+  placement validation, unfinished building state, build progress, cancellation
+  with a partial refund, and activation on completion.
 
 - `src/rts_nano/actions.py`
   Public action DTOs: `NoOpAction`, `MoveAction`, `AttackAction`, `GatherAction`,
@@ -673,6 +678,8 @@ this baseline.
   completion.
 - Worker construction for House and population capacity from completed
   buildings: Base provides 10 support, House provides 6.
+- Cancellation of unfinished construction with a partial resource refund through
+  the API/env.
 - Production cancellation with a partial resource refund.
 - Static gameplay data for current units/buildings and near-term RTS roles.
 - Unit selection and movement orders.
@@ -709,8 +716,8 @@ this baseline.
   and collision validation.
 - Construction takes time, exposes progress in observations, and activates
   building effects only after completion.
-- UI placement, construction cancellation/refunds, full footprints, and
-  additional building types are still missing.
+- UI placement, full footprints, and additional building types are still
+  missing.
 - Buildings must block pathfinding according to their footprint.
 
 ### 5.3 Orders and Unit Behavior
@@ -1020,9 +1027,14 @@ training API.
    editor know `house`, and `population_cap` comes from completed support
    buildings.
 
-10. Next task: UI placement or construction cancellation.
-   The UI should issue `ConstructAction` for House/Barracks, and the API should
-   support canceling unfinished construction with a partial resource refund.
+10. Construction cancellation with refund.
+   Status: implemented. `CancelConstructionAction`, action mask support, and
+   headless/env tests cover unfinished buildings.
+
+11. Next task: UI placement.
+   The UI should issue `ConstructAction` for House/Barracks, show placement
+   state, and report denial reasons such as insufficient resources or invalid
+   placement.
 
 ## 11. Definition Of Done For The Full Game
 

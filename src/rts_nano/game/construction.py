@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, ClassVar
 
 from rts_nano.game.assets.entities.base_entities import Building, Entity, TeamColor
 from rts_nano.game.assets.entities.buildings import Barracks, House
-from rts_nano.game.data import ResourceCost, get_building_spec
+from rts_nano.game.data import CONSTRUCTION_REFUND_RATIO, ResourceCost, get_building_spec
 from rts_nano.game.rules import distance_between_points
 
 if TYPE_CHECKING:
@@ -96,6 +96,45 @@ class ConstructionSystem:
         self._manager._assign_unit_target(builder, building.get_center(), building)
         return building
 
+    def unfinished_buildings_for_team(self, team: TeamColor) -> list[Building]:
+        """Return unfinished buildings owned by a team."""
+        group = self._manager.entities.get(team)
+        if group is None:
+            return []
+        return [
+            entity
+            for entity in group.all_entities
+            if isinstance(entity, Building) and entity.life > 0 and entity.is_under_construction
+        ]
+
+    def cancel_construction(self, building: Building) -> bool:
+        """Cancel an unfinished building and refund part of its cost."""
+        if building.life <= 0 or not building.is_under_construction:
+            return False
+
+        group = self._manager.entities.get(building.team)
+        if group is None:
+            return False
+
+        building_type = getattr(building, "spec_key", type(building).__name__.lower())
+        try:
+            spec = get_building_spec(building_type)
+        except ValueError:
+            return False
+
+        if not self._remove_building_from_group(group, building_type, building):
+            return False
+
+        self._refund(group.resources, spec.cost)
+        building.is_under_construction = False
+        building.life = 0
+        self._detach_builders(group, building)
+        self._manager.selected_entities = [
+            entity for entity in self._manager.selected_entities if entity is not building
+        ]
+        building.selected = False
+        return True
+
     def update(self) -> None:
         """Advance unfinished buildings when workers are actively building them."""
         for group in self._manager.entities.values():
@@ -144,6 +183,26 @@ class ConstructionSystem:
         roster = getattr(group, roster_name)
         roster.append(building)
 
+    @classmethod
+    def _remove_building_from_group(cls, group: EntitiesGroup, building_type: str, building: Building) -> bool:
+        roster_name = cls._BUILDING_ROSTERS.get(building_type)
+        if roster_name is None:
+            return False
+        roster = getattr(group, roster_name)
+        if building not in roster:
+            return False
+        roster.remove(building)
+        return True
+
+    @staticmethod
+    def _detach_builders(group: EntitiesGroup, building: Building) -> None:
+        for builder in group.peasents:
+            if builder.target_entity is not building:
+                continue
+            builder.target_entity = None
+            builder.path.clear()
+            builder.state = "IDLE"
+
     @staticmethod
     def _can_pay(resources: dict[str, int], cost: ResourceCost) -> bool:
         return resources.get("wood", 0) >= cost.wood and resources.get("cristal", 0) >= cost.cristal
@@ -152,3 +211,8 @@ class ConstructionSystem:
     def _pay(resources: dict[str, int], cost: ResourceCost) -> None:
         resources["wood"] = resources.get("wood", 0) - cost.wood
         resources["cristal"] = resources.get("cristal", 0) - cost.cristal
+
+    @staticmethod
+    def _refund(resources: dict[str, int], cost: ResourceCost) -> None:
+        resources["wood"] = resources.get("wood", 0) + int(cost.wood * CONSTRUCTION_REFUND_RATIO)
+        resources["cristal"] = resources.get("cristal", 0) + int(cost.cristal * CONSTRUCTION_REFUND_RATIO)

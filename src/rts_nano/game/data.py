@@ -48,6 +48,7 @@ class BuildingSpec:
 
 RESOURCE_KINDS: tuple[str, str] = ("wood", "cristal")
 PRODUCTION_REFUND_RATIO = 0.75
+CONSTRUCTION_REFUND_RATIO = 0.75
 
 UNIT_SPECS: dict[str, UnitSpec] = {
     "peasant": UnitSpec(

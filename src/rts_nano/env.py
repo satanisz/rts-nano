@@ -15,6 +15,7 @@ from rts_nano.actions import (
     AttackAction,
     BuildAction,
     BuildingType,
+    CancelConstructionAction,
     CancelProductionAction,
     ConstructAction,
     DepositAction,
@@ -53,6 +54,7 @@ __all__ = [
     "AttackAction",
     "BuildingType",
     "BuildAction",
+    "CancelConstructionAction",
     "CancelProductionAction",
     "ConstructAction",
     "DepositAction",
@@ -257,6 +259,7 @@ class RtsNanoEnv:
             for building_type in manager.construction.supported_building_types()
             for can_construct, reason in (manager.construction.can_team_construct(team, building_type),)
         )
+        unfinished_buildings = manager.construction.unfinished_buildings_for_team(team)
         can_cancel = any(manager.production.queue_for(producer) for producer in production_buildings)
         return (
             ActionSpec("move", team_name, "world_point", enabled=bool(units), reason=None if units else "no_units"),
@@ -283,6 +286,13 @@ class RtsNanoEnv:
             ),
             *build_specs,
             *construct_specs,
+            ActionSpec(
+                "cancel_construction",
+                team_name,
+                "building_id",
+                enabled=bool(unfinished_buildings),
+                reason=None if unfinished_buildings else "no_unfinished_building",
+            ),
             ActionSpec(
                 "cancel_production",
                 team_name,

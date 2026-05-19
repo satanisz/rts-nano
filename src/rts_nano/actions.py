@@ -20,6 +20,7 @@ type ActionKind = Literal[
     "deposit",
     "build",
     "construct",
+    "cancel_construction",
     "cancel_production",
     "select",
 ]
@@ -98,6 +99,15 @@ class ConstructAction:
 
 
 @dataclass(frozen=True, slots=True)
+class CancelConstructionAction:
+    """Cancel an unfinished team building."""
+
+    team: TeamColor
+    building_id: EntityId | None = None
+    frames: int = 1
+
+
+@dataclass(frozen=True, slots=True)
 class CancelProductionAction:
     """Cancel the active production job at a team production building."""
 
@@ -123,6 +133,7 @@ type Action = (
     | DepositAction
     | BuildAction
     | ConstructAction
+    | CancelConstructionAction
     | CancelProductionAction
     | SelectAction
 )

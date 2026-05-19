@@ -170,6 +170,28 @@ def test_completed_house_increases_population_cap() -> None:
     simulation.close()
 
 
+def test_canceling_unfinished_house_refunds_and_removes_building() -> None:
+    """Unfinished construction can be canceled for a partial refund."""
+    simulation = HeadlessSimulation.from_settings(_settings())
+    manager = simulation.manager
+    group = manager.entities[TeamColor.BLUE]
+    peasant = group.peasents[0]
+    peasant.x, peasant.y = 170, 130
+    group.resources.update({"wood": 80, "cristal": 0})
+
+    assert manager.construct_building(peasant, "house", (170, 80)) is True
+    house = group.houses[0]
+
+    assert manager.cancel_construction(house) is True
+
+    assert group.resources["wood"] == 60
+    assert group.houses == []
+    assert peasant.state == "IDLE"
+    assert peasant.target_entity is None
+    assert manager.cancel_construction(house) is False
+    simulation.close()
+
+
 def test_group_move_order_assigns_formation_slots() -> None:
     """Group movement spreads units around the clicked destination."""
     settings = _settings()

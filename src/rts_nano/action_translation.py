@@ -8,6 +8,7 @@ from rts_nano.actions import (
     Action,
     AttackAction,
     BuildAction,
+    CancelConstructionAction,
     CancelProductionAction,
     ConstructAction,
     DepositAction,
@@ -51,6 +52,8 @@ class ActionTranslator:
             return self._apply_build(action)
         if isinstance(action, ConstructAction):
             return self._apply_construct(action)
+        if isinstance(action, CancelConstructionAction):
+            return self._apply_cancel_construction(action)
         if isinstance(action, CancelProductionAction):
             return self._apply_cancel_production(action)
         if isinstance(action, SelectAction):
@@ -91,6 +94,12 @@ class ActionTranslator:
         if builder is None:
             return 0
         return int(self._manager.orders.construct_building(builder, action.building_type, action.position))
+
+    def _apply_cancel_construction(self, action: CancelConstructionAction) -> int:
+        building = self._unfinished_building_for_action(action.team, action.building_id)
+        if building is None:
+            return 0
+        return int(self._manager.orders.cancel_construction(building))
 
     def _apply_cancel_production(self, action: CancelProductionAction) -> int:
         producer = self._producer_for_action(action.team, action.base_id)
@@ -165,6 +174,24 @@ class ActionTranslator:
             ),
             None,
         )
+
+    def _unfinished_building_for_action(
+        self,
+        team: TeamColor,
+        building_id: EntityId | None,
+    ) -> Building | None:
+        if building_id is not None:
+            building = self._entity_by_id(building_id)
+            if not isinstance(building, Building):
+                raise ValueError(f"Entity is not a building: {building_id}")
+            if building.team != team or not building.is_under_construction:
+                return None
+            return building
+
+        buildings = self._manager.construction.unfinished_buildings_for_team(team)
+        if not buildings:
+            return None
+        return buildings[0]
 
     def _entity_by_id(self, entity_id: EntityId) -> Entity:
         return self._entity_ids.entity_by_id(self._manager, entity_id)

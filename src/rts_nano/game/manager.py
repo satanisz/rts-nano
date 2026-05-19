@@ -446,6 +446,10 @@ class GameManager:
         """Attempt to place a new building and assign a worker to construct it."""
         return self.orders.construct_building(builder, building_type, position)
 
+    def cancel_construction(self, building: Building) -> bool:
+        """Attempt to cancel an unfinished building."""
+        return self.orders.cancel_construction(building)
+
     def cancel_production(self, producer: Building) -> bool:
         """Attempt to cancel active production at a production building."""
         return self.orders.cancel_production(producer)
