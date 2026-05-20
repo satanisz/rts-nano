@@ -154,6 +154,7 @@ Ostatni znany stan jakości po bieżącym etapie: `ruff`, `ty`, `pytest`, `tox` 
 - Anulowanie niedokończonej budowy z częściowym zwrotem zasobów przez API/env.
 - Pierwszy UI placement w Pygame: Peasant ma komendy budowy House/Barracks,
   kliknięcie w świecie stawia budynek, a ghost pokazuje poprawność miejsca.
+- Skróty budowy dla Peasanta: `B` zaczyna Barracks, a `Y` zaczyna House.
 - Anulowanie produkcji z częściowym zwrotem zasobów.
 - Statyczne dane gameplayu dla obecnych jednostek/budynków i najbliższych ról RTS.
 - Selekcja jednostek i rozkazy ruchu.
@@ -484,8 +485,12 @@ Następne rekomendowane zadanie:
    Status: zrobione. `GatherAction` przechodzi przez `OrderSystem`, manager ma
    publiczny helper, a command panel i hotkey `G` uruchamiaja tryb wyboru zasobu.
 
-16. Następne rekomendowane zadanie: uporządkować command panel i hotkeye.
-   Dodać skróty budowy i czytelniejsze komunikaty odmowy.
+16. Build hotkeys.
+   Status: zrobione. Przy wybranym Peasancie `B` zaczyna placement Barracks, a
+   `Y` zaczyna placement House; `B` przy bazie nadal trenuje Peasanta.
+
+17. Następne rekomendowane zadanie: uporządkować command panel i hotkeye.
+   Dodać czytelniejsze komunikaty odmowy.
 
 ## 11. Definition of Done pełnej gry
 
@@ -715,6 +720,8 @@ this baseline.
   the API/env.
 - First Pygame UI placement path: Peasant has House/Barracks build commands,
   world clicks place buildings, and a ghost preview shows placement validity.
+- Worker build shortcuts: `B` starts Barracks placement and `Y` starts House
+  placement.
 - Production cancellation with a partial resource refund.
 - Static gameplay data for current units/buildings and near-term RTS roles.
 - Unit selection and movement orders.
@@ -1095,8 +1102,12 @@ training API.
    manager has a public helper, and the command panel plus `G` hotkey enter
    resource-targeting mode.
 
-17. Next task: clean up the command panel and hotkeys.
-   Add build shortcuts and clearer denial messages.
+17. Build hotkeys.
+   Status: implemented. With a Peasant selected, `B` starts Barracks placement
+   and `Y` starts House placement; `B` on a Base still trains a Peasant.
+
+18. Next task: clean up the command panel and hotkeys.
+   Add clearer denial messages.
 
 ## 11. Definition Of Done For The Full Game
 

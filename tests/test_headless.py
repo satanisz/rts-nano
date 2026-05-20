@@ -5,6 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import pygame
+
 from rts_nano.game.assets.entities.base_entities import TeamColor
 from rts_nano.headless import HeadlessSimulation
 
@@ -94,6 +96,26 @@ def test_manager_public_gather_order_sends_peasant_to_resource() -> None:
 
     assert affected == 1
     assert peasant.carry_wood > 0
+    simulation.close()
+
+
+def test_manager_build_hotkeys_enter_worker_placement_modes() -> None:
+    """Worker build hotkeys start construction placement for supported buildings."""
+    simulation = HeadlessSimulation.from_settings(_settings())
+    manager = simulation.manager
+    group = manager.entities[TeamColor.BLUE]
+    peasant = group.peasents[0]
+    group.resources.update({"wood": 220, "cristal": 60})
+    manager.select_entities_for_team(TeamColor.BLUE, [peasant])
+
+    manager.handle_input(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_y))
+
+    assert manager.pending_construction_type == "house"
+
+    manager.cancel_pending_construction_placement()
+    manager.handle_input(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_b))
+
+    assert manager.pending_construction_type == "barracks"
     simulation.close()
 
 

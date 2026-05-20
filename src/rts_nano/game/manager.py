@@ -964,7 +964,12 @@ class GameManager:
             elif event.key == pygame.K_F11 or (event.key == pygame.K_RETURN and event.mod & pygame.KMOD_ALT):
                 self._request_fullscreen_toggle()
             elif event.key == pygame.K_b:
-                self._try_build_peasant_from_selection()
+                if self._selected_construction_builder() is not None:
+                    self.begin_construction_placement("barracks")
+                else:
+                    self._try_build_peasant_from_selection()
+            elif event.key == pygame.K_y:
+                self.begin_construction_placement("house")
             elif event.key == pygame.K_s:
                 selected_units = [entity for entity in self.selected_entities if isinstance(entity, Unit)]
                 self.issue_stop_order(self.current_team, selected_units)
