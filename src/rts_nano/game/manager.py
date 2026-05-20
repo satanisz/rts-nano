@@ -1100,6 +1100,18 @@ class GameManager:
                 self.build_peasant(entity)
                 break
 
+    @staticmethod
+    def _format_cost(cost: object) -> str:
+        """Return a compact resource cost label for command buttons."""
+        wood = getattr(cost, "wood", 0)
+        cristal = getattr(cost, "cristal", 0)
+        parts: list[str] = []
+        if wood:
+            parts.append(f"{wood}W")
+        if cristal:
+            parts.append(f"{cristal}C")
+        return " ".join(parts) if parts else "Free"
+
     def _handle_menu_click(self, mouse_pos: tuple[int, int]) -> None:
         """Process clicks on the main menu."""
         menu_width = 300
@@ -1526,7 +1538,7 @@ class GameManager:
                     elif reason == "population_cap":
                         commands.append(("Cap Reached", False, None, None))
                     elif reason == "insufficient_resources":
-                        commands.append((f"Need {unit_name}", False, None, None))
+                        commands.append((f"Need {self._format_cost(UNIT_SPECS[unit_type].cost)}", False, None, None))
                     else:
                         commands.append(("Unavailable", False, None, None))
         elif isinstance(primary_entity, Peasant) and primary_entity.team == self.current_team:
@@ -1539,7 +1551,7 @@ class GameManager:
                 if can_construct:
                     commands.append((f"Build {building_spec.display_name}", True, "construct", building_type))
                 elif reason == "insufficient_resources":
-                    commands.append((f"Need {building_spec.display_name}", False, None, None))
+                    commands.append((f"Need {self._format_cost(building_spec.cost)}", False, None, None))
                 else:
                     commands.append(("Unavailable", False, None, None))
 

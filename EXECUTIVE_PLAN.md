@@ -155,6 +155,7 @@ Ostatni znany stan jakości po bieżącym etapie: `ruff`, `ty`, `pytest`, `tox` 
 - Pierwszy UI placement w Pygame: Peasant ma komendy budowy House/Barracks,
   kliknięcie w świecie stawia budynek, a ghost pokazuje poprawność miejsca.
 - Skróty budowy dla Peasanta: `B` zaczyna Barracks, a `Y` zaczyna House.
+- Command panel pokazuje koszt przy odmowie, np. `Need 220W 60C`.
 - Anulowanie produkcji z częściowym zwrotem zasobów.
 - Statyczne dane gameplayu dla obecnych jednostek/budynków i najbliższych ról RTS.
 - Selekcja jednostek i rozkazy ruchu.
@@ -489,8 +490,13 @@ Następne rekomendowane zadanie:
    Status: zrobione. Przy wybranym Peasancie `B` zaczyna placement Barracks, a
    `Y` zaczyna placement House; `B` przy bazie nadal trenuje Peasanta.
 
-17. Następne rekomendowane zadanie: uporządkować command panel i hotkeye.
-   Dodać czytelniejsze komunikaty odmowy.
+17. Czytelniejsze odmowy w command panelu.
+   Status: zrobione. Produkcja i budowanie pokazują teraz kompaktowy koszt przy
+   braku zasobów, np. `Need 220W 60C`.
+
+18. Następne rekomendowane zadanie: kontynuować model rozkazów.
+   Dodać patrol/follow/guard albo zacząć zastępować rozproszone flagi jednostek
+   małym modelem `Order`/`Command`.
 
 ## 11. Definition of Done pełnej gry
 
@@ -722,6 +728,8 @@ this baseline.
   world clicks place buildings, and a ghost preview shows placement validity.
 - Worker build shortcuts: `B` starts Barracks placement and `Y` starts House
   placement.
+- Command panel denial labels now show compact missing-cost hints like
+  `Need 220W 60C`.
 - Production cancellation with a partial resource refund.
 - Static gameplay data for current units/buildings and near-term RTS roles.
 - Unit selection and movement orders.
@@ -1106,8 +1114,13 @@ training API.
    Status: implemented. With a Peasant selected, `B` starts Barracks placement
    and `Y` starts House placement; `B` on a Base still trains a Peasant.
 
-18. Next task: clean up the command panel and hotkeys.
-   Add clearer denial messages.
+18. Clearer command-panel denial messages.
+   Status: implemented. Production and construction buttons now show compact
+   missing-cost hints, for example `Need 220W 60C`.
+
+19. Next task: continue the order model.
+   Add patrol/follow/guard or start replacing scattered unit flags with a small
+   `Order`/`Command` data model.
 
 ## 11. Definition Of Done For The Full Game
 
