@@ -5,13 +5,14 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from rts_nano.game.assets.entities.base_entities import Building, Entity, Unit
+from rts_nano.game.assets.entities.units import Peasant
+from rts_nano.game.rules import nearest_entity
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
     from rts_nano.game.assets.entities import TeamColor
     from rts_nano.game.assets.entities.buildings import Base
-    from rts_nano.game.assets.entities.units import Peasant
     from rts_nano.game.manager import GameManager
 
 
@@ -35,6 +36,14 @@ class OrderSystem:
         if group is None:
             return []
         return group.bases.copy()
+
+    def carrying_peasants_for_team(self, team: TeamColor) -> list[Peasant]:
+        """Return living team peasants that currently carry resources."""
+        return [
+            unit
+            for unit in self.units_for_team(team)
+            if isinstance(unit, Peasant) and (unit.carry_wood > 0 or unit.carry_cristal > 0)
+        ]
 
     def production_buildings_for_team(self, team: TeamColor) -> list[Building]:
         """Return production-capable buildings owned by a team."""
@@ -86,6 +95,36 @@ class OrderSystem:
             unit.path.clear()
             unit.state = "HOLDING"
         return len(ordered_units)
+
+    def issue_return_cargo_order(
+        self,
+        team: TeamColor,
+        units: Iterable[Unit] | None = None,
+        base: Base | None = None,
+    ) -> int:
+        """Order carrying peasants to deposit resources at an allied base."""
+        if base is not None:
+            if base.team != team or base.life <= 0 or base.is_under_construction:
+                return 0
+            bases = [base]
+        else:
+            bases = [candidate for candidate in self.bases_for_team(team) if not candidate.is_under_construction]
+        if not bases:
+            return 0
+
+        ordered_peasants = [
+            unit
+            for unit in self._order_units_for_team(team, units)
+            if isinstance(unit, Peasant) and (unit.carry_wood > 0 or unit.carry_cristal > 0)
+        ]
+        affected = 0
+        for peasant in ordered_peasants:
+            target_base = base if base is not None else nearest_entity(peasant, bases)
+            if target_base is None:
+                continue
+            self._manager._assign_unit_target(peasant, target_base.get_center(), target_base)
+            affected += 1
+        return affected
 
     def build_peasant(self, base: Base) -> bool:
         """Attempt to queue a Peasant at the given base."""

@@ -16,6 +16,7 @@ from rts_nano.actions import (
     HoldAction,
     MoveAction,
     NoOpAction,
+    ReturnCargoAction,
     SelectAction,
     StopAction,
 )
@@ -50,6 +51,8 @@ class ActionTranslator:
             return self._apply_gather(action)
         if isinstance(action, DepositAction):
             return self._apply_deposit(action)
+        if isinstance(action, ReturnCargoAction):
+            return self._apply_return_cargo(action)
         if isinstance(action, BuildAction):
             return self._apply_build(action)
         if isinstance(action, ConstructAction):
@@ -88,6 +91,13 @@ class ActionTranslator:
             return 0
         peasants = [unit for unit in self._units_for_action(action.team, action.unit_ids) if isinstance(unit, Peasant)]
         return self._manager.orders.issue_target_order(action.team, base, peasants)
+
+    def _apply_return_cargo(self, action: ReturnCargoAction) -> int:
+        base = self._base_for_action(action.team, action.base_id) if action.base_id is not None else None
+        if action.base_id is not None and base is None:
+            return 0
+        peasants = [unit for unit in self._units_for_action(action.team, action.unit_ids) if isinstance(unit, Peasant)]
+        return self._manager.orders.issue_return_cargo_order(action.team, peasants, base)
 
     def _apply_build(self, action: BuildAction) -> int:
         producer = self._producer_for_action(action.team, action.base_id, action.unit_type)

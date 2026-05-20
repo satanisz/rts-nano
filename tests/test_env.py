@@ -11,6 +11,7 @@ from rts_nano.actions import (
     CancelProductionAction,
     ConstructAction,
     HoldAction,
+    ReturnCargoAction,
     StopAction,
 )
 from rts_nano.env import MoveAction, NoOpAction, RtsNanoEnv
@@ -176,6 +177,32 @@ def test_action_translator_applies_hold_orders() -> None:
     simulation.close()
 
 
+def test_action_translator_applies_return_cargo_orders() -> None:
+    """Action translator can return carried resources through the public DTO."""
+    simulation = HeadlessSimulation.from_settings(_settings())
+    manager = simulation.manager
+    peasant = manager.entities[TeamColor.BLUE].peasents[0]
+    base = manager.entities[TeamColor.BLUE].bases[0]
+    peasant.carry_wood = 5
+    registry = EntityIdRegistry()
+    observation = build_observation(manager, tick=0, registry=registry)
+    peasant_id = next(
+        entity.id for entity in observation.entities if entity.kind == "Peasant" and entity.team == "Blue"
+    )
+    base_id = next(entity.id for entity in observation.entities if entity.kind == "Base" and entity.team == "Blue")
+
+    affected = ActionTranslator(manager, registry).apply(
+        ReturnCargoAction(TeamColor.BLUE, base_id=base_id, unit_ids=(peasant_id,))
+    )
+
+    assert affected == 1
+    assert peasant.target_entity is base
+    simulation.step(30)
+    assert peasant.carry_wood == 0
+    assert manager.entities[TeamColor.BLUE].resources["wood"] == 5
+    simulation.close()
+
+
 def test_env_action_mask_reports_stateful_legality() -> None:
     """Action masks expose legal action families and denial reasons."""
     env = RtsNanoEnv(settings=_settings())
@@ -187,6 +214,8 @@ def test_env_action_mask_reports_stateful_legality() -> None:
     assert specs[("stop", "Blue", None)].enabled is True
     assert specs[("hold", "Blue", None)].enabled is True
     assert specs[("gather", "Blue", None)].enabled is True
+    assert specs[("return_cargo", "Blue", None)].enabled is False
+    assert specs[("return_cargo", "Blue", None)].reason == "no_cargo_or_base"
     assert specs[("build", "Blue", "peasant")].enabled is False
     assert specs[("build", "Blue", "peasant")].reason == "insufficient_resources"
     assert specs[("cancel_production", "Blue", None)].enabled is False
@@ -200,6 +229,11 @@ def test_env_action_mask_reports_stateful_legality() -> None:
 
     manager = env._require_simulation().manager
     manager.entities[TeamColor.BLUE].resources["wood"] = 50
+    manager.entities[TeamColor.BLUE].peasents[0].carry_wood = 3
+    specs = {(spec.kind, spec.team, spec.unit_type): spec for spec in env.action_mask(TeamColor.BLUE)}
+    assert specs[("return_cargo", "Blue", None)].enabled is True
+
+    manager.entities[TeamColor.BLUE].peasents[0].carry_wood = 0
     observation = env.observe()
     base_id = next(entity.id for entity in observation.entities if entity.kind == "Base" and entity.team == "Blue")
 

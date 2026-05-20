@@ -18,6 +18,7 @@ type ActionKind = Literal[
     "attack",
     "gather",
     "deposit",
+    "return_cargo",
     "build",
     "construct",
     "cancel_construction",
@@ -68,6 +69,16 @@ class GatherAction:
 @dataclass(frozen=True, slots=True)
 class DepositAction:
     """Order a team's peasants to deposit resources at an observed base."""
+
+    team: TeamColor
+    base_id: EntityId | None = None
+    unit_ids: tuple[EntityId, ...] = ()
+    frames: int = 1
+
+
+@dataclass(frozen=True, slots=True)
+class ReturnCargoAction:
+    """Order carrying peasants to return resources to an allied base."""
 
     team: TeamColor
     base_id: EntityId | None = None
@@ -151,6 +162,7 @@ type Action = (
     | AttackAction
     | GatherAction
     | DepositAction
+    | ReturnCargoAction
     | BuildAction
     | ConstructAction
     | CancelConstructionAction

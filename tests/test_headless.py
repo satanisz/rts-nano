@@ -96,6 +96,23 @@ def test_manager_public_hold_order_keeps_unit_stationary() -> None:
     simulation.close()
 
 
+def test_manager_public_return_cargo_order_deposits_resources() -> None:
+    """Return cargo sends only carrying peasants to an allied base."""
+    simulation = HeadlessSimulation.from_settings(_settings())
+    manager = simulation.manager
+    peasant = manager.entities[TeamColor.BLUE].peasents[0]
+    peasant.carry_cristal = 4
+
+    affected = manager.issue_return_cargo_order(TeamColor.BLUE, [peasant])
+
+    assert affected == 1
+    assert peasant.state == "MOVING"
+    simulation.step(30)
+    assert peasant.carry_cristal == 0
+    assert manager.entities[TeamColor.BLUE].resources["cristal"] == 4
+    simulation.close()
+
+
 def test_manager_public_build_helper_reports_success() -> None:
     """Game manager queues production and spawns a peasant after build time."""
     simulation = HeadlessSimulation.from_settings(_settings())

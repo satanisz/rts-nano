@@ -94,8 +94,9 @@ Główne moduły:
 
 - `src/rts_nano/actions.py`
   Publiczne DTO akcji: `NoOpAction`, `MoveAction`, `AttackAction`,
-  `GatherAction`, `DepositAction`, `BuildAction`, `ConstructAction`,
-  `CancelProductionAction`, `SelectAction`, `ActionSpec` i `WorldPoint`.
+  `GatherAction`, `DepositAction`, `ReturnCargoAction`, `BuildAction`,
+  `ConstructAction`, `CancelConstructionAction`, `CancelProductionAction`,
+  `StopAction`, `HoldAction`, `SelectAction`, `ActionSpec` i `WorldPoint`.
 
 - `src/rts_nano/action_translation.py`
   `ActionTranslator` tłumaczy publiczne akcje API na wywołania managera i
@@ -157,7 +158,8 @@ Ostatni znany stan jakości po bieżącym etapie: `ruff`, `ty`, `pytest`, `tox` 
 - Selekcja jednostek i rozkazy ruchu.
 - Podstawowy pathfinding A*.
 - Podstawowa walka i celowanie.
-- Rozkazy stop i hold przez API/env, managera oraz hotkeye `S`/`H`.
+- Rozkazy stop, hold i return cargo przez API/env, managera, command panel oraz
+  hotkeye `S`/`H`/`C`.
 - Fog of war w kliencie gry.
 - Headless simulation wrapper.
 - Wczesne publiczne API agenta przez `RtsNanoEnv`.
@@ -191,8 +193,8 @@ Ostatni znany stan jakości po bieżącym etapie: `ruff`, `ty`, `pytest`, `tox` 
 
 ### 5.3 Rozkazy i zachowanie jednostek
 
-- Rozkazy stop i hold są zaimplementowane. Nadal potrzebne są: patrol,
-  follow/guard, attack-move, repair/build, gather i return cargo.
+- Rozkazy stop, hold i return cargo są zaimplementowane. Nadal potrzebne są:
+  patrol, follow/guard, attack-move, repair/build i pełniejsze gather UI.
 - Priorytety muszą być spójne: rozkaz ręczny, autoatak, powrót do pracy,
   path replanning, śmierć celu.
 - Projekt potrzebuje modelu `Order`/`Command` zamiast rozproszonych flag.
@@ -467,9 +469,13 @@ Następne rekomendowane zadanie:
    Status: zrobione. `HoldAction`, action mask, manager helper i hotkey `H`
    ustawiają jednostki w stanie `HOLDING`.
 
-13. Następne rekomendowane zadanie: uporządkować command panel i hotkeye.
+13. Return cargo order.
+   Status: zrobione. `ReturnCargoAction`, action mask, manager helper, przycisk
+   command panelu i hotkey `C` wysyłają workerów z ładunkiem do bazy.
+
+14. Następne rekomendowane zadanie: uporządkować command panel i hotkeye.
    Dodać skróty budowy, czytelniejsze komunikaty odmowy i bardziej kompletne
-   przyciski dla gather/return cargo/attack-move.
+   przyciski dla gather/attack-move.
 
 ## 11. Definition of Done pełnej gry
 
@@ -636,8 +642,9 @@ Current main modules:
 
 - `src/rts_nano/actions.py`
   Public action DTOs: `NoOpAction`, `MoveAction`, `AttackAction`, `GatherAction`,
-  `DepositAction`, `BuildAction`, `ConstructAction`, `CancelProductionAction`,
-  `SelectAction`, `ActionSpec`, and `WorldPoint`.
+  `DepositAction`, `ReturnCargoAction`, `BuildAction`, `ConstructAction`,
+  `CancelConstructionAction`, `CancelProductionAction`, `StopAction`,
+  `HoldAction`, `SelectAction`, `ActionSpec`, and `WorldPoint`.
 
 - `src/rts_nano/action_translation.py`
   `ActionTranslator` converts public API actions into manager/order system
@@ -703,7 +710,8 @@ this baseline.
 - Unit selection and movement orders.
 - Basic A* pathfinding.
 - Basic combat and targeting.
-- Stop and hold commands through API/env, manager helpers, and `S`/`H` hotkeys.
+- Stop, hold, and return cargo commands through API/env, manager helpers, the
+  command panel, and `S`/`H`/`C` hotkeys.
 - Fog of war in the game client.
 - Headless simulation wrapper.
 - Early public agent API through `RtsNanoEnv`.
@@ -741,8 +749,8 @@ this baseline.
 
 ### 5.3 Orders and Unit Behavior
 
-- Stop and hold commands are implemented. Still needed: patrol, follow/guard,
-  attack-move, repair/build, gather, and return cargo.
+- Stop, hold, and return cargo commands are implemented. Still needed: patrol,
+  follow/guard, attack-move, repair/build, and fuller gather UI.
 - Priorities must be unified: manual player order, auto-attack, return to work,
   path replanning, target death.
 - The project needs a coherent `Order`/`Command` model instead of scattered flags
@@ -1062,9 +1070,13 @@ training API.
    Status: implemented. `HoldAction`, action mask support, manager helper, and
    `H` hotkey put units into `HOLDING`.
 
-14. Next task: clean up the command panel and hotkeys.
+14. Return cargo order.
+   Status: implemented. `ReturnCargoAction`, action mask support, manager helper,
+   command-panel button, and `C` hotkey send carrying peasants to a base.
+
+15. Next task: clean up the command panel and hotkeys.
    Add build shortcuts, clearer denial messages, and more complete buttons for
-   gather/return cargo/attack-move.
+   gather/attack-move.
 
 ## 11. Definition Of Done For The Full Game
 

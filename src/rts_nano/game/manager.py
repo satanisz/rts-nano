@@ -350,6 +350,7 @@ class GameManager:
         self.cancel_production_buttons: list[tuple[pygame.Rect, Building]] = []
         self.construction_buttons: list[tuple[pygame.Rect, str]] = []
         self.cancel_construction_buttons: list[tuple[pygame.Rect, Building]] = []
+        self.unit_command_buttons: list[tuple[pygame.Rect, str]] = []
         self.pending_construction_type: str | None = None
         self.pending_construction_builder: Peasant | None = None
         self.production = ProductionSystem(self)
@@ -446,6 +447,15 @@ class GameManager:
         """Hold team units in place and clear their active targets."""
         return self.orders.issue_hold_order(team, units)
 
+    def issue_return_cargo_order(
+        self,
+        team: TeamColor,
+        units: Iterable[Unit] | None = None,
+        base: Base | None = None,
+    ) -> int:
+        """Order carrying peasants to return resources to an allied base."""
+        return self.orders.issue_return_cargo_order(team, units, base)
+
     def build_peasant(self, base: Base) -> bool:
         """Attempt to queue a Peasant at the given base."""
         return self.orders.build_peasant(base)
@@ -516,6 +526,16 @@ class GameManager:
     def select_entities_for_team(self, team: TeamColor, entities: Iterable[Entity]) -> int:
         """Select team-owned units/buildings and return the selected count."""
         return self.orders.select_entities_for_team(team, entities)
+
+    def _handle_unit_command_button(self, command: str) -> None:
+        """Apply a selected-unit command from the bottom command panel."""
+        selected_units = [entity for entity in self.selected_entities if isinstance(entity, Unit)]
+        if command == "stop":
+            self.issue_stop_order(self.current_team, selected_units)
+        elif command == "hold":
+            self.issue_hold_order(self.current_team, selected_units)
+        elif command == "return_cargo":
+            self.issue_return_cargo_order(self.current_team, selected_units)
 
     def _count_units(self, team: TeamColor) -> int:
         """Return the number of living units owned by a team."""
@@ -847,6 +867,9 @@ class GameManager:
             elif event.key == pygame.K_h:
                 selected_units = [entity for entity in self.selected_entities if isinstance(entity, Unit)]
                 self.issue_hold_order(self.current_team, selected_units)
+            elif event.key == pygame.K_c:
+                selected_units = [entity for entity in self.selected_entities if isinstance(entity, Unit)]
+                self.issue_return_cargo_order(self.current_team, selected_units)
 
         elif event.type == pygame.MOUSEBUTTONDOWN:
             mouse_pos = event.pos
@@ -880,6 +903,10 @@ class GameManager:
                 for rect, building in self.cancel_construction_buttons:
                     if rect.collidepoint(mouse_pos):
                         self.cancel_construction(building)
+                        return
+                for rect, command in self.unit_command_buttons:
+                    if rect.collidepoint(mouse_pos):
+                        self._handle_unit_command_button(command)
                         return
                 if mouse_pos[1] >= PLAY_AREA_HEIGHT:
                     return
@@ -1218,6 +1245,7 @@ class GameManager:
         self.cancel_production_buttons.clear()
         self.construction_buttons.clear()
         self.cancel_construction_buttons.clear()
+        self.unit_command_buttons.clear()
 
         if not self.selected_entities:
             return
@@ -1325,6 +1353,16 @@ class GameManager:
         font_tiny = pygame.font.SysFont(None, 16)
 
         commands: list[tuple[str, bool, str | None, str | None]] = []
+        selected_units = [entity for entity in self.selected_entities if isinstance(entity, Unit)]
+        if isinstance(primary_entity, Unit) and primary_entity.team == self.current_team:
+            commands.append(("Stop", True, "stop", None))
+            commands.append(("Hold", True, "hold", None))
+            if any(
+                isinstance(entity, Peasant) and (entity.carry_wood > 0 or entity.carry_cristal > 0)
+                for entity in selected_units
+            ):
+                commands.append(("Return Cargo", True, "return_cargo", None))
+
         selected_producer: Building | None = None
         if isinstance(primary_entity, Building) and getattr(primary_entity, "team", None) == self.current_team:
             selected_producer = primary_entity
@@ -1403,6 +1441,8 @@ class GameManager:
                     self.construction_buttons.append((btn_rect, cmd_unit_type))
                 elif cmd_active and cmd_action == "cancel_construction" and selected_producer is not None:
                     self.cancel_construction_buttons.append((btn_rect, selected_producer))
+                elif cmd_active and cmd_action in {"stop", "hold", "return_cargo"}:
+                    self.unit_command_buttons.append((btn_rect, cmd_action))
 
             else:
                 pygame.draw.rect(screen, (30, 30, 30), btn_rect)
