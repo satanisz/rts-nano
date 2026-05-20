@@ -159,8 +159,8 @@ Ostatni znany stan jakości po bieżącym etapie: `ruff`, `ty`, `pytest`, `tox` 
 - Selekcja jednostek i rozkazy ruchu.
 - Podstawowy pathfinding A*.
 - Podstawowa walka i celowanie.
-- Rozkazy stop, hold, attack-move i return cargo przez API/env, managera,
-  command panel oraz hotkeye `S`/`H`/`A`/`C`.
+- Rozkazy stop, hold, attack-move, gather i return cargo przez API/env,
+  managera, command panel oraz hotkeye `S`/`H`/`A`/`G`/`C`.
 - Fog of war w kliencie gry.
 - Headless simulation wrapper.
 - Wczesne publiczne API agenta przez `RtsNanoEnv`.
@@ -194,8 +194,9 @@ Ostatni znany stan jakości po bieżącym etapie: `ruff`, `ty`, `pytest`, `tox` 
 
 ### 5.3 Rozkazy i zachowanie jednostek
 
-- Rozkazy stop, hold, attack-move i return cargo są zaimplementowane. Nadal
-  potrzebne są: patrol, follow/guard, repair/build i pełniejsze gather UI.
+- Rozkazy stop, hold, attack-move, gather i return cargo są zaimplementowane.
+  Nadal potrzebne są: patrol, follow/guard, repair/build i docelowy model
+  `Order`/`Command`.
 - Priorytety muszą być spójne: rozkaz ręczny, autoatak, powrót do pracy,
   path replanning, śmierć celu.
 - Projekt potrzebuje modelu `Order`/`Command` zamiast rozproszonych flag.
@@ -479,9 +480,12 @@ Następne rekomendowane zadanie:
    command panelu i hotkey `A` pozwalają jednostkom iść do punktu oraz
    przechwytywać wrogów po drodze.
 
-15. Następne rekomendowane zadanie: uporządkować command panel i hotkeye.
-   Dodać skróty budowy, czytelniejsze komunikaty odmowy i bardziej kompletne
-   przyciski dla gather.
+15. Gather UI/helper.
+   Status: zrobione. `GatherAction` przechodzi przez `OrderSystem`, manager ma
+   publiczny helper, a command panel i hotkey `G` uruchamiaja tryb wyboru zasobu.
+
+16. Następne rekomendowane zadanie: uporządkować command panel i hotkeye.
+   Dodać skróty budowy i czytelniejsze komunikaty odmowy.
 
 ## 11. Definition of Done pełnej gry
 
@@ -716,8 +720,8 @@ this baseline.
 - Unit selection and movement orders.
 - Basic A* pathfinding.
 - Basic combat and targeting.
-- Stop, hold, attack-move, and return cargo commands through API/env, manager
-  helpers, the command panel, and `S`/`H`/`A`/`C` hotkeys.
+- Stop, hold, attack-move, gather, and return cargo commands through API/env,
+  manager helpers, the command panel, and `S`/`H`/`A`/`G`/`C` hotkeys.
 - Fog of war in the game client.
 - Headless simulation wrapper.
 - Early public agent API through `RtsNanoEnv`.
@@ -755,8 +759,9 @@ this baseline.
 
 ### 5.3 Orders and Unit Behavior
 
-- Stop, hold, attack-move, and return cargo commands are implemented. Still
-  needed: patrol, follow/guard, repair/build, and fuller gather UI.
+- Stop, hold, attack-move, gather, and return cargo commands are implemented.
+  Still needed: patrol, follow/guard, repair/build, and the target
+  `Order`/`Command` model.
 - Priorities must be unified: manual player order, auto-attack, return to work,
   path replanning, target death.
 - The project needs a coherent `Order`/`Command` model instead of scattered flags
@@ -1085,9 +1090,13 @@ training API.
    command-panel button, and `A` hotkey let units move to a point while
    acquiring hostile targets along the route.
 
-16. Next task: clean up the command panel and hotkeys.
-   Add build shortcuts, clearer denial messages, and more complete buttons for
-   gather.
+16. Gather UI/helper.
+   Status: implemented. `GatherAction` now goes through `OrderSystem`, the
+   manager has a public helper, and the command panel plus `G` hotkey enter
+   resource-targeting mode.
+
+17. Next task: clean up the command panel and hotkeys.
+   Add build shortcuts and clearer denial messages.
 
 ## 11. Definition Of Done For The Full Game
 

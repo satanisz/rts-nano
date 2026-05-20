@@ -80,6 +80,23 @@ def test_manager_public_attack_move_acquires_hostile_target() -> None:
     simulation.close()
 
 
+def test_manager_public_gather_order_sends_peasant_to_resource() -> None:
+    """Gather helper targets resources without direct private manager access."""
+    settings = _settings()
+    settings["Resources"]["wood"] = [[100, 20]]
+    simulation = HeadlessSimulation.from_settings(settings)
+    manager = simulation.manager
+    peasant = manager.entities[TeamColor.BLUE].peasents[0]
+    wood = manager.resources.woods[0]
+
+    affected = manager.issue_gather_order(TeamColor.BLUE, wood, [peasant])
+    simulation.step(80)
+
+    assert affected == 1
+    assert peasant.carry_wood > 0
+    simulation.close()
+
+
 def test_manager_public_stop_order_clears_unit_targets() -> None:
     """Game manager exposes a stop order for selected or explicit units."""
     simulation = HeadlessSimulation.from_settings(_settings())

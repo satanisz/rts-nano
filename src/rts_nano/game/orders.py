@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
 
     from rts_nano.game.assets.entities import TeamColor
+    from rts_nano.game.assets.entities.base_entities import Resource
     from rts_nano.game.assets.entities.buildings import Base
     from rts_nano.game.manager import GameManager
 
@@ -99,6 +100,20 @@ class OrderSystem:
         for unit in ordered_units:
             self._manager._assign_unit_target(unit, target_center, target)
         return len(ordered_units)
+
+    def issue_gather_order(
+        self,
+        team: TeamColor,
+        resource: Resource,
+        units: Iterable[Unit] | None = None,
+    ) -> int:
+        """Order team peasants to gather from a resource node."""
+        if resource.amount <= 0:
+            return 0
+        ordered_peasants = [unit for unit in self._order_units_for_team(team, units) if isinstance(unit, Peasant)]
+        for peasant in ordered_peasants:
+            self._manager._assign_unit_target(peasant, resource.get_center(), resource)
+        return len(ordered_peasants)
 
     def issue_stop_order(self, team: TeamColor, units: Iterable[Unit] | None = None) -> int:
         """Stop team units and clear their active targets."""

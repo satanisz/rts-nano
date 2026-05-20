@@ -450,6 +450,15 @@ class GameManager:
         """Assign a target interaction order and return the affected count."""
         return self.orders.issue_target_order(team, target, units)
 
+    def issue_gather_order(
+        self,
+        team: TeamColor,
+        resource: Resource,
+        units: Iterable[Unit] | None = None,
+    ) -> int:
+        """Order team peasants to gather from a resource node."""
+        return self.orders.issue_gather_order(team, resource, units)
+
     def issue_stop_order(self, team: TeamColor, units: Iterable[Unit] | None = None) -> int:
         """Stop team units and clear their active targets."""
         return self.orders.issue_stop_order(team, units)
@@ -517,10 +526,21 @@ class GameManager:
         self.menu_status = "Choose attack-move target"
         return True
 
+    def begin_gather_targeting(self) -> bool:
+        """Enter a one-click targeting mode for gathering resources."""
+        selected_peasants = [entity for entity in self.selected_entities if isinstance(entity, Peasant)]
+        if not selected_peasants:
+            self.menu_status = "Select peasants"
+            return False
+        self.cancel_pending_construction_placement()
+        self.pending_unit_command = "gather"
+        self.menu_status = "Choose resource"
+        return True
+
     def cancel_pending_unit_command(self) -> None:
         """Leave pending selected-unit command mode."""
         self.pending_unit_command = None
-        if self.menu_status == "Choose attack-move target":
+        if self.menu_status in {"Choose attack-move target", "Choose resource"}:
             self.menu_status = None
 
     def place_pending_construction(self, position: tuple[float, float]) -> bool:
@@ -567,6 +587,8 @@ class GameManager:
             self.issue_return_cargo_order(self.current_team, selected_units)
         elif command == "attack_move":
             self.begin_attack_move_targeting()
+        elif command == "gather":
+            self.begin_gather_targeting()
 
     def _count_units(self, team: TeamColor) -> int:
         """Return the number of living units owned by a team."""
@@ -806,6 +828,13 @@ class GameManager:
         ]
         return nearest_entity(unit, candidates)
 
+    def _resource_at_position(self, position: tuple[float, float]) -> Resource | None:
+        """Return the topmost resource under a world position."""
+        for entity in reversed(self.all_entities):
+            if isinstance(entity, Resource) and entity.contains_point((int(position[0]), int(position[1]))):
+                return entity
+        return None
+
     def _update_unit_stuck_recovery(self, unit: Unit) -> None:
         """Recover units nudged off path by local collision resolution."""
         if unit.unstuck_cooldown > 0:
@@ -947,6 +976,8 @@ class GameManager:
                 self.issue_return_cargo_order(self.current_team, selected_units)
             elif event.key == pygame.K_a:
                 self.begin_attack_move_targeting()
+            elif event.key == pygame.K_g:
+                self.begin_gather_targeting()
 
         elif event.type == pygame.MOUSEBUTTONDOWN:
             mouse_pos = event.pos
@@ -995,6 +1026,15 @@ class GameManager:
                 if self.pending_unit_command == "attack_move":
                     selected_units = [entity for entity in self.selected_entities if isinstance(entity, Unit)]
                     self.issue_attack_move_order(self.current_team, world_pos, selected_units)
+                    self.cancel_pending_unit_command()
+                    return
+                if self.pending_unit_command == "gather":
+                    resource = self._resource_at_position(world_pos)
+                    if resource is None:
+                        self.menu_status = "Choose resource"
+                        return
+                    selected_units = [entity for entity in self.selected_entities if isinstance(entity, Unit)]
+                    self.issue_gather_order(self.current_team, resource, selected_units)
                     self.cancel_pending_unit_command()
                     return
 
@@ -1446,6 +1486,8 @@ class GameManager:
             commands.append(("Hold", True, "hold", None))
             if any(entity.attack_damage > 0 for entity in selected_units):
                 commands.append(("Attack Move", True, "attack_move", None))
+            if any(isinstance(entity, Peasant) for entity in selected_units):
+                commands.append(("Gather", True, "gather", None))
             if any(
                 isinstance(entity, Peasant) and (entity.carry_wood > 0 or entity.carry_cristal > 0)
                 for entity in selected_units
@@ -1530,7 +1572,7 @@ class GameManager:
                     self.construction_buttons.append((btn_rect, cmd_unit_type))
                 elif cmd_active and cmd_action == "cancel_construction" and selected_producer is not None:
                     self.cancel_construction_buttons.append((btn_rect, selected_producer))
-                elif cmd_active and cmd_action in {"stop", "hold", "attack_move", "return_cargo"}:
+                elif cmd_active and cmd_action in {"stop", "hold", "attack_move", "gather", "return_cargo"}:
                     self.unit_command_buttons.append((btn_rect, cmd_action))
 
             else:

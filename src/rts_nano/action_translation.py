@@ -90,7 +90,7 @@ class ActionTranslator:
         if not isinstance(resource, Resource):
             raise ValueError(f"Entity is not a resource: {action.resource_id}")
         peasants = [unit for unit in self._units_for_action(action.team, action.unit_ids) if isinstance(unit, Peasant)]
-        return self._manager.orders.issue_target_order(action.team, resource, peasants)
+        return self._manager.orders.issue_gather_order(action.team, resource, peasants)
 
     def _apply_deposit(self, action: DepositAction) -> int:
         base = self._base_for_action(action.team, action.base_id)

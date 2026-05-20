@@ -11,6 +11,7 @@ from rts_nano.actions import (
     CancelConstructionAction,
     CancelProductionAction,
     ConstructAction,
+    GatherAction,
     HoldAction,
     ReturnCargoAction,
     StopAction,
@@ -194,6 +195,28 @@ def test_action_translator_applies_attack_move_orders() -> None:
     assert affected == 1
     assert unit.state == "MOVING"
     assert unit.attack_move_destination is not None
+    simulation.close()
+
+
+def test_action_translator_applies_gather_orders() -> None:
+    """Action translator can send peasants to resources through the public DTO."""
+    simulation = HeadlessSimulation.from_settings(_settings())
+    manager = simulation.manager
+    peasant = manager.entities[TeamColor.BLUE].peasents[0]
+    wood = manager.resources.woods[0]
+    registry = EntityIdRegistry()
+    observation = build_observation(manager, tick=0, registry=registry)
+    peasant_id = next(
+        entity.id for entity in observation.entities if entity.kind == "Peasant" and entity.team == "Blue"
+    )
+    wood_id = next(entity.id for entity in observation.entities if entity.kind == "Wood")
+
+    affected = ActionTranslator(manager, registry).apply(
+        GatherAction(TeamColor.BLUE, resource_id=wood_id, unit_ids=(peasant_id,))
+    )
+
+    assert affected == 1
+    assert peasant.target_entity is wood
     simulation.close()
 
 
