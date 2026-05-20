@@ -351,6 +351,7 @@ class Unit(Entity, ABC):
         self.hit_flash_until_ms: int = 0
         self.last_attack_event: tuple[tuple[float, float], tuple[float, float], AttackType, Entity] | None = None
         self.path: list[tuple[float, float]] = []
+        self.attack_move_destination: tuple[float, float] | None = None
         self.state = "IDLE"
         self.progress_anchor_x: float = float(x)
         self.progress_anchor_y: float = float(y)
@@ -412,6 +413,7 @@ class Unit(Entity, ABC):
         """
         self.target_x, self.target_y = pos
         self.target_entity = target_entity
+        self.attack_move_destination = None
         self.path.clear()
         self.progress_anchor_x = self.x
         self.progress_anchor_y = self.y

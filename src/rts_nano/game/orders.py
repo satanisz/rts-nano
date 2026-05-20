@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from rts_nano.game.assets.entities.base_entities import Building, Entity, Unit
 from rts_nano.game.assets.entities.units import Peasant
-from rts_nano.game.rules import nearest_entity
+from rts_nano.game.rules import distance_between_points, nearest_entity
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -63,6 +63,30 @@ class OrderSystem:
         self._manager._assign_group_move_order(ordered_units, (int(destination[0]), int(destination[1])))
         return len(ordered_units)
 
+    def issue_attack_move_order(
+        self,
+        team: TeamColor,
+        destination: tuple[float, float],
+        units: Iterable[Unit] | None = None,
+    ) -> int:
+        """Move team units while allowing them to acquire hostile targets."""
+        ordered_units = self._order_units_for_team(team, units)
+        if not ordered_units:
+            return 0
+
+        center = (int(destination[0]), int(destination[1]))
+        slots = self._manager._formation_destinations(center, len(ordered_units))
+        remaining_slots = slots.copy()
+        for unit in sorted(
+            ordered_units,
+            key=lambda selected_unit: distance_between_points(selected_unit.get_center(), center),
+        ):
+            slot = min(remaining_slots, key=lambda candidate: distance_between_points(unit.get_center(), candidate))
+            remaining_slots.remove(slot)
+            self._manager._assign_unit_target(unit, slot)
+            unit.attack_move_destination = slot
+        return len(ordered_units)
+
     def issue_target_order(
         self,
         team: TeamColor,
@@ -82,6 +106,7 @@ class OrderSystem:
         for unit in ordered_units:
             unit.target_entity = None
             unit.source_resource = None
+            unit.attack_move_destination = None
             unit.path.clear()
             unit.state = "IDLE"
         return len(ordered_units)
@@ -92,6 +117,7 @@ class OrderSystem:
         for unit in ordered_units:
             unit.target_entity = None
             unit.source_resource = None
+            unit.attack_move_destination = None
             unit.path.clear()
             unit.state = "HOLDING"
         return len(ordered_units)

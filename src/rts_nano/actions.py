@@ -15,6 +15,7 @@ type BuildingType = Literal["barracks", "house"]
 type ActionKind = Literal[
     "no_op",
     "move",
+    "attack_move",
     "attack",
     "gather",
     "deposit",
@@ -39,6 +40,16 @@ class NoOpAction:
 @dataclass(frozen=True, slots=True)
 class MoveAction:
     """Move a team's units to a world-space destination."""
+
+    team: TeamColor
+    destination: WorldPoint
+    unit_ids: tuple[EntityId, ...] = ()
+    frames: int = 1
+
+
+@dataclass(frozen=True, slots=True)
+class AttackMoveAction:
+    """Move a team's units while acquiring hostile targets along the route."""
 
     team: TeamColor
     destination: WorldPoint
@@ -159,6 +170,7 @@ class SelectAction:
 type Action = (
     NoOpAction
     | MoveAction
+    | AttackMoveAction
     | AttackAction
     | GatherAction
     | DepositAction

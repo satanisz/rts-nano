@@ -60,6 +60,26 @@ def test_manager_public_move_order_helper_assigns_units() -> None:
     simulation.close()
 
 
+def test_manager_public_attack_move_acquires_hostile_target() -> None:
+    """Attack-move keeps a route but retargets visible hostiles."""
+    settings = _settings()
+    settings["Blue"]["peasant"] = []
+    settings["Blue"]["knight"] = [[20, 20]]
+    settings["Red"]["peasant"] = [[120, 20]]
+    simulation = HeadlessSimulation.from_settings(settings)
+    manager = simulation.manager
+    knight = manager.entities[TeamColor.BLUE].knights[0]
+    enemy = manager.entities[TeamColor.RED].peasents[0]
+
+    affected = manager.issue_attack_move_order(TeamColor.BLUE, (250, 20), [knight])
+    simulation.step(3)
+
+    assert affected == 1
+    assert knight.attack_move_destination is not None
+    assert knight.target_entity is enemy
+    simulation.close()
+
+
 def test_manager_public_stop_order_clears_unit_targets() -> None:
     """Game manager exposes a stop order for selected or explicit units."""
     simulation = HeadlessSimulation.from_settings(_settings())

@@ -13,6 +13,7 @@ from rts_nano.actions import (
     Action,
     ActionSpec,
     AttackAction,
+    AttackMoveAction,
     BuildAction,
     BuildingType,
     CancelConstructionAction,
@@ -54,6 +55,7 @@ MAPS_DIR = Path(__file__).resolve().parent / "maps"
 __all__ = [
     "Action",
     "ActionSpec",
+    "AttackMoveAction",
     "AttackAction",
     "BuildingType",
     "BuildAction",
@@ -269,6 +271,13 @@ class RtsNanoEnv:
         can_cancel = any(manager.production.queue_for(producer) for producer in production_buildings)
         return (
             ActionSpec("move", team_name, "world_point", enabled=bool(units), reason=None if units else "no_units"),
+            ActionSpec(
+                "attack_move",
+                team_name,
+                "world_point",
+                enabled=bool(units),
+                reason=None if units else "no_units",
+            ),
             ActionSpec("stop", team_name, "unit_ids", enabled=bool(units), reason=None if units else "no_units"),
             ActionSpec("hold", team_name, "unit_ids", enabled=bool(units), reason=None if units else "no_units"),
             ActionSpec(

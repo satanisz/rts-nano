@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from rts_nano.action_translation import ActionTranslator
 from rts_nano.actions import (
+    AttackMoveAction,
     BuildAction,
     CancelConstructionAction,
     CancelProductionAction,
@@ -177,6 +178,25 @@ def test_action_translator_applies_hold_orders() -> None:
     simulation.close()
 
 
+def test_action_translator_applies_attack_move_orders() -> None:
+    """Action translator can set attack-move routes through the public DTO."""
+    simulation = HeadlessSimulation.from_settings(_settings())
+    manager = simulation.manager
+    registry = EntityIdRegistry()
+    observation = build_observation(manager, tick=0, registry=registry)
+    unit_id = next(entity.id for entity in observation.entities if entity.kind == "Peasant" and entity.team == "Blue")
+
+    affected = ActionTranslator(manager, registry).apply(
+        AttackMoveAction(TeamColor.BLUE, (160, 20), unit_ids=(unit_id,))
+    )
+
+    unit = manager.units_for_team(TeamColor.BLUE)[0]
+    assert affected == 1
+    assert unit.state == "MOVING"
+    assert unit.attack_move_destination is not None
+    simulation.close()
+
+
 def test_action_translator_applies_return_cargo_orders() -> None:
     """Action translator can return carried resources through the public DTO."""
     simulation = HeadlessSimulation.from_settings(_settings())
@@ -211,6 +231,7 @@ def test_env_action_mask_reports_stateful_legality() -> None:
     specs = {(spec.kind, spec.team, spec.unit_type): spec for spec in mask}
 
     assert specs[("move", "Blue", None)].enabled is True
+    assert specs[("attack_move", "Blue", None)].enabled is True
     assert specs[("stop", "Blue", None)].enabled is True
     assert specs[("hold", "Blue", None)].enabled is True
     assert specs[("gather", "Blue", None)].enabled is True

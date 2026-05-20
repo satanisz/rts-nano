@@ -77,6 +77,7 @@ FORMATION_SPACING = 38
 STUCK_FRAME_LIMIT = 75
 STUCK_PROGRESS_DISTANCE = 6.0
 UNSTUCK_COOLDOWN_FRAMES = 45
+ATTACK_MOVE_MIN_ACQUIRE_RANGE = 160.0
 
 
 @dataclass
@@ -353,6 +354,7 @@ class GameManager:
         self.unit_command_buttons: list[tuple[pygame.Rect, str]] = []
         self.pending_construction_type: str | None = None
         self.pending_construction_builder: Peasant | None = None
+        self.pending_unit_command: str | None = None
         self.production = ProductionSystem(self)
         self.construction = ConstructionSystem(self)
         self.orders = OrderSystem(self)
@@ -430,6 +432,15 @@ class GameManager:
         """Assign a move order to team units and return the affected count."""
         return self.orders.issue_move_order(team, destination, units)
 
+    def issue_attack_move_order(
+        self,
+        team: TeamColor,
+        destination: tuple[float, float],
+        units: Iterable[Unit] | None = None,
+    ) -> int:
+        """Assign an attack-move order to team units and return the affected count."""
+        return self.orders.issue_attack_move_order(team, destination, units)
+
     def issue_target_order(
         self,
         team: TeamColor,
@@ -484,6 +495,7 @@ class GameManager:
             self.menu_status = f"Cannot build: {reason}"
             return False
 
+        self.cancel_pending_unit_command()
         self.pending_construction_type = building_type
         self.pending_construction_builder = builder
         self.menu_status = f"Place {get_building_spec(building_type).display_name}"
@@ -493,6 +505,23 @@ class GameManager:
         """Leave placement mode without issuing a build order."""
         self.pending_construction_type = None
         self.pending_construction_builder = None
+
+    def begin_attack_move_targeting(self) -> bool:
+        """Enter a one-click targeting mode for the attack-move command."""
+        selected_units = [entity for entity in self.selected_entities if isinstance(entity, Unit)]
+        if not selected_units:
+            self.menu_status = "Select units"
+            return False
+        self.cancel_pending_construction_placement()
+        self.pending_unit_command = "attack_move"
+        self.menu_status = "Choose attack-move target"
+        return True
+
+    def cancel_pending_unit_command(self) -> None:
+        """Leave pending selected-unit command mode."""
+        self.pending_unit_command = None
+        if self.menu_status == "Choose attack-move target":
+            self.menu_status = None
 
     def place_pending_construction(self, position: tuple[float, float]) -> bool:
         """Place the active construction command at a world position."""
@@ -536,6 +565,8 @@ class GameManager:
             self.issue_hold_order(self.current_team, selected_units)
         elif command == "return_cargo":
             self.issue_return_cargo_order(self.current_team, selected_units)
+        elif command == "attack_move":
+            self.begin_attack_move_targeting()
 
     def _count_units(self, team: TeamColor) -> int:
         """Return the number of living units owned by a team."""
@@ -732,6 +763,49 @@ class GameManager:
             destinations.append(slot)
         return destinations
 
+    def _update_attack_move_target(self, unit: Unit, entities: list[Entity]) -> None:
+        """Acquire a hostile target while an attack-move order is active."""
+        destination = unit.attack_move_destination
+        if destination is None or unit.target_entity is not None:
+            return
+        if unit.state not in {"MOVING", "IDLE"}:
+            return
+
+        target = self._nearest_attack_move_target(unit, entities)
+        if target is None:
+            return
+
+        self._assign_unit_target(unit, target.get_center(), target)
+        unit.attack_move_destination = destination
+
+    def _resume_or_finish_attack_move(self, unit: Unit) -> None:
+        """Resume an attack-move route after combat or finish it at the goal."""
+        destination = unit.attack_move_destination
+        if destination is None or unit.target_entity is not None:
+            return
+
+        if distance_between_points(unit.get_center(), destination) <= max(unit.speed, 2):
+            unit.attack_move_destination = None
+            return
+
+        if unit.state == "IDLE":
+            self._assign_unit_target(unit, destination)
+            unit.attack_move_destination = destination
+
+    def _nearest_attack_move_target(self, unit: Unit, entities: list[Entity]) -> Entity | None:
+        """Return the nearest hostile unit/building in attack-move acquisition range."""
+        acquire_range = max(float(unit.vision_range), unit.attack_range + ATTACK_MOVE_MIN_ACQUIRE_RANGE)
+        candidates = [
+            entity
+            for entity in entities
+            if entity is not unit
+            and isinstance(entity, (Unit, Building))
+            and entity.team != unit.team
+            and entity.life > 0
+            and distance_between_points(unit.get_center(), entity.get_center()) <= acquire_range
+        ]
+        return nearest_entity(unit, candidates)
+
     def _update_unit_stuck_recovery(self, unit: Unit) -> None:
         """Recover units nudged off path by local collision resolution."""
         if unit.unstuck_cooldown > 0:
@@ -842,6 +916,7 @@ class GameManager:
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_TAB:
                 self.cancel_pending_construction_placement()
+                self.cancel_pending_unit_command()
                 if self.current_team == TeamColor.BLUE:
                     self.current_team = TeamColor.RED
                 else:
@@ -870,6 +945,8 @@ class GameManager:
             elif event.key == pygame.K_c:
                 selected_units = [entity for entity in self.selected_entities if isinstance(entity, Unit)]
                 self.issue_return_cargo_order(self.current_team, selected_units)
+            elif event.key == pygame.K_a:
+                self.begin_attack_move_targeting()
 
         elif event.type == pygame.MOUSEBUTTONDOWN:
             mouse_pos = event.pos
@@ -915,6 +992,11 @@ class GameManager:
                 if self.pending_construction_type is not None:
                     self.place_pending_construction(world_pos)
                     return
+                if self.pending_unit_command == "attack_move":
+                    selected_units = [entity for entity in self.selected_entities if isinstance(entity, Unit)]
+                    self.issue_attack_move_order(self.current_team, world_pos, selected_units)
+                    self.cancel_pending_unit_command()
+                    return
 
                 self.dragging = True
                 self.drag_start = world_pos
@@ -923,6 +1005,9 @@ class GameManager:
             elif event.button == 3:
                 if self.pending_construction_type is not None:
                     self.cancel_pending_construction_placement()
+                    return
+                if self.pending_unit_command is not None:
+                    self.cancel_pending_unit_command()
                     return
                 if mouse_pos[1] >= PLAY_AREA_HEIGHT:
                     return
@@ -1100,6 +1185,7 @@ class GameManager:
                 continue
 
             if isinstance(entity, Unit):
+                self._update_attack_move_target(entity, all_ents)
                 entity.update(all_ents, self._can_unit_move_to)
                 self._update_unit_stuck_recovery(entity)
                 attack_event = entity.consume_attack_event()
@@ -1126,6 +1212,7 @@ class GameManager:
                                 target_entity=target_entity,
                             )
                         )
+                self._resume_or_finish_attack_move(entity)
 
             if isinstance(entity, Peasant):
                 if entity.state == "GATHERING":
@@ -1357,6 +1444,8 @@ class GameManager:
         if isinstance(primary_entity, Unit) and primary_entity.team == self.current_team:
             commands.append(("Stop", True, "stop", None))
             commands.append(("Hold", True, "hold", None))
+            if any(entity.attack_damage > 0 for entity in selected_units):
+                commands.append(("Attack Move", True, "attack_move", None))
             if any(
                 isinstance(entity, Peasant) and (entity.carry_wood > 0 or entity.carry_cristal > 0)
                 for entity in selected_units
@@ -1441,7 +1530,7 @@ class GameManager:
                     self.construction_buttons.append((btn_rect, cmd_unit_type))
                 elif cmd_active and cmd_action == "cancel_construction" and selected_producer is not None:
                     self.cancel_construction_buttons.append((btn_rect, selected_producer))
-                elif cmd_active and cmd_action in {"stop", "hold", "return_cargo"}:
+                elif cmd_active and cmd_action in {"stop", "hold", "attack_move", "return_cargo"}:
                     self.unit_command_buttons.append((btn_rect, cmd_action))
 
             else:

@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from rts_nano.actions import (
     Action,
     AttackAction,
+    AttackMoveAction,
     BuildAction,
     CancelConstructionAction,
     CancelProductionAction,
@@ -45,6 +46,8 @@ class ActionTranslator:
             return 0
         if isinstance(action, MoveAction):
             return self._apply_move(action)
+        if isinstance(action, AttackMoveAction):
+            return self._apply_attack_move(action)
         if isinstance(action, AttackAction):
             return self._apply_attack(action)
         if isinstance(action, GatherAction):
@@ -72,6 +75,10 @@ class ActionTranslator:
     def _apply_move(self, action: MoveAction) -> int:
         units = self._units_for_action(action.team, action.unit_ids)
         return self._manager.orders.issue_move_order(action.team, action.destination, units)
+
+    def _apply_attack_move(self, action: AttackMoveAction) -> int:
+        units = self._units_for_action(action.team, action.unit_ids)
+        return self._manager.orders.issue_attack_move_order(action.team, action.destination, units)
 
     def _apply_attack(self, action: AttackAction) -> int:
         target = self._entity_by_id(action.target_id)

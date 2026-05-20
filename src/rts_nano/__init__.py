@@ -4,6 +4,7 @@ from rts_nano.env import (
     Action,
     ActionSpec,
     AttackAction,
+    AttackMoveAction,
     BuildAction,
     BuildingType,
     CancelConstructionAction,
@@ -28,6 +29,7 @@ from rts_nano.env import (
 __all__ = [
     "Action",
     "ActionSpec",
+    "AttackMoveAction",
     "AttackAction",
     "BuildingType",
     "BuildAction",
