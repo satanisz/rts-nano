@@ -50,7 +50,7 @@ class ResourceSettings(TypedDict, total=False):
     """Serialized neutral resource lists."""
 
     wood: list[Coordinate]
-    cristal: list[Coordinate]
+    gold: list[Coordinate]
 
 
 class TerrainSettings(TypedDict):
@@ -147,7 +147,7 @@ def _validate_resources(payload: dict[object, object], errors: list[str]) -> Non
         errors.append("Resources must be an object.")
         return
     for resource_name, coords in resources.items():
-        if resource_name not in {"wood", "cristal"}:
+        if resource_name not in {"wood", "gold"}:
             errors.append(f"Resources.{resource_name} is not a known resource type.")
             continue
         _validate_coordinate_list(coords, f"Resources.{resource_name}", errors)

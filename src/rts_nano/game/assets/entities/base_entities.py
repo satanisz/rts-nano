@@ -333,7 +333,7 @@ class Unit(Entity, ABC):
         self.target_entity: Entity | None = None
         self.source_resource: Resource | None = None
         self.carry_wood: int = 0
-        self.carry_cristal: int = 0
+        self.carry_gold: int = 0
         self.max_carry: int = self.DEFAULT_MAX_CARRY
         self.max_life: int = self.DEFAULT_MAX_LIFE
         self.life: int = self.DEFAULT_MAX_LIFE

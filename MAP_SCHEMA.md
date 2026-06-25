@@ -47,14 +47,14 @@ Resources are also `[x, y]` world coordinates:
 ```json
 "Resources": {
     "wood": [[823, 486]],
-    "cristal": [[750, 632]]
+    "gold": [[750, 632]]
 }
 ```
 
 Known resource keys:
 
 - `wood`
-- `cristal`
+- `gold`
 
 ## Terrain
 

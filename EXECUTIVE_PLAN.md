@@ -143,7 +143,7 @@ Ostatni znany stan jakości po bieżącym etapie: `ruff`, `ty`, `pytest`, `tox` 
 - Teren z wodą, rampami, wysokością i blokadami.
 - Jednostki: peasant, knight, archer, mage.
 - Budynek bazy.
-- Zasoby: wood i crystal/cristal.
+- Zasoby: wood i gold.
 - Podstawowe zbieranie i deponowanie zasobów.
 - Kolejkowana produkcja peasantów w bazie.
 - Kolejkowana produkcja knightów i archerów w Barracks.
@@ -181,8 +181,7 @@ Ostatni znany stan jakości po bieżącym etapie: `ruff`, `ty`, `pytest`, `tox` 
 - Potrzebne są pełniejsze wymagania technologiczne.
 - Model populacji jest rozpoczęty: ukończone budynki dodają support, ale nadal
   trzeba dopracować balans, UI i wymagania technologiczne.
-- Rekomendacja zasobów: zostać przy `wood` i `cristal`, żeby zachować prostotę i
-  lekkość, ale nadać im role podobne do drewna i złota.
+- Rekomendacja zasobów: używać `wood` i `gold`, żeby zachować prostotę i lekkość, nadając im role drewna i złota.
 
 ### 5.2 Budowanie
 
@@ -713,7 +712,7 @@ this baseline.
 - Terrain with water, ramps, height, and blocking.
 - Units: peasant, knight, archer, mage.
 - Base building.
-- Resources: wood and crystal.
+- Resources: wood and gold.
 - Basic harvesting and depositing.
 - Basic queued peasant production from the base.
 - Basic queued knight and archer production from Barracks.
@@ -759,8 +758,7 @@ this baseline.
   production, upgrades, and defensive structure.
 - Population capacity is started: completed support buildings provide cap, but
   balance, UI, and tech requirements still need refinement.
-- Recommended resource direction: keep `wood` and `crystal` for simplicity and
-  give them roles similar to wood and gold.
+- Recommended resource direction: use `wood` and `gold` for simplicity.
 
 ### 5.2 Construction
 
@@ -932,7 +930,7 @@ Goal: close the minimal scope of the full game.
 
 - Write `GAME_DESIGN.md` or a data module defining units, buildings, costs,
   timings, population, and requirements.
-- Decide final roles for `wood` and `crystal`.
+- Decide final roles for `wood` and `gold`.
 - Define the minimal building list:
   base, population/support building, military production building, upgrade
   building, defensive tower.

@@ -18,7 +18,7 @@ def _settings() -> MapSettings:
     return {
         "Blue": {"peasant": [[20, 20]], "base": [[60, 60]], "knight": [], "archer": [], "mage": []},
         "Red": {"peasant": [], "base": [[250, 250]], "knight": [], "archer": [], "mage": []},
-        "Resources": {"wood": [], "cristal": []},
+        "Resources": {"wood": [], "gold": []},
         "Terrain": {
             "width": 400,
             "height": 300,
@@ -105,7 +105,7 @@ def test_manager_build_hotkeys_enter_worker_placement_modes() -> None:
     manager = simulation.manager
     group = manager.entities[TeamColor.BLUE]
     peasant = group.peasents[0]
-    group.resources.update({"wood": 220, "cristal": 60})
+    group.resources.update({"wood": 220, "gold": 60})
     manager.select_entities_for_team(TeamColor.BLUE, [peasant])
 
     manager.handle_input(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_y))
@@ -160,15 +160,15 @@ def test_manager_public_return_cargo_order_deposits_resources() -> None:
     simulation = HeadlessSimulation.from_settings(_settings())
     manager = simulation.manager
     peasant = manager.entities[TeamColor.BLUE].peasents[0]
-    peasant.carry_cristal = 4
+    peasant.carry_gold = 4
 
     affected = manager.issue_return_cargo_order(TeamColor.BLUE, [peasant])
 
     assert affected == 1
     assert peasant.state == "MOVING"
     simulation.step(30)
-    assert peasant.carry_cristal == 0
-    assert manager.entities[TeamColor.BLUE].resources["cristal"] == 4
+    assert peasant.carry_gold == 0
+    assert manager.entities[TeamColor.BLUE].resources["gold"] == 4
     simulation.close()
 
 
@@ -219,10 +219,10 @@ def test_manager_trains_military_units_from_barracks() -> None:
     group = manager.entities[TeamColor.BLUE]
     barracks = group.barracks[0]
     group.resources["wood"] = 100
-    group.resources["cristal"] = 25
+    group.resources["gold"] = 25
 
     assert manager.produce_unit(barracks, "knight") is True
-    assert group.resources == {"wood": 0, "cristal": 0}
+    assert group.resources == {"wood": 0, "gold": 0}
     assert manager.production.queue_for(barracks)[0].unit_type == "knight"
 
     simulation.step(120)
@@ -239,10 +239,10 @@ def test_worker_constructs_barracks_before_military_production() -> None:
     group = manager.entities[TeamColor.BLUE]
     peasant = group.peasents[0]
     peasant.x, peasant.y = 150, 120
-    group.resources.update({"wood": 220, "cristal": 60})
+    group.resources.update({"wood": 220, "gold": 60})
 
     assert manager.construct_building(peasant, "barracks", (150, 70)) is True
-    assert group.resources == {"wood": 0, "cristal": 0}
+    assert group.resources == {"wood": 0, "gold": 0}
 
     barracks = group.barracks[0]
     assert barracks.is_under_construction is True
@@ -254,7 +254,7 @@ def test_worker_constructs_barracks_before_military_production() -> None:
     assert barracks.is_under_construction is False
     assert barracks.construction_progress == 1
 
-    group.resources.update({"wood": 100, "cristal": 25})
+    group.resources.update({"wood": 100, "gold": 25})
     assert manager.produce_unit(barracks, "knight") is True
     simulation.close()
 
@@ -266,7 +266,7 @@ def test_completed_house_increases_population_cap() -> None:
     group = manager.entities[TeamColor.BLUE]
     peasant = group.peasents[0]
     peasant.x, peasant.y = 170, 130
-    group.resources.update({"wood": 80, "cristal": 0})
+    group.resources.update({"wood": 80, "gold": 0})
 
     assert manager.population_cap_for_team(TeamColor.BLUE) == 10
     assert manager.construct_building(peasant, "house", (170, 80)) is True
@@ -289,7 +289,7 @@ def test_canceling_unfinished_house_refunds_and_removes_building() -> None:
     group = manager.entities[TeamColor.BLUE]
     peasant = group.peasents[0]
     peasant.x, peasant.y = 170, 130
-    group.resources.update({"wood": 80, "cristal": 0})
+    group.resources.update({"wood": 80, "gold": 0})
 
     assert manager.construct_building(peasant, "house", (170, 80)) is True
     house = group.houses[0]
@@ -311,7 +311,7 @@ def test_manager_placement_helpers_place_selected_worker_building() -> None:
     group = manager.entities[TeamColor.BLUE]
     peasant = group.peasents[0]
     peasant.x, peasant.y = 170, 130
-    group.resources.update({"wood": 80, "cristal": 0})
+    group.resources.update({"wood": 80, "gold": 0})
     manager.select_entities_for_team(TeamColor.BLUE, [peasant])
 
     assert manager.begin_construction_placement("house") is True
@@ -357,7 +357,7 @@ def test_peasant_starts_harvesting_targeted_resources() -> None:
     """A peasant can finish the final path waypoint beside a resource."""
     settings = _settings()
     settings["Resources"]["wood"] = [[100, 20]]
-    settings["Resources"]["cristal"] = [[20, 100]]
+    settings["Resources"]["gold"] = [[20, 100]]
     simulation = HeadlessSimulation.from_settings(settings)
     manager = simulation.manager
     peasant = manager.entities[TeamColor.BLUE].peasents[0]
@@ -371,11 +371,11 @@ def test_peasant_starts_harvesting_targeted_resources() -> None:
     peasant.x, peasant.y = 20, 20
     peasant.carry_wood = 0
     peasant.state = "IDLE"
-    cristal = manager.resources.cristals[0]
-    manager._assign_unit_target(peasant, cristal.get_center(), cristal)
+    gold = manager.resources.golds[0]
+    manager._assign_unit_target(peasant, gold.get_center(), gold)
     simulation.step(80)
 
-    assert peasant.carry_cristal > 0
+    assert peasant.carry_gold > 0
     simulation.close()
 
 
@@ -384,12 +384,12 @@ def test_peasant_harvests_resource_beyond_ramp_edge() -> None:
     simulation = HeadlessSimulation.from_map_file(Path("src/rts_nano/maps/map_settings_01.json"))
     manager = simulation.manager
     peasant = manager.entities[TeamColor.BLUE].peasents[0]
-    crystal = manager.resources.cristals[0]
+    gold = manager.resources.golds[0]
 
-    manager._assign_unit_target(peasant, crystal.get_center(), crystal)
+    manager._assign_unit_target(peasant, gold.get_center(), gold)
     simulation.step(400)
 
-    assert peasant.carry_cristal > 0
+    assert peasant.carry_gold > 0
     simulation.close()
 
 

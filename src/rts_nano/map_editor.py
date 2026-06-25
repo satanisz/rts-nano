@@ -54,7 +54,7 @@ GRID_SIZE = 32
 HUD_HEIGHT = 92
 DELETE_DISTANCE = 36
 
-RESOURCE_TOOLS = {"wood", "cristal"}
+RESOURCE_TOOLS = {"wood", "gold"}
 POINT_TERRAIN_TOOLS = {"rocks", "grass"}
 RECT_TERRAIN_TOOLS = {"high_ground", "ramps", "water"}
 MERGED_RECT_TOOLS = {"high_ground", "water"}
@@ -78,7 +78,7 @@ ENTITY_TOOLS = {
 
 TOOL_KEYS = {
     pygame.K_1: "wood",
-    pygame.K_2: "cristal",
+    pygame.K_2: "gold",
     pygame.K_3: "rocks",
     pygame.K_4: "grass",
     pygame.K_5: "high_ground",
@@ -104,7 +104,7 @@ TOOL_KEYS = {
 
 TOOL_LABELS = {
     "wood": "1 Wood",
-    "cristal": "2 Cristal",
+    "gold": "2 Gold",
     "rocks": "3 Rocks",
     "grass": "4 Grass",
     "high_ground": "5 High ground",
@@ -190,7 +190,7 @@ class MapEditor:
         return {
             "Blue": {"peasant": [], "base": [], "barracks": [], "house": [], "knight": [], "archer": [], "mage": []},
             "Red": {"peasant": [], "base": [], "barracks": [], "house": [], "knight": [], "archer": [], "mage": []},
-            "Resources": {"wood": [], "cristal": []},
+            "Resources": {"wood": [], "gold": []},
             "Terrain": {
                 "width": width,
                 "height": height,
@@ -720,13 +720,13 @@ class MapEditor:
             if not isinstance(point, list):
                 continue
             pygame.draw.circle(screen, (35, 25, 18), self._world_to_screen(cast("Sequence[int]", point)), 6)
-        crystal_points = resources_payload.get("cristal", [])
-        if not isinstance(crystal_points, list):
-            crystal_points = []
-        for point in crystal_points:
+        gold_points = resources_payload.get("gold", [])
+        if not isinstance(gold_points, list):
+            gold_points = []
+        for point in gold_points:
             if not isinstance(point, list):
                 continue
-            pygame.draw.circle(screen, (80, 230, 255), self._world_to_screen(cast("Sequence[int]", point)), 6)
+            pygame.draw.circle(screen, (255, 215, 0), self._world_to_screen(cast("Sequence[int]", point)), 6)
 
     def _draw_entities(self, screen: pygame.Surface) -> None:
         """Draw simple team/entity markers."""

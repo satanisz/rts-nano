@@ -15,7 +15,7 @@ class ResourceCost:
     """Resource cost paid by a team economy bank."""
 
     wood: int = 0
-    cristal: int = 0
+    gold: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,7 +46,7 @@ class BuildingSpec:
     produces: tuple[str, ...] = ()
 
 
-RESOURCE_KINDS: tuple[str, str] = ("wood", "cristal")
+RESOURCE_KINDS: tuple[str, str] = ("wood", "gold")
 PRODUCTION_REFUND_RATIO = 0.75
 CONSTRUCTION_REFUND_RATIO = 0.75
 
@@ -65,7 +65,7 @@ UNIT_SPECS: dict[str, UnitSpec] = {
         key="knight",
         display_name="Knight",
         role="melee",
-        cost=ResourceCost(wood=100, cristal=25),
+        cost=ResourceCost(wood=100, gold=25),
         production_frames=120,
         population=2,
         produced_at="barracks",
@@ -75,7 +75,7 @@ UNIT_SPECS: dict[str, UnitSpec] = {
         key="archer",
         display_name="Archer",
         role="ranged",
-        cost=ResourceCost(wood=80, cristal=40),
+        cost=ResourceCost(wood=80, gold=40),
         production_frames=120,
         population=2,
         produced_at="barracks",
@@ -85,7 +85,7 @@ UNIT_SPECS: dict[str, UnitSpec] = {
         key="mage",
         display_name="Mage",
         role="caster",
-        cost=ResourceCost(wood=70, cristal=120),
+        cost=ResourceCost(wood=70, gold=120),
         production_frames=180,
         population=3,
         produced_at="mage_tower",
@@ -98,7 +98,7 @@ BUILDING_SPECS: dict[str, BuildingSpec] = {
         key="base",
         display_name="Base",
         role="dropoff_production",
-        cost=ResourceCost(wood=400, cristal=100),
+        cost=ResourceCost(wood=400, gold=100),
         build_frames=300,
         footprint=(3, 3),
         provides_population=10,
@@ -117,7 +117,7 @@ BUILDING_SPECS: dict[str, BuildingSpec] = {
         key="barracks",
         display_name="Barracks",
         role="military_production",
-        cost=ResourceCost(wood=220, cristal=60),
+        cost=ResourceCost(wood=220, gold=60),
         build_frames=360,
         footprint=(3, 3),
         produces=("knight", "archer"),
@@ -126,7 +126,7 @@ BUILDING_SPECS: dict[str, BuildingSpec] = {
         key="mage_tower",
         display_name="Mage Tower",
         role="advanced_production",
-        cost=ResourceCost(wood=180, cristal=180),
+        cost=ResourceCost(wood=180, gold=180),
         build_frames=420,
         footprint=(3, 3),
         produces=("mage",),
@@ -135,7 +135,7 @@ BUILDING_SPECS: dict[str, BuildingSpec] = {
         key="tower",
         display_name="Tower",
         role="defense",
-        cost=ResourceCost(wood=150, cristal=80),
+        cost=ResourceCost(wood=150, gold=80),
         build_frames=240,
         footprint=(2, 2),
     ),

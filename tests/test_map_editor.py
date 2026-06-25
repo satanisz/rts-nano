@@ -19,7 +19,7 @@ def _write_map(path: Path) -> None:
             {
                 "Blue": {"base": [[100, 100]]},
                 "Red": {"base": []},
-                "Resources": {"wood": [[200, 200]], "cristal": []},
+                "Resources": {"wood": [[200, 200]], "gold": []},
                 "Terrain": {
                     "width": 500,
                     "height": 500,

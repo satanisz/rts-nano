@@ -21,7 +21,7 @@ class TeamSnapshot:
 
     team: str
     wood: int
-    cristal: int
+    gold: int
     units: int
     buildings: int
     population_cap: int
@@ -52,7 +52,7 @@ class EntitySnapshot:
     amount: int | None
     state: str | None
     carry_wood: int
-    carry_cristal: int
+    carry_gold: int
     selected: bool
     production_queue: tuple[ProductionSnapshot, ...]
     is_under_construction: bool = False
@@ -127,7 +127,7 @@ def _snapshot_team(manager: GameManager, team: TeamColor, group: EntitiesGroup) 
     return TeamSnapshot(
         team=team.value,
         wood=group.resources["wood"],
-        cristal=group.resources["cristal"],
+        gold=group.resources["gold"],
         units=len(group.peasents) + len(group.knights) + len(group.archers) + len(group.mages),
         buildings=len(group.bases) + len(group.barracks) + len(group.houses),
         population_cap=manager.population_cap_for_team(team),
@@ -148,7 +148,7 @@ def _snapshot_entity(manager: GameManager, entity: Entity, registry: EntityIdReg
         amount=getattr(entity, "amount", None),
         state=getattr(entity, "state", None),
         carry_wood=getattr(entity, "carry_wood", 0),
-        carry_cristal=getattr(entity, "carry_cristal", 0),
+        carry_gold=getattr(entity, "carry_gold", 0),
         selected=entity.selected,
         production_queue=_snapshot_production_queue(manager, entity),
         is_under_construction=isinstance(entity, Building) and entity.is_under_construction,

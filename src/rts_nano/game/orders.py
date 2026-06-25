@@ -43,7 +43,7 @@ class OrderSystem:
         return [
             unit
             for unit in self.units_for_team(team)
-            if isinstance(unit, Peasant) and (unit.carry_wood > 0 or unit.carry_cristal > 0)
+            if isinstance(unit, Peasant) and (unit.carry_wood > 0 or unit.carry_gold > 0)
         ]
 
     def production_buildings_for_team(self, team: TeamColor) -> list[Building]:
@@ -156,7 +156,7 @@ class OrderSystem:
         ordered_peasants = [
             unit
             for unit in self._order_units_for_team(team, units)
-            if isinstance(unit, Peasant) and (unit.carry_wood > 0 or unit.carry_cristal > 0)
+            if isinstance(unit, Peasant) and (unit.carry_wood > 0 or unit.carry_gold > 0)
         ]
         affected = 0
         for peasant in ordered_peasants:

@@ -154,17 +154,17 @@ class ProductionSystem:
 
     @staticmethod
     def _can_pay(resources: dict[str, int], cost: ResourceCost) -> bool:
-        return resources.get("wood", 0) >= cost.wood and resources.get("cristal", 0) >= cost.cristal
+        return resources.get("wood", 0) >= cost.wood and resources.get("gold", 0) >= cost.gold
 
     @staticmethod
     def _pay(resources: dict[str, int], cost: ResourceCost) -> None:
         resources["wood"] = resources.get("wood", 0) - cost.wood
-        resources["cristal"] = resources.get("cristal", 0) - cost.cristal
+        resources["gold"] = resources.get("gold", 0) - cost.gold
 
     @staticmethod
     def _refund(resources: dict[str, int], cost: ResourceCost) -> None:
         resources["wood"] = resources.get("wood", 0) + int(cost.wood * PRODUCTION_REFUND_RATIO)
-        resources["cristal"] = resources.get("cristal", 0) + int(cost.cristal * PRODUCTION_REFUND_RATIO)
+        resources["gold"] = resources.get("gold", 0) + int(cost.gold * PRODUCTION_REFUND_RATIO)
 
     def _spawn_unit(self, producer: Building, spec: UnitSpec) -> None:
         team_group = self._manager.entities.get(producer.team)

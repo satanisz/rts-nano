@@ -7,8 +7,8 @@ from rts_nano.game.assets.entities.base_entities import Resource
 BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
 
 
-class Cristal(Resource):
-    """Represent a crystal resource node.
+class Gold(Resource):
+    """Represent a gold resource node.
 
     Args:
         x: Horizontal center position.
@@ -17,9 +17,9 @@ class Cristal(Resource):
 
     def __init__(self, x: int, y: int) -> None:
         """Initialize the object."""
-        super().__init__(x, y, "Cristal")
+        super().__init__(x, y, "Gold")
         self.load_image(
-            str(BASE_DIR / "assets" / "sprites" / "cristal.png"), str(BASE_DIR / "assets" / "portraits" / "cristal.png")
+            str(BASE_DIR / "assets" / "sprites" / "gold.png"), str(BASE_DIR / "assets" / "portraits" / "gold.png")
         )
 
 

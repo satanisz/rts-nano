@@ -8,7 +8,7 @@ While the game features basic RTS mechanics (resource gathering, base building, 
 
 ## Features
 * **2D Game Engine:** A custom event-driven loop built on top of Pygame for rendering, logic, and state coordination.
-* **Entities & Assets:** Includes units (Peasants, Knights, Archers, Mages), buildings (Bases), and resources (Wood, Crystal).
+* **Entities & Assets:** Includes units (Peasants, Knights, Archers, Mages), buildings (Bases), and resources (Wood, Gold).
 * **RL Sandbox:** The codebase is designed as a playground to apply PyTorch-based Reinforcement Learning algorithms to RTS macro and micro tasks.
 
 ## Getting Started

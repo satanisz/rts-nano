@@ -232,9 +232,9 @@ class RtsNanoEnv:
         bases = manager.orders.bases_for_team(team)
         production_buildings = manager.orders.production_buildings_for_team(team)
         peasants = [unit for unit in units if isinstance(unit, Peasant)]
-        carrying_peasants = [unit for unit in peasants if unit.carry_wood > 0 or unit.carry_cristal > 0]
+        carrying_peasants = [unit for unit in peasants if unit.carry_wood > 0 or unit.carry_gold > 0]
         resources = [
-            resource for resource in (manager.resources.woods + manager.resources.cristals) if resource.amount > 0
+            resource for resource in (manager.resources.woods + manager.resources.golds) if resource.amount > 0
         ]
         hostile_targets = [
             entity

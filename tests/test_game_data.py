@@ -16,7 +16,7 @@ def test_game_data_defines_current_worker_production() -> None:
     peasant = UNIT_SPECS["peasant"]
     base = BUILDING_SPECS["base"]
 
-    assert RESOURCE_KINDS == ("wood", "cristal")
+    assert RESOURCE_KINDS == ("wood", "gold")
     assert PRODUCTION_REFUND_RATIO == 0.75
     assert CONSTRUCTION_REFUND_RATIO == 0.75
     assert peasant.cost.wood == 50
@@ -33,7 +33,7 @@ def test_game_data_defines_basic_military_production() -> None:
     assert UNIT_SPECS["knight"].produced_at == "barracks"
     assert UNIT_SPECS["archer"].produced_at == "barracks"
     assert UNIT_SPECS["knight"].cost.wood == 100
-    assert UNIT_SPECS["knight"].cost.cristal == 25
+    assert UNIT_SPECS["knight"].cost.gold == 25
     assert barracks.produces == ("knight", "archer")
 
 

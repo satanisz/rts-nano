@@ -34,7 +34,7 @@ from typing import TYPE_CHECKING, cast
 
 import pygame
 
-from rts_nano.game.assets.entities import Archer, Barracks, Base, Cristal, House, Knight, Mage, Peasant, TeamColor, Wood
+from rts_nano.game.assets.entities import Archer, Barracks, Base, Gold, House, Knight, Mage, Peasant, TeamColor, Wood
 from rts_nano.game.assets.entities.base_entities import Building, Entity, Resource, Unit
 from rts_nano.game.constants import (
     BLACK,
@@ -65,7 +65,7 @@ if TYPE_CHECKING:
     from rts_nano.map_schema import MapSettings
 
 WOOD_ICON = "\U0001fab5"
-CRISTAL_ICON = "\U0001f48e"
+GOLD_ICON = "\U0001fa99"
 FULLSCREEN_TOGGLE_EVENT = pygame.USEREVENT + 1
 PLAY_AREA_HEIGHT = SCREEN_HEIGHT - BOTTOM_MENU_HEIGHT
 CAMERA_SPEED = 12
@@ -218,7 +218,7 @@ class EntitiesGroup:
     def __init__(self, name: TeamColor) -> None:
         """Initialize the object."""
         self.name: TeamColor = name
-        self.resources: dict[str, int] = {"wood": 0, "cristal": 0}
+        self.resources: dict[str, int] = {"wood": 0, "gold": 0}
         self.bases: list[Base] = []
         self.barracks: list[Barracks] = []
         self.houses: list[House] = []
@@ -251,7 +251,7 @@ class ResourcesGroup:
 
     def __init__(self) -> None:
         """Initialize the object."""
-        self.cristals: list[Cristal] = []
+        self.golds: list[Gold] = []
         self.woods: list[Wood] = []
 
 
@@ -259,7 +259,7 @@ class EntityFactory:
     """Create game entities from map configuration values.
 
     The factory is the only place that maps serialized asset names such as
-    ``"peasant"`` or ``"cristal"`` to concrete classes. Add new JSON entity
+    ``"peasant"`` or ``"gold"`` to concrete classes. Add new JSON entity
     types here before expecting maps or the editor to spawn them in-game.
     """
 
@@ -274,7 +274,7 @@ class EntityFactory:
     }
     _NEUTRAL_ENTITY_TYPES: dict[str, Callable[[int, int], Entity]] = {
         "wood": Wood,
-        "cristal": Cristal,
+        "gold": Gold,
     }
 
     @classmethod
@@ -408,7 +408,7 @@ class GameManager:
         """Return all active entities, including units, buildings, and resources."""
         ents = [entity for group in self.entities.values() for entity in group.all_entities]
         ents.extend(self.resources.woods)
-        ents.extend(self.resources.cristals)
+        ents.extend(self.resources.golds)
         return ents
 
     def units_for_team(self, team: TeamColor) -> list[Unit]:
@@ -905,8 +905,8 @@ class GameManager:
                             group.houses.append(entity)
                         case Wood():
                             self.resources.woods.append(entity)
-                        case Cristal():
-                            self.resources.cristals.append(entity)
+                        case Gold():
+                            self.resources.golds.append(entity)
 
     def _normalize_coords(self, coords: object) -> list[tuple[int, int]]:
         """Normalize map coordinates to a list of coordinate pairs."""
@@ -1104,12 +1104,12 @@ class GameManager:
     def _format_cost(cost: object) -> str:
         """Return a compact resource cost label for command buttons."""
         wood = getattr(cost, "wood", 0)
-        cristal = getattr(cost, "cristal", 0)
+        gold = getattr(cost, "gold", 0)
         parts: list[str] = []
         if wood:
             parts.append(f"{wood}W")
-        if cristal:
-            parts.append(f"{cristal}C")
+        if gold:
+            parts.append(f"{gold}G")
         return " ".join(parts) if parts else "Free"
 
     def _handle_menu_click(self, mouse_pos: tuple[int, int]) -> None:
@@ -1274,7 +1274,7 @@ class GameManager:
             if isinstance(entity, Peasant):
                 if entity.state == "GATHERING":
                     resource = entity.target_entity or entity.source_resource
-                    if isinstance(resource, (Wood, Cristal)):
+                    if isinstance(resource, (Wood, Gold)):
                         is_wood = isinstance(resource, Wood)
 
                         if resource.amount > 0:
@@ -1284,15 +1284,15 @@ class GameManager:
                             if is_wood:
                                 entity.carry_wood += gathered
                             else:
-                                entity.carry_cristal += gathered
+                                entity.carry_gold += gathered
 
                             if resource.amount <= 0:
                                 if isinstance(resource, Wood) and resource in self.resources.woods:
                                     self.resources.woods.remove(resource)
-                                elif isinstance(resource, Cristal) and resource in self.resources.cristals:
-                                    self.resources.cristals.remove(resource)
+                                elif isinstance(resource, Gold) and resource in self.resources.golds:
+                                    self.resources.golds.remove(resource)
 
-                                resource_list = self.resources.woods if is_wood else self.resources.cristals
+                                resource_list = self.resources.woods if is_wood else self.resources.golds
                                 new_resource = find_replacement_resource(
                                     resource,
                                     resource_list,
@@ -1301,12 +1301,12 @@ class GameManager:
                                 entity.source_resource = new_resource
                                 entity.target_entity = new_resource
 
-                        carry_amount = entity.carry_wood if is_wood else entity.carry_cristal
+                        carry_amount = entity.carry_wood if is_wood else entity.carry_gold
                         if carry_amount >= entity.max_carry or resource.amount <= 0:
                             if is_wood and entity.carry_wood > entity.max_carry:
                                 entity.carry_wood = entity.max_carry
-                            elif not is_wood and entity.carry_cristal > entity.max_carry:
-                                entity.carry_cristal = entity.max_carry
+                            elif not is_wood and entity.carry_gold > entity.max_carry:
+                                entity.carry_gold = entity.max_carry
 
                             team_group = self.entities.get(entity.team)
                             team_bases = team_group.bases if team_group else []
@@ -1320,9 +1320,9 @@ class GameManager:
                     team_group = self.entities.get(entity.team)
                     if team_group:
                         team_group.resources["wood"] += entity.carry_wood
-                        team_group.resources["cristal"] += entity.carry_cristal
+                        team_group.resources["gold"] += entity.carry_gold
                     entity.carry_wood = 0
-                    entity.carry_cristal = 0
+                    entity.carry_gold = 0
                     if (
                         entity.source_resource
                         and entity.source_resource in all_ents
@@ -1506,7 +1506,7 @@ class GameManager:
             if any(isinstance(entity, Peasant) for entity in selected_units):
                 commands.append(("Gather", True, "gather", None))
             if any(
-                isinstance(entity, Peasant) and (entity.carry_wood > 0 or entity.carry_cristal > 0)
+                isinstance(entity, Peasant) and (entity.carry_wood > 0 or entity.carry_gold > 0)
                 for entity in selected_units
             ):
                 commands.append(("Return Cargo", True, "return_cargo", None))
@@ -1691,7 +1691,7 @@ class GameManager:
             )
             population_cap = self.population_cap_for_team(self.current_team)
         else:
-            res = {"wood": 0, "cristal": 0}
+            res = {"wood": 0, "gold": 0}
             num_buildings = 0
             num_units = 0
             population_cap = 0
@@ -1700,9 +1700,9 @@ class GameManager:
             font.render(f"Team {self.current_team.value} | ", True, ui_color),
             emoji_font.render(WOOD_ICON, True, ui_color),
             font.render(f": {res['wood']}   ", True, ui_color),
-            emoji_font.render(CRISTAL_ICON, True, ui_color),
+            emoji_font.render(GOLD_ICON, True, ui_color),
             font.render(
-                f": {res['cristal']} | Buildings: {num_buildings}   Units: {num_units}/{population_cap}",
+                f": {res['gold']} | Buildings: {num_buildings}   Units: {num_units}/{population_cap}",
                 True,
                 ui_color,
             ),

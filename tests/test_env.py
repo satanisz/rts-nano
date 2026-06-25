@@ -29,7 +29,7 @@ def _settings() -> MapSettings:
     return {
         "Blue": {"peasant": [[20, 20]], "base": [[60, 60]], "knight": [], "archer": [], "mage": []},
         "Red": {"peasant": [], "base": [[250, 250]], "knight": [], "archer": [], "mage": []},
-        "Resources": {"wood": [[160, 20]], "cristal": []},
+        "Resources": {"wood": [[160, 20]], "gold": []},
         "Terrain": {
             "width": 400,
             "height": 300,
@@ -102,7 +102,7 @@ def test_action_translator_applies_military_build_orders() -> None:
     """Action translator can produce military units from barracks."""
     simulation = HeadlessSimulation.from_settings(_settings_with_barracks())
     manager = simulation.manager
-    manager.entities[TeamColor.BLUE].resources.update({"wood": 100, "cristal": 25})
+    manager.entities[TeamColor.BLUE].resources.update({"wood": 100, "gold": 25})
     registry = EntityIdRegistry()
     observation = build_observation(manager, tick=0, registry=registry)
     barracks_id = next(
@@ -126,7 +126,7 @@ def test_action_translator_applies_worker_construction_orders() -> None:
     """Action translator can place unfinished structures through a worker."""
     simulation = HeadlessSimulation.from_settings(_settings())
     manager = simulation.manager
-    manager.entities[TeamColor.BLUE].resources.update({"wood": 220, "cristal": 60})
+    manager.entities[TeamColor.BLUE].resources.update({"wood": 220, "gold": 60})
     registry = EntityIdRegistry()
     observation = build_observation(manager, tick=0, registry=registry)
     builder_id = next(
@@ -297,7 +297,7 @@ def test_env_construct_action_observes_unfinished_barracks() -> None:
     """Environment exposes worker construction through actions and snapshots."""
     env = RtsNanoEnv(settings=_settings())
     manager = env._require_simulation().manager
-    manager.entities[TeamColor.BLUE].resources.update({"wood": 220, "cristal": 60})
+    manager.entities[TeamColor.BLUE].resources.update({"wood": 220, "gold": 60})
     observation = env.observe()
     builder_id = next(
         entity.id for entity in observation.entities if entity.kind == "Peasant" and entity.team == "Blue"
@@ -309,7 +309,7 @@ def test_env_construct_action_observes_unfinished_barracks() -> None:
     assert barracks.is_under_construction is True
     assert barracks.construction_progress == 0
     assert result.observation.teams[0].wood == 0
-    assert result.observation.teams[0].cristal == 0
+    assert result.observation.teams[0].gold == 0
 
     env.close()
 
@@ -369,7 +369,7 @@ def test_env_action_mask_reports_military_production() -> None:
     """Action masks expose barracks production as unit-specific build options."""
     env = RtsNanoEnv(settings=_settings_with_barracks())
     manager = env._require_simulation().manager
-    manager.entities[TeamColor.BLUE].resources.update({"wood": 100, "cristal": 25})
+    manager.entities[TeamColor.BLUE].resources.update({"wood": 100, "gold": 25})
 
     specs = {(spec.kind, spec.team, spec.unit_type): spec for spec in env.action_mask(TeamColor.BLUE)}
 

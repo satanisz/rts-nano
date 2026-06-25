@@ -16,7 +16,7 @@ def _valid_payload() -> dict[str, object]:
     return {
         "Blue": {"base": [[10, 10]], "barracks": [[60, 60]], "house": [[80, 80]], "peasant": []},
         "Red": {"base": [[100, 100]], "barracks": [], "house": []},
-        "Resources": {"wood": [[20, 20]], "cristal": []},
+        "Resources": {"wood": [[20, 20]], "gold": []},
         "Terrain": {
             "width": 500,
             "height": 400,
