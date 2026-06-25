@@ -57,6 +57,7 @@ class EntitySnapshot:
     production_queue: tuple[ProductionSnapshot, ...]
     is_under_construction: bool = False
     construction_progress: float | None = None
+    order: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -137,6 +138,7 @@ def _snapshot_team(manager: GameManager, team: TeamColor, group: EntitiesGroup) 
 
 def _snapshot_entity(manager: GameManager, entity: Entity, registry: EntityIdRegistry) -> EntitySnapshot:
     team = getattr(entity, "team", None)
+    current_order = getattr(entity, "current_order", None)
     return EntitySnapshot(
         id=registry.id_for(entity),
         kind=type(entity).__name__,
@@ -153,6 +155,7 @@ def _snapshot_entity(manager: GameManager, entity: Entity, registry: EntityIdReg
         production_queue=_snapshot_production_queue(manager, entity),
         is_under_construction=isinstance(entity, Building) and entity.is_under_construction,
         construction_progress=entity.construction_progress if isinstance(entity, Building) else None,
+        order=current_order.kind if current_order is not None else None,
     )
 
 

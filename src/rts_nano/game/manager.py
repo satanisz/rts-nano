@@ -456,6 +456,15 @@ class GameManager:
         """Assign an attack-move order to team units and return the affected count."""
         return self.orders.issue_attack_move_order(team, destination, units)
 
+    def issue_patrol_order(
+        self,
+        team: TeamColor,
+        destination: tuple[float, float],
+        units: Iterable[Unit] | None = None,
+    ) -> int:
+        """Assign a patrol order between current position and a destination."""
+        return self.orders.issue_patrol_order(team, destination, units)
+
     def issue_target_order(
         self,
         team: TeamColor,
@@ -541,6 +550,17 @@ class GameManager:
         self.menu_status = "Choose attack-move target"
         return True
 
+    def begin_patrol_targeting(self) -> bool:
+        """Enter a one-click targeting mode for the patrol command."""
+        selected_units = [entity for entity in self.selected_entities if isinstance(entity, Unit)]
+        if not selected_units:
+            self.menu_status = "Select units"
+            return False
+        self.cancel_pending_construction_placement()
+        self.pending_unit_command = "patrol"
+        self.menu_status = "Choose patrol point"
+        return True
+
     def begin_gather_targeting(self) -> bool:
         """Enter a one-click targeting mode for gathering resources."""
         selected_peasants = [entity for entity in self.selected_entities if isinstance(entity, Peasant)]
@@ -555,7 +575,7 @@ class GameManager:
     def cancel_pending_unit_command(self) -> None:
         """Leave pending selected-unit command mode."""
         self.pending_unit_command = None
-        if self.menu_status in {"Choose attack-move target", "Choose resource"}:
+        if self.menu_status in {"Choose attack-move target", "Choose resource", "Choose patrol point"}:
             self.menu_status = None
 
     def place_pending_construction(self, position: tuple[float, float]) -> bool:
@@ -602,6 +622,8 @@ class GameManager:
             self.issue_return_cargo_order(self.current_team, selected_units)
         elif command == "attack_move":
             self.begin_attack_move_targeting()
+        elif command == "patrol":
+            self.begin_patrol_targeting()
         elif command == "gather":
             self.begin_gather_targeting()
 
@@ -829,6 +851,30 @@ class GameManager:
             self._assign_unit_target(unit, destination)
             unit.attack_move_destination = destination
 
+    def _update_patrol(self, unit: Unit) -> None:
+        """Flip a patrolling unit to its other waypoint once a leg completes.
+
+        Patrol reuses the attack-move acquisition pipeline, so while a leg is
+        active (``attack_move_destination`` set) or the unit is fighting/moving,
+        this does nothing. When the unit goes idle at a waypoint with no target,
+        it heads to whichever patrol point is farther, producing a stable loop.
+        """
+        points = unit.patrol_points
+        if points is None or unit.target_entity is not None:
+            return
+        if unit.attack_move_destination is not None or unit.state != "IDLE":
+            return
+
+        first_point, second_point = points
+        current = unit.get_center()
+        farther = (
+            first_point
+            if distance_between_points(current, first_point) >= distance_between_points(current, second_point)
+            else second_point
+        )
+        self._assign_unit_target(unit, farther)
+        unit.attack_move_destination = farther
+
     def _nearest_attack_move_target(self, unit: Unit, entities: list[Entity]) -> Entity | None:
         """Return the nearest hostile unit/building in attack-move acquisition range."""
         acquire_range = max(float(unit.vision_range), unit.attack_range + ATTACK_MOVE_MIN_ACQUIRE_RANGE)
@@ -1000,6 +1046,8 @@ class GameManager:
                 self.issue_return_cargo_order(self.current_team, selected_units)
             elif event.key == pygame.K_a:
                 self.begin_attack_move_targeting()
+            elif event.key == pygame.K_t:
+                self.begin_patrol_targeting()
             elif event.key == pygame.K_g:
                 self.begin_gather_targeting()
 
@@ -1050,6 +1098,11 @@ class GameManager:
                 if self.pending_unit_command == "attack_move":
                     selected_units = [entity for entity in self.selected_entities if isinstance(entity, Unit)]
                     self.issue_attack_move_order(self.current_team, world_pos, selected_units)
+                    self.cancel_pending_unit_command()
+                    return
+                if self.pending_unit_command == "patrol":
+                    selected_units = [entity for entity in self.selected_entities if isinstance(entity, Unit)]
+                    self.issue_patrol_order(self.current_team, world_pos, selected_units)
                     self.cancel_pending_unit_command()
                     return
                 if self.pending_unit_command == "gather":
@@ -1289,6 +1342,7 @@ class GameManager:
                             )
                         )
                 self._resume_or_finish_attack_move(entity)
+                self._update_patrol(entity)
 
             if isinstance(entity, Peasant):
                 if entity.state == "GATHERING":
@@ -1522,6 +1576,7 @@ class GameManager:
             commands.append(("Hold", True, "hold", None))
             if any(entity.attack_damage > 0 for entity in selected_units):
                 commands.append(("Attack Move", True, "attack_move", None))
+                commands.append(("Patrol", True, "patrol", None))
             if any(isinstance(entity, Peasant) for entity in selected_units):
                 commands.append(("Gather", True, "gather", None))
             if any(
@@ -1608,7 +1663,7 @@ class GameManager:
                     self.construction_buttons.append((btn_rect, cmd_unit_type))
                 elif cmd_active and cmd_action == "cancel_construction" and selected_producer is not None:
                     self.cancel_construction_buttons.append((btn_rect, selected_producer))
-                elif cmd_active and cmd_action in {"stop", "hold", "attack_move", "gather", "return_cargo"}:
+                elif cmd_active and cmd_action in {"stop", "hold", "attack_move", "patrol", "gather", "return_cargo"}:
                     self.unit_command_buttons.append((btn_rect, cmd_action))
 
             else:

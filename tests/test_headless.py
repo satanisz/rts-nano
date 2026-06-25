@@ -82,6 +82,97 @@ def test_manager_public_attack_move_acquires_hostile_target() -> None:
     simulation.close()
 
 
+def _wide_patrol_settings() -> MapSettings:
+    """Wide map with the rival base far from the patrol route.
+
+    Keeping the only enemy entity out of acquisition range lets the oscillation
+    test observe pure patrol movement without the unit diverting to a target.
+    """
+    return {
+        "Blue": {"peasant": [], "base": [[60, 60]], "knight": [[40, 150]], "archer": [], "mage": []},
+        "Red": {"peasant": [], "base": [[760, 280]], "knight": [], "archer": [], "mage": []},
+        "Resources": {"wood": [], "gold": []},
+        "Terrain": {
+            "width": 800,
+            "height": 300,
+            "high_ground": [],
+            "water": [],
+            "ramps": [],
+            "rocks": [],
+            "grass": [],
+        },
+    }
+
+
+def test_manager_patrol_order_oscillates_between_waypoints() -> None:
+    """A patrolling unit advances toward its waypoint and loops back."""
+    simulation = HeadlessSimulation.from_settings(_wide_patrol_settings())
+    manager = simulation.manager
+    knight = manager.entities[TeamColor.BLUE].knights[0]
+
+    affected = manager.issue_patrol_order(TeamColor.BLUE, (340, 150), [knight])
+
+    assert affected == 1
+    assert knight.current_order is not None
+    assert knight.current_order.kind == "patrol"
+    assert knight.patrol_points is not None
+
+    reached_far = False
+    returned_after_far = False
+    for _ in range(600):
+        simulation.step(1)
+        if knight.x > 300:
+            reached_far = True
+        elif reached_far and knight.x < 100:
+            returned_after_far = True
+
+    assert reached_far
+    assert returned_after_far
+    simulation.close()
+
+
+def test_stop_order_cancels_active_patrol() -> None:
+    """Issuing a manual stop clears the patrol route and retags the order."""
+    settings = _settings()
+    settings["Blue"]["peasant"] = []
+    settings["Blue"]["knight"] = [[40, 150]]
+    simulation = HeadlessSimulation.from_settings(settings)
+    manager = simulation.manager
+    knight = manager.entities[TeamColor.BLUE].knights[0]
+
+    manager.issue_patrol_order(TeamColor.BLUE, (300, 150), [knight])
+    simulation.step(10)
+    manager.issue_stop_order(TeamColor.BLUE, [knight])
+
+    assert knight.patrol_points is None
+    assert knight.current_order is not None
+    assert knight.current_order.kind == "stop"
+    simulation.close()
+
+
+def test_patrol_unit_acquires_hostile_target_along_route() -> None:
+    """A patrolling unit retargets hostiles encountered on its route."""
+    settings = _settings()
+    settings["Blue"]["peasant"] = []
+    settings["Blue"]["knight"] = [[40, 150]]
+    settings["Red"]["peasant"] = [[180, 150]]
+    simulation = HeadlessSimulation.from_settings(settings)
+    manager = simulation.manager
+    knight = manager.entities[TeamColor.BLUE].knights[0]
+    enemy = manager.entities[TeamColor.RED].peasents[0]
+
+    manager.issue_patrol_order(TeamColor.BLUE, (300, 150), [knight])
+    acquired = False
+    for _ in range(200):
+        simulation.step(1)
+        if knight.target_entity is enemy:
+            acquired = True
+            break
+
+    assert acquired
+    simulation.close()
+
+
 def test_manager_public_gather_order_sends_peasant_to_resource() -> None:
     """Gather helper targets resources without direct private manager access."""
     settings = _settings()

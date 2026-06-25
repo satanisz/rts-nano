@@ -201,23 +201,41 @@ ruff, ruff format, ty, 53 pytest passing.
 
 ---
 
-### Sprint 2 — Formal Order Model
+### Sprint 2 — Formal Order Model — DONE (2026-06-26)
 
 **Goal:** replace scattered unit flags with a typed `Order` object; add Patrol.
 
 Tasks:
-1. Define `Order` dataclass with `kind`, `target_id`, `destination`, and metadata
-2. Each unit stores `current_order: Order | None`
-3. Migrate existing order application in `manager.py` and `orders.py` to set `current_order`
-4. Define clear priority: manual order > auto-attack > return-to-work
-5. Handle target death: units in ATTACKING clear their order when target dies
-6. Add `PatrolAction` DTO, add to `OrderSystem`, add command panel button and hotkey `P`
-7. Update observation snapshot to expose `current_order.kind` per entity
-8. Update action mask to include patrol legality
-9. Tests: patrol coverage headless, target-death cleanup headless, deterministic replay with patrol
+1. ✅ Defined `Order` dataclass (`kind`, `destination`) in new `game/order.py`.
+2. ✅ Every unit stores `current_order: Order | None` (additive field on `Unit`).
+3. ✅ Order helpers in `orders.py` tag `current_order` via `_tag_order`; `manager.py`
+   helpers delegate unchanged.
+4. ✅ Manual orders override patrol: `_tag_order` clears `patrol_points` for every
+   non-patrol order, so a manual command unambiguously cancels an active patrol.
+5. ✅ Target death already handled by the existing `Unit.update` (clears dead targets);
+   patrol resumes its route afterward via the attack-move resume path.
+6. ✅ `PatrolAction` DTO + `OrderSystem.issue_patrol_order` + `ActionTranslator` +
+   manager helper + command-panel **Patrol** button + hotkey **`T`** (see deviation).
+7. ✅ Observation `EntitySnapshot.order` exposes `current_order.kind`.
+8. ✅ Action mask includes a `patrol` spec (enabled when the team has units).
+9. ✅ Tests: patrol oscillation, stop-cancels-patrol, patrol acquires hostile (headless);
+   env patrol action sets order + mask; deterministic patrol replay.
 
-**Exit criteria:** units can patrol between two waypoints, stop when given a manual
-order, resume patrol when stopped, and the order state is visible in observations.
+**Design deviations from the plan (intentional):**
+- **Additive, not a rewrite.** The low-level state machine (`state`, `target_entity`,
+  `path`, `attack_move_destination`, `source_resource`) remains the execution mechanism.
+  `Order` is a descriptive layer set by the order helpers — this keeps determinism and
+  all existing tests green (hard rule #6, small verified steps). A full flag-removal
+  refactor is deferred to Sprint 5 (GameManager/Simulation decomposition).
+- **Hotkey `T`, not `P`.** `P` is already bound to pause in the game client. Patrol uses
+  `T`; the command-panel button is the primary discoverable path.
+- **Patrol reuses attack-move acquisition.** A patrol leg sets `attack_move_destination`,
+  so units acquire hostiles en route for free; `_update_patrol` flips to the farther
+  waypoint when a leg completes.
+
+**Exit criteria:** ✅ units patrol between two waypoints, divert to hostiles encountered
+en route and resume, stop when given a manual order, and expose `order == "patrol"` in
+observations. Full gate green: ruff, ruff format, ty, 58 pytest passing.
 
 ---
 
@@ -330,12 +348,13 @@ The game is considered functionally complete when:
 
 ## 7. Immediate Next Task
 
-Sprint 1 is complete. Start Sprint 2: the formal `Order` model + Patrol.
+Sprints 1 and 2 are complete. Start Sprint 3: Defense Tower + combat hardening.
 
-Begin with task 1: define an `Order` dataclass and have units hold a
-`current_order`, migrating the existing scattered flags (`state`,
-`target_entity`, `attack_move_destination`, `source_resource`) behind it without
-breaking the current order helpers in `manager.py` and `orders.py`.
+Begin with the `Tower` entity (a `Building` subclass with auto-attack-only
+behavior), register it in `ConstructionSystem`, then add fog-aware targeting so
+units and towers only auto-acquire enemies visible to their team's fog grid.
+The combat tick should move toward a stateless `CombatSystem` that takes the
+entity list plus fog grid and returns damage events.
 
 ---
 

@@ -16,6 +16,7 @@ type ActionKind = Literal[
     "no_op",
     "move",
     "attack_move",
+    "patrol",
     "attack",
     "gather",
     "deposit",
@@ -50,6 +51,16 @@ class MoveAction:
 @dataclass(frozen=True, slots=True)
 class AttackMoveAction:
     """Move a team's units while acquiring hostile targets along the route."""
+
+    team: TeamColor
+    destination: WorldPoint
+    unit_ids: tuple[EntityId, ...] = ()
+    frames: int = 1
+
+
+@dataclass(frozen=True, slots=True)
+class PatrolAction:
+    """Patrol a team's units between their position and a world-space point."""
 
     team: TeamColor
     destination: WorldPoint
@@ -171,6 +182,7 @@ type Action = (
     NoOpAction
     | MoveAction
     | AttackMoveAction
+    | PatrolAction
     | AttackAction
     | GatherAction
     | DepositAction

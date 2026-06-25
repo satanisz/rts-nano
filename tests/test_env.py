@@ -13,6 +13,7 @@ from rts_nano.actions import (
     ConstructAction,
     GatherAction,
     HoldAction,
+    PatrolAction,
     ReturnCargoAction,
     StopAction,
 )
@@ -394,6 +395,24 @@ def test_env_action_mask_exposes_mage_tower_construction() -> None:
     env.close()
 
 
+def test_env_patrol_action_sets_order_and_exposes_mask() -> None:
+    """PatrolAction is legal, applies a patrol order, and surfaces in observations."""
+    settings = _settings()
+    settings["Blue"]["peasant"] = []
+    settings["Blue"]["knight"] = [[40, 150]]
+    env = RtsNanoEnv(settings=settings)
+
+    specs = {(spec.kind, spec.team): spec for spec in env.action_mask(TeamColor.BLUE)}
+    assert specs[("patrol", "Blue")].enabled is True
+
+    result = env.step(PatrolAction(TeamColor.BLUE, (300, 150), frames=1))
+
+    knight = next(entity for entity in result.observation.entities if entity.kind == "Knight")
+    assert knight.order == "patrol"
+
+    env.close()
+
+
 def test_env_reports_game_over_when_one_team_remains() -> None:
     """Eliminating every rival entity drives the env to a terminal win state."""
     env = RtsNanoEnv(settings=_settings())
@@ -439,3 +458,24 @@ def test_env_replays_same_action_sequence_deterministically() -> None:
     first_run = run_sequence()
     assert first_run == run_sequence()
     assert first_run[-1]["teams"][0]["units"] == 2
+
+
+def test_env_replays_patrol_sequence_deterministically() -> None:
+    """A patrol order replays to identical observations across runs."""
+
+    def run_sequence() -> list[dict[str, object]]:
+        settings = _settings()
+        settings["Blue"]["peasant"] = []
+        settings["Blue"]["knight"] = [[40, 150]]
+        env = RtsNanoEnv(settings=settings)
+        env.reset(seed=5)
+        snapshots = [env.observe().to_dict()]
+        snapshots.append(env.step(PatrolAction(TeamColor.BLUE, (220, 150), frames=40)).observation.to_dict())
+        snapshots.append(env.step(NoOpAction(frames=40)).observation.to_dict())
+        env.close()
+        return snapshots
+
+    first_run = run_sequence()
+    assert first_run == run_sequence()
+    knight = next(entity for entity in first_run[-1]["entities"] if entity["kind"] == "Knight")
+    assert knight["order"] == "patrol"

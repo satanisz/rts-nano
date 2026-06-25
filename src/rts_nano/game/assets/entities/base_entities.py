@@ -18,6 +18,8 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
+
+    from rts_nano.game.order import Order
 from abc import ABC
 from enum import StrEnum
 from pathlib import Path
@@ -352,6 +354,8 @@ class Unit(Entity, ABC):
         self.last_attack_event: tuple[tuple[float, float], tuple[float, float], AttackType, Entity] | None = None
         self.path: list[tuple[float, float]] = []
         self.attack_move_destination: tuple[float, float] | None = None
+        self.patrol_points: tuple[tuple[float, float], tuple[float, float]] | None = None
+        self.current_order: Order | None = None
         self.state = "IDLE"
         self.progress_anchor_x: float = float(x)
         self.progress_anchor_y: float = float(y)

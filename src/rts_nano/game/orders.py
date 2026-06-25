@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from rts_nano.game.assets.entities.base_entities import Building, Entity, Unit
 from rts_nano.game.assets.entities.units import Peasant
+from rts_nano.game.order import Order, OrderKind
 from rts_nano.game.rules import distance_between_points, nearest_entity
 
 if TYPE_CHECKING:
@@ -61,6 +62,7 @@ class OrderSystem:
     ) -> int:
         """Assign a move order to team units and return the affected count."""
         ordered_units = self._order_units_for_team(team, units)
+        self._tag_order(ordered_units, "move", destination)
         self._manager._assign_group_move_order(ordered_units, (int(destination[0]), int(destination[1])))
         return len(ordered_units)
 
@@ -75,6 +77,7 @@ class OrderSystem:
         if not ordered_units:
             return 0
 
+        self._tag_order(ordered_units, "attack_move", destination)
         center = (int(destination[0]), int(destination[1]))
         slots = self._manager._formation_destinations(center, len(ordered_units))
         remaining_slots = slots.copy()
@@ -88,6 +91,31 @@ class OrderSystem:
             unit.attack_move_destination = slot
         return len(ordered_units)
 
+    def issue_patrol_order(
+        self,
+        team: TeamColor,
+        destination: tuple[float, float],
+        units: Iterable[Unit] | None = None,
+    ) -> int:
+        """Patrol team units between their current position and a destination.
+
+        Patrol reuses the attack-move acquisition machinery by keeping
+        ``attack_move_destination`` pointed at the active leg, and stores the two
+        waypoints in ``patrol_points`` so the manager can flip legs on arrival.
+        """
+        ordered_units = self._order_units_for_team(team, units)
+        if not ordered_units:
+            return 0
+
+        dest = (int(destination[0]), int(destination[1]))
+        self._tag_order(ordered_units, "patrol", dest)
+        for unit in ordered_units:
+            origin = unit.get_center()
+            unit.patrol_points = (origin, dest)
+            self._manager._assign_unit_target(unit, dest)
+            unit.attack_move_destination = dest
+        return len(ordered_units)
+
     def issue_target_order(
         self,
         team: TeamColor,
@@ -97,6 +125,8 @@ class OrderSystem:
         """Assign a target interaction order and return the affected count."""
         ordered_units = self._order_units_for_team(team, units)
         target_center = target.get_center()
+        hostile = getattr(target, "team", team) != team
+        self._tag_order(ordered_units, "attack" if hostile else "move", target_center)
         for unit in ordered_units:
             self._manager._assign_unit_target(unit, target_center, target)
         return len(ordered_units)
@@ -111,6 +141,7 @@ class OrderSystem:
         if resource.amount <= 0:
             return 0
         ordered_peasants = [unit for unit in self._order_units_for_team(team, units) if isinstance(unit, Peasant)]
+        self._tag_order(ordered_peasants, "gather", resource.get_center())
         for peasant in ordered_peasants:
             self._manager._assign_unit_target(peasant, resource.get_center(), resource)
         return len(ordered_peasants)
@@ -118,6 +149,7 @@ class OrderSystem:
     def issue_stop_order(self, team: TeamColor, units: Iterable[Unit] | None = None) -> int:
         """Stop team units and clear their active targets."""
         ordered_units = self._order_units_for_team(team, units)
+        self._tag_order(ordered_units, "stop")
         for unit in ordered_units:
             unit.target_entity = None
             unit.source_resource = None
@@ -129,6 +161,7 @@ class OrderSystem:
     def issue_hold_order(self, team: TeamColor, units: Iterable[Unit] | None = None) -> int:
         """Hold team units in place and clear their active targets."""
         ordered_units = self._order_units_for_team(team, units)
+        self._tag_order(ordered_units, "hold")
         for unit in ordered_units:
             unit.target_entity = None
             unit.source_resource = None
@@ -158,6 +191,7 @@ class OrderSystem:
             for unit in self._order_units_for_team(team, units)
             if isinstance(unit, Peasant) and (unit.carry_wood > 0 or unit.carry_gold > 0)
         ]
+        self._tag_order(ordered_peasants, "return_cargo")
         affected = 0
         for peasant in ordered_peasants:
             target_base = base if base is not None else nearest_entity(peasant, bases)
@@ -207,3 +241,20 @@ class OrderSystem:
         """Normalize an optional unit iterable to units owned by a team."""
         source_units = self.units_for_team(team) if units is None else units
         return [unit for unit in source_units if unit.team == team and unit.life > 0]
+
+    @staticmethod
+    def _tag_order(
+        units: Iterable[Unit],
+        kind: OrderKind,
+        destination: tuple[float, float] | None = None,
+    ) -> None:
+        """Record the high-level intent on units and cancel any active patrol.
+
+        Patrol is the only order that keeps ``patrol_points`` set, so every other
+        order clears it here. This keeps a manual command an unambiguous override
+        of an in-progress patrol without touching the low-level state machine.
+        """
+        for unit in units:
+            unit.current_order = Order(kind, destination)
+            if kind != "patrol":
+                unit.patrol_points = None
