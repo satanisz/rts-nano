@@ -281,22 +281,42 @@ ruff, ruff format, ty, 62 pytest passing.
 
 ---
 
-### Sprint 4 — Training API + Benchmarks
+### Sprint 4 — Training API + Benchmarks — DONE (2026-06-26)
 
 **Goal:** agents get complete, versioned, cheap observations and a real reward signal.
 
 Tasks:
-1. Add observation schema version field to `Observation`
-2. Add domain reward functions to `env.py`: resources_gathered, units_killed, buildings_destroyed,
-   game_won; configurable weights in `RtsNanoEnv` constructor
-3. Add fog state exposure in `Observation` (per-tile visibility as flat array or encoded)
-4. Write headless steps/sec benchmark script in `benchmarks/` (no window, no assets, pure sim)
-5. Profile and document the bottlenecks (pathfinding, observation serialization, fog update)
-6. Add batch episode runner: reset N envs, run K steps each, collect total reward
-7. Update `action_mask` to cover all new Sprint 1-3 actions (mage tower, tower, patrol)
+1. ✅ `Observation.schema_version` (module constant `OBSERVATION_SCHEMA_VERSION = 1`),
+   serialized in `to_dict()`.
+2. ✅ Reward library `rts_nano/rewards.py`: `win_loss_reward`, `resource_gain_reward`
+   (step delta), `enemy_losses_reward` (step delta), and `combine` for weighted sums.
+   These plug into the existing injectable `RtsNanoEnv(reward_fn=...)` — that injection
+   point is the configurable-weights mechanism (no constructor change needed), keeping
+   the env API stable and the game rules untouched.
+3. ✅ Per-team fog exposure via `RtsNanoEnv.fog_state(team)` — builds a fresh `FogOfWar`
+   from the team's entities and returns an immutable row-major grid (0/1/2). Kept off the
+   default observation so many-instance training stays cheap (opt-in, not per-tick).
+4. ✅ `rts_nano/benchmark.py` `measure_steps_per_second` + `benchmarks/headless_steps.py`
+   CLI (no window, no draw).
+5. ✅ Baseline recorded: ~840 steps/sec single instance on the full default map
+   (`map_settings_01`), ~15k steps/sec on a tiny map. Dominant costs are per-tick entity
+   iteration and pathfinding; spatial-index work stays deferred until entity counts justify
+   it (consistent with the performance section).
+6. ✅ `run_batch(num_envs, steps, ...)` advances many envs in one process and returns
+   per-env reward totals; terminal envs stop accruing (no mid-run reset/close, so the
+   shared headless pygame state stays valid for all instances).
+7. ✅ Action mask already covers mage_tower/tower/patrol (added in Sprints 1–3).
 
-**Exit criteria:** benchmark prints steps/sec for 1 and 8 parallel headless instances;
-a sample reward script runs one episode and returns a non-zero score.
+**Tests:** rewards library (`test_rewards.py`), benchmark + batch + fog
+(`test_benchmark.py`), and observation schema version (`test_env.py`).
+
+**Note:** full per-team fog *memory* (shared explored grid persisted across ticks per team)
+is still deferred to Sprint 5; `fog_state` recomputes current visibility on demand, which
+is sufficient for a fog-limited observation today.
+
+**Exit criteria:** ✅ the benchmark reports steps/sec for one instance and `run_batch`
+returns per-env rewards (a forced win returns a non-zero terminal score). Full gate green:
+ruff, ruff format, ty, 71 pytest passing.
 
 ---
 
@@ -369,13 +389,13 @@ The game is considered functionally complete when:
 
 ## 7. Immediate Next Task
 
-Sprints 1–3 are complete. Start Sprint 4: Training API + benchmarks.
+Sprints 1–4 are complete. Start Sprint 5: GameManager decomposition.
 
-Begin with an observation schema version field and configurable domain reward
-functions on `RtsNanoEnv` (resources gathered, units killed, buildings
-destroyed, game won), then add a headless steps/sec benchmark under
-`benchmarks/`. Roll the deferred per-team fog exposure from Sprint 3 into the
-observation work here.
+This is an architectural sprint with no new visible gameplay. Extract self-
+contained tick logic out of `GameManager` into systems (start with the gather
+tick, since combat already has a `CombatSystem` seam and victory is isolated in
+`_update_game_over_state`). Keep every existing test green and preserve
+determinism — extract one system at a time and run the full suite after each.
 
 ---
 

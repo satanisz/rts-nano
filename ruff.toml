@@ -15,6 +15,8 @@ ignore = ["E501","W191","E111","E114","E117","B008","C901","D100","D104"]
 "__init__.py"  = ["F401"]
 "tests/**/*.py" = ["S101","D101","D102","D103"]
 "migrations/*" = ["E501"]
+"benchmarks/*" = ["T201"]
+"src/rts_nano/benchmark.py" = ["T201"]
 
 [lint.isort]
 section-order = ["future","standard-library","third-party","first-party","local-folder"]

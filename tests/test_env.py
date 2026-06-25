@@ -66,6 +66,19 @@ def test_env_observation_is_serializable_snapshot() -> None:
     env.close()
 
 
+def test_observation_reports_schema_version() -> None:
+    """Observations carry a serializable schema version for contract tracking."""
+    from rts_nano.game.observations import OBSERVATION_SCHEMA_VERSION
+
+    env = RtsNanoEnv(settings=_settings())
+    observation = env.observe()
+
+    assert observation.schema_version == OBSERVATION_SCHEMA_VERSION
+    assert observation.to_dict()["schema_version"] == OBSERVATION_SCHEMA_VERSION
+
+    env.close()
+
+
 def test_observation_builder_keeps_stable_entity_ids() -> None:
     """Observation builder owns stable IDs outside the environment facade."""
     simulation = HeadlessSimulation.from_settings(_settings())

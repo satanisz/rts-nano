@@ -14,6 +14,9 @@ if TYPE_CHECKING:
 
 type EntityId = str
 
+OBSERVATION_SCHEMA_VERSION = 1
+"""Version of the observation contract. Bump when fields change meaning."""
+
 
 @dataclass(frozen=True, slots=True)
 class TeamSnapshot:
@@ -71,6 +74,7 @@ class Observation:
     game_over: str | None
     teams: tuple[TeamSnapshot, ...]
     entities: tuple[EntitySnapshot, ...]
+    schema_version: int = OBSERVATION_SCHEMA_VERSION
 
     def to_dict(self) -> dict[str, object]:
         """Return a plain dictionary suitable for JSON serialization."""

@@ -37,6 +37,7 @@ from rts_nano.game.assets.entities import TeamColor
 from rts_nano.game.assets.entities.base_entities import Building, Unit
 from rts_nano.game.assets.entities.units import Peasant
 from rts_nano.game.data import UNIT_SPECS
+from rts_nano.game.fog import FogOfWar
 from rts_nano.game.observations import (
     EntityId,
     EntityIdRegistry,
@@ -173,6 +174,21 @@ class RtsNanoEnv:
     def observe(self) -> Observation:
         """Return a serializable snapshot of the current simulation state."""
         return build_observation(self._require_simulation().manager, self._tick, self._entity_ids)
+
+    def fog_state(self, team: TeamColor | str | None = None) -> tuple[tuple[int, ...], ...]:
+        """Return a per-team fog visibility grid as an immutable row-major grid.
+
+        This is an opt-in observation variant kept out of the default snapshot so
+        many-instance training stays cheap. A fresh ``FogOfWar`` is computed from
+        the requested team's entities, leaving the renderer's own fog untouched.
+        Cells are ``0`` unexplored, ``1`` explored, ``2`` visible.
+        """
+        manager = self._require_simulation().manager
+        team_enum = self._normalize_team(team) or manager.current_team
+        group = manager.entities.get(team_enum)
+        fog = FogOfWar(manager.map_width, manager.map_height)
+        fog.update(group.all_entities if group is not None else [])
+        return tuple(tuple(row) for row in fog.grid)
 
     def available_actions(self) -> tuple[ActionSpec, ...]:
         """Return currently legal action families."""
