@@ -45,9 +45,11 @@ from rts_nano.game.assets.entities import (
     MageTower,
     Peasant,
     TeamColor,
+    Tower,
     Wood,
 )
 from rts_nano.game.assets.entities.base_entities import Building, Entity, Resource, Unit
+from rts_nano.game.combat import CombatSystem
 from rts_nano.game.constants import (
     BLACK,
     BLUE,
@@ -235,6 +237,7 @@ class EntitiesGroup:
         self.barracks: list[Barracks] = []
         self.houses: list[House] = []
         self.mage_towers: list[MageTower] = []
+        self.towers: list[Tower] = []
         self.peasents: list[Peasant] = []
         self.knights: list[Knight] = []
         self.archers: list[Archer] = []
@@ -248,6 +251,7 @@ class EntitiesGroup:
         all_ents.extend(self.barracks)
         all_ents.extend(self.houses)
         all_ents.extend(self.mage_towers)
+        all_ents.extend(self.towers)
         all_ents.extend(self.peasents)
         all_ents.extend(self.knights)
         all_ents.extend(self.archers)
@@ -286,6 +290,7 @@ class EntityFactory:
         "barracks": Barracks,
         "house": House,
         "mage_tower": MageTower,
+        "tower": Tower,
     }
     _NEUTRAL_ENTITY_TYPES: dict[str, Callable[[int, int], Entity]] = {
         "wood": Wood,
@@ -372,6 +377,7 @@ class GameManager:
         self.pending_unit_command: str | None = None
         self.production = ProductionSystem(self)
         self.construction = ConstructionSystem(self)
+        self.combat = CombatSystem(self)
         self.orders = OrderSystem(self)
         self.game_over_message: str | None = None
         self.menu_status: str | None = None
@@ -409,7 +415,17 @@ class GameManager:
         removed_entities: set[int] = set()
 
         for group in self.entities.values():
-            for attr_name in ("peasents", "knights", "archers", "mages", "bases", "barracks", "houses", "mage_towers"):
+            for attr_name in (
+                "peasents",
+                "knights",
+                "archers",
+                "mages",
+                "bases",
+                "barracks",
+                "houses",
+                "mage_towers",
+                "towers",
+            ):
                 entities = getattr(group, attr_name)
                 alive_entities = [entity for entity in entities if entity.life > 0]
                 removed_entities.update(id(entity) for entity in entities if entity.life <= 0)
@@ -647,7 +663,7 @@ class GameManager:
             return 0
 
         population_cap = 0
-        for building in (*group.bases, *group.barracks, *group.houses, *group.mage_towers):
+        for building in (*group.bases, *group.barracks, *group.houses, *group.mage_towers, *group.towers):
             if building.life <= 0 or building.is_under_construction:
                 continue
             try:
@@ -966,6 +982,8 @@ class GameManager:
                             group.houses.append(entity)
                         case MageTower():
                             group.mage_towers.append(entity)
+                        case Tower():
+                            group.towers.append(entity)
                         case Wood():
                             self.resources.woods.append(entity)
                         case Gold():
@@ -1408,6 +1426,10 @@ class GameManager:
 
         self.construction.update()
         self.production.update()
+        for source_pos, target_pos, target in self.combat.update():
+            self.archer_shots.append(
+                ArcherShot(source_pos[0], source_pos[1], target_pos[0], target_pos[1], target_entity=target)
+            )
         self._remove_dead_entities()
         self._update_entity_height_levels()
         self._update_game_over_state()
@@ -1760,7 +1782,11 @@ class GameManager:
         if team_group:
             res = team_group.resources
             num_buildings = (
-                len(team_group.bases) + len(team_group.barracks) + len(team_group.houses) + len(team_group.mage_towers)
+                len(team_group.bases)
+                + len(team_group.barracks)
+                + len(team_group.houses)
+                + len(team_group.mage_towers)
+                + len(team_group.towers)
             )
             num_units = (
                 len(team_group.peasents) + len(team_group.knights) + len(team_group.archers) + len(team_group.mages)

@@ -381,6 +381,65 @@ def test_worker_constructs_mage_tower_and_trains_mage() -> None:
     simulation.close()
 
 
+def _tower_combat_settings() -> MapSettings:
+    """Map with a completed Blue tower and the rival base out of tower range."""
+    settings = _settings()
+    settings["Blue"]["peasant"] = []
+    settings["Blue"]["tower"] = [[150, 150]]
+    settings["Red"]["knight"] = [[250, 150]]
+    settings["Red"]["base"] = [[380, 280]]
+    return settings
+
+
+def test_tower_auto_attacks_enemy_in_range() -> None:
+    """A completed tower damages a hostile unit inside its attack range."""
+    simulation = HeadlessSimulation.from_settings(_tower_combat_settings())
+    manager = simulation.manager
+    tower = manager.entities[TeamColor.BLUE].towers[0]
+    enemy = manager.entities[TeamColor.RED].knights[0]
+
+    assert tower.is_under_construction is False
+    start_life = enemy.life
+
+    simulation.step(180)
+
+    assert enemy.life < start_life
+    simulation.close()
+
+
+def test_tower_does_not_attack_while_under_construction() -> None:
+    """An unfinished tower deals no damage even with an enemy in range."""
+    simulation = HeadlessSimulation.from_settings(_tower_combat_settings())
+    manager = simulation.manager
+    tower = manager.entities[TeamColor.BLUE].towers[0]
+    enemy = manager.entities[TeamColor.RED].knights[0]
+
+    tower.start_construction(240)
+    assert tower.is_under_construction is True
+    start_life = enemy.life
+
+    simulation.step(180)
+
+    assert enemy.life == start_life
+    simulation.close()
+
+
+def test_tower_ignores_enemy_beyond_attack_range() -> None:
+    """A tower does not fire at hostiles outside its attack reach."""
+    settings = _tower_combat_settings()
+    settings["Red"]["knight"] = [[380, 150]]
+    simulation = HeadlessSimulation.from_settings(settings)
+    manager = simulation.manager
+    enemy = manager.entities[TeamColor.RED].knights[0]
+
+    start_life = enemy.life
+
+    simulation.step(180)
+
+    assert enemy.life == start_life
+    simulation.close()
+
+
 def test_completed_house_increases_population_cap() -> None:
     """Only completed support buildings increase population capacity."""
     simulation = HeadlessSimulation.from_settings(_settings())

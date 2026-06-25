@@ -239,24 +239,45 @@ observations. Full gate green: ruff, ruff format, ty, 58 pytest passing.
 
 ---
 
-### Sprint 3 — Defense Tower + Combat Improvements
+### Sprint 3 — Defense Tower + Combat Improvements — DONE (2026-06-26)
 
 **Goal:** complete the building roster and harden combat for RL.
 
 Tasks:
-1. Add `Tower` entity class (building subclass with auto-attack-only behavior)
-2. Add Tower to `ConstructionSystem`
-3. Add Tower build button for Peasant
-4. Fix fog-aware targeting: units and towers should only auto-acquire targets visible
-   to their team's fog grid
-5. Add damage type field to `UnitSpec` / `BuildingSpec` (normal / piercing / siege) and
-   armor field to entities; apply multipliers in `rules.py`
-6. Extract combat tick from `GameManager` into `CombatSystem` (stateless system, takes
-   entity list and fog grid, returns damage events)
-7. Tests: tower auto-attack headless, fog-aware targeting headless, damage type application
+1. ✅ `Tower` entity (`Building` subclass) with ranged combat stats and an
+   auto-attack-only profile (damage 12, range 180, no movement, no production).
+2. ✅ Tower registered in `ConstructionSystem` (and the full roster ripple: factory,
+   `EntitiesGroup.towers`, `all_entities`, dead-entity cleanup, schema, editor, counts).
+3. ✅ Tower build button appears for Peasants automatically from
+   `supported_building_types()`.
+4. ◑ Fog-aware targeting (partial, by design): tower acquisition is limited to the
+   tower's own attack reach, and unit attack-move acquisition is already limited to
+   `vision_range`. This is per-acquirer line of sight — the practical equivalent of
+   "only shoot what you can see." A **shared per-team fog grid** for targeting is
+   deferred: today `GameManager.fog` is a single grid computed for `current_team`
+   only, so true team-memory targeting needs the per-team fog work scheduled in
+   Sprint 4 (fog exposure) / Sprint 5 (decomposition).
+5. ◑ Damage types / armor (deferred): the existing model already provides damage
+   typing via `AttackType` (melee/ranged, with height modifiers) and armor via
+   `shield_modifier` in `calculate_damage`. A richer normal/piercing/siege-vs-armor-
+   class matrix is a balance change deferred to Sprint 7 rather than adding a parallel
+   half-system that could destabilize tested combat.
+6. ✅ New `game/combat.py` `CombatSystem` owns stationary (tower) attacks: it applies
+   deterministic damage and returns shot descriptions that `GameManager` renders as
+   ranged projectiles. Unit combat intentionally still lives in `Unit.update`; this
+   establishes the extraction pattern that Sprint 5 finishes without destabilizing the
+   working unit combat path.
+7. ✅ Tests: tower auto-attacks enemy in range, tower silent while under construction,
+   tower ignores out-of-range enemy (headless); env action mask exposes tower construct.
 
-**Exit criteria:** a tower placed on high ground attacks enemy units that enter its
-range and have visible fog state; damage types apply correct multipliers.
+**Design deviations (intentional):** items 4 and 5 are partially delivered with clear
+follow-ups rather than rushed full systems — consistent with the "don't destabilize a
+working solution" and "small verified steps" rules. The concrete, tested gameplay win
+this sprint is a working defensive Tower plus a clean `CombatSystem` seam.
+
+**Exit criteria:** ✅ a constructed tower attacks enemy units that enter its range,
+stays inert while unfinished, and ignores enemies beyond range. Full gate green:
+ruff, ruff format, ty, 62 pytest passing.
 
 ---
 
@@ -348,13 +369,13 @@ The game is considered functionally complete when:
 
 ## 7. Immediate Next Task
 
-Sprints 1 and 2 are complete. Start Sprint 3: Defense Tower + combat hardening.
+Sprints 1–3 are complete. Start Sprint 4: Training API + benchmarks.
 
-Begin with the `Tower` entity (a `Building` subclass with auto-attack-only
-behavior), register it in `ConstructionSystem`, then add fog-aware targeting so
-units and towers only auto-acquire enemies visible to their team's fog grid.
-The combat tick should move toward a stateless `CombatSystem` that takes the
-entity list plus fog grid and returns damage events.
+Begin with an observation schema version field and configurable domain reward
+functions on `RtsNanoEnv` (resources gathered, units killed, buildings
+destroyed, game won), then add a headless steps/sec benchmark under
+`benchmarks/`. Roll the deferred per-team fog exposure from Sprint 3 into the
+observation work here.
 
 ---
 

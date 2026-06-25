@@ -413,6 +413,20 @@ def test_env_patrol_action_sets_order_and_exposes_mask() -> None:
     env.close()
 
 
+def test_env_action_mask_exposes_tower_construction() -> None:
+    """Action masks expose the defensive Tower as a worker-constructable building."""
+    env = RtsNanoEnv(settings=_settings())
+    manager = env._require_simulation().manager
+    manager.entities[TeamColor.BLUE].resources.update({"wood": 150, "gold": 80})
+
+    specs = {(spec.kind, spec.team, spec.building_type): spec for spec in env.action_mask(TeamColor.BLUE)}
+
+    assert ("construct", "Blue", "tower") in specs
+    assert specs[("construct", "Blue", "tower")].enabled is True
+
+    env.close()
+
+
 def test_env_reports_game_over_when_one_team_remains() -> None:
     """Eliminating every rival entity drives the env to a terminal win state."""
     env = RtsNanoEnv(settings=_settings())

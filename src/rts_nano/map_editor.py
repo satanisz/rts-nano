@@ -64,6 +64,7 @@ ENTITY_TOOLS = {
     "blue_barracks",
     "blue_house",
     "blue_mage_tower",
+    "blue_tower",
     "blue_peasant",
     "blue_knight",
     "blue_archer",
@@ -72,6 +73,7 @@ ENTITY_TOOLS = {
     "red_barracks",
     "red_house",
     "red_mage_tower",
+    "red_tower",
     "red_peasant",
     "red_knight",
     "red_archer",
@@ -95,6 +97,8 @@ TOOL_KEYS = {
     pygame.K_h: "red_house",
     pygame.K_z: "blue_mage_tower",
     pygame.K_c: "red_mage_tower",
+    pygame.K_v: "blue_tower",
+    pygame.K_b: "red_tower",
     pygame.K_q: "blue_peasant",
     pygame.K_w: "blue_knight",
     pygame.K_e: "blue_archer",
@@ -123,6 +127,8 @@ TOOL_LABELS = {
     "red_house": "H Red house",
     "blue_mage_tower": "Z Blue mage tower",
     "red_mage_tower": "C Red mage tower",
+    "blue_tower": "V Blue tower",
+    "red_tower": "B Red tower",
     "blue_peasant": "Q Blue peasant",
     "blue_knight": "W Blue knight",
     "blue_archer": "E Blue archer",
@@ -200,6 +206,7 @@ class MapEditor:
                 "barracks": [],
                 "house": [],
                 "mage_tower": [],
+                "tower": [],
                 "knight": [],
                 "archer": [],
                 "mage": [],
@@ -210,6 +217,7 @@ class MapEditor:
                 "barracks": [],
                 "house": [],
                 "mage_tower": [],
+                "tower": [],
                 "knight": [],
                 "archer": [],
                 "mage": [],
@@ -766,7 +774,7 @@ class MapEditor:
                     if not isinstance(point, list):
                         continue
                     pos = self._world_to_screen(cast("Sequence[int]", point))
-                    size = 24 if entity_name in {"base", "barracks", "house", "mage_tower"} else 12
+                    size = 24 if entity_name in {"base", "barracks", "house", "mage_tower", "tower"} else 12
                     rect = pygame.Rect(0, 0, size, size)
                     rect.center = pos
                     pygame.draw.rect(screen, color, rect, width=2)
