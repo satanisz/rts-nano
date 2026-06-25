@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, ClassVar
 
 from rts_nano.game.assets.entities.base_entities import Building, Entity, TeamColor
-from rts_nano.game.assets.entities.buildings import Barracks, House
+from rts_nano.game.assets.entities.buildings import Barracks, House, MageTower
 from rts_nano.game.data import CONSTRUCTION_REFUND_RATIO, ResourceCost, get_building_spec
 from rts_nano.game.rules import distance_between_points
 
@@ -20,10 +20,12 @@ class ConstructionSystem:
     _BUILDING_FACTORIES: ClassVar[dict[str, type[Building]]] = {
         "barracks": Barracks,
         "house": House,
+        "mage_tower": MageTower,
     }
     _BUILDING_ROSTERS: ClassVar[dict[str, str]] = {
         "barracks": "barracks",
         "house": "houses",
+        "mage_tower": "mage_towers",
     }
 
     def __init__(self, manager: GameManager) -> None:

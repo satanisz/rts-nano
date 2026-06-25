@@ -42,3 +42,12 @@ class House(Building):
         """Initialize the object."""
         super().__init__(x, y, team)
         self.spec_key = "house"
+
+
+class MageTower(Building):
+    """Represent an advanced production building that trains mages."""
+
+    def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
+        """Initialize the object."""
+        super().__init__(x, y, team)
+        self.spec_key = "mage_tower"

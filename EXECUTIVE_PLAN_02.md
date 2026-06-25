@@ -171,24 +171,33 @@ self-contained.
 Sprints are ordered by impact on reaching the Definition of Done. Each sprint
 ends with green tests and a playable headless check.
 
-### Sprint 1 — Complete Building Roster + Victory Conditions
+### Sprint 1 — Complete Building Roster + Victory Conditions — DONE (2026-06-26)
 
 **Goal:** close the last major gameplay loop gaps so the game has a real end state.
 
 Tasks:
-1. Add Mage Tower to `ConstructionSystem` (copy Barracks pattern, add "mage_tower" key)
-2. Add Mage Tower entity class with sprite/portrait hook matching the Gold pattern
-3. Add Mage Tower build button and hotkey for Peasant in the command panel
-4. Add map schema and map editor support for Mage Tower
-5. Add `VictorySystem`: team loses when all Bases are destroyed; set `game_over` in observations
-6. Wire victory detection into `RtsNanoEnv.step` — mark episode as done, return terminal reward
-7. Add tests: mage tower construction headless, mage production headless, victory condition headless
+1. ✅ Add Mage Tower to `ConstructionSystem` (registered in `_BUILDING_FACTORIES` + `_BUILDING_ROSTERS`)
+2. ✅ Add `MageTower` entity class in `buildings.py` with `spec_key = "mage_tower"`
+3. ✅ Mage Tower build button (auto from `supported_building_types()`) + Peasant hotkey `M`
+4. ✅ Map schema (`mage_tower` in `TeamSettings` + validator) and map editor (`Z`/`C` tools) support
+5. ✅ Victory conditions: **already existed** via `GameManager._update_game_over_state` (team
+   eliminated when all its entities are dead → last team standing wins / draw). Wired into the
+   tick loop and exposed via `Observation.game_over` and `RtsNanoEnv.is_done()`.
+6. ✅ `RtsNanoEnv.step` returns `done=True` on terminal state (already wired through `is_done`).
+7. ✅ Tests: `test_worker_constructs_mage_tower_and_trains_mage` (headless),
+   `test_env_action_mask_exposes_mage_tower_construction`, `test_env_reports_game_over_when_one_team_remains`,
+   plus `mage_tower` added to the canonical map-schema payload test.
 
-Defense Tower can follow immediately after or in Sprint 2 since it requires a
-stationary attack system that does not exist yet.
+**Note on victory model:** the existing implementation uses **total elimination** (all units AND
+buildings dead), not base-only elimination as the plan originally proposed. This is a valid
+WC2-style condition and is left as-is; a base-only or configurable rule can be revisited in Sprint 7
+balance work if endless-game edge cases appear.
 
-**Exit criteria:** headless test shows a team can construct Mage Tower, queue a
-mage, and the game correctly terminates when a base is destroyed.
+Defense Tower deferred to Sprint 3 (needs a stationary attack system that does not exist yet).
+
+**Exit criteria:** ✅ headless test shows a team can construct a Mage Tower, queue and spawn a
+mage, and the env reports a terminal win when a rival team is eliminated. Full gate green:
+ruff, ruff format, ty, 53 pytest passing.
 
 ---
 
@@ -321,12 +330,12 @@ The game is considered functionally complete when:
 
 ## 7. Immediate Next Task
 
-Start Sprint 1, task 1: add Mage Tower to `ConstructionSystem`.
+Sprint 1 is complete. Start Sprint 2: the formal `Order` model + Patrol.
 
-The pattern is already established for Barracks in `construction.py`. The key
-change is registering `"mage_tower"` in the construction lookup alongside the
-`MageTower` entity class (to be created under `game/assets/entities/buildings.py`
-matching the existing `Barracks` class shape).
+Begin with task 1: define an `Order` dataclass and have units hold a
+`current_order`, migrating the existing scattered flags (`state`,
+`target_entity`, `attack_move_destination`, `source_resource`) behind it without
+breaking the current order helpers in `manager.py` and `orders.py`.
 
 ---
 

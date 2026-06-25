@@ -134,7 +134,7 @@ class ProductionSystem:
         live_producers = {
             producer
             for group in self._manager.entities.values()
-            for producer in (*group.bases, *group.barracks)
+            for producer in (*group.bases, *group.barracks, *group.mage_towers)
             if producer.life > 0 and not producer.is_under_construction
         }
         for producer in tuple(self._queues):

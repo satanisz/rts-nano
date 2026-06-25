@@ -34,7 +34,19 @@ from typing import TYPE_CHECKING, cast
 
 import pygame
 
-from rts_nano.game.assets.entities import Archer, Barracks, Base, Gold, House, Knight, Mage, Peasant, TeamColor, Wood
+from rts_nano.game.assets.entities import (
+    Archer,
+    Barracks,
+    Base,
+    Gold,
+    House,
+    Knight,
+    Mage,
+    MageTower,
+    Peasant,
+    TeamColor,
+    Wood,
+)
 from rts_nano.game.assets.entities.base_entities import Building, Entity, Resource, Unit
 from rts_nano.game.constants import (
     BLACK,
@@ -222,6 +234,7 @@ class EntitiesGroup:
         self.bases: list[Base] = []
         self.barracks: list[Barracks] = []
         self.houses: list[House] = []
+        self.mage_towers: list[MageTower] = []
         self.peasents: list[Peasant] = []
         self.knights: list[Knight] = []
         self.archers: list[Archer] = []
@@ -234,6 +247,7 @@ class EntitiesGroup:
         all_ents.extend(self.bases)
         all_ents.extend(self.barracks)
         all_ents.extend(self.houses)
+        all_ents.extend(self.mage_towers)
         all_ents.extend(self.peasents)
         all_ents.extend(self.knights)
         all_ents.extend(self.archers)
@@ -271,6 +285,7 @@ class EntityFactory:
         "base": Base,
         "barracks": Barracks,
         "house": House,
+        "mage_tower": MageTower,
     }
     _NEUTRAL_ENTITY_TYPES: dict[str, Callable[[int, int], Entity]] = {
         "wood": Wood,
@@ -394,7 +409,7 @@ class GameManager:
         removed_entities: set[int] = set()
 
         for group in self.entities.values():
-            for attr_name in ("peasents", "knights", "archers", "mages", "bases", "barracks", "houses"):
+            for attr_name in ("peasents", "knights", "archers", "mages", "bases", "barracks", "houses", "mage_towers"):
                 entities = getattr(group, attr_name)
                 alive_entities = [entity for entity in entities if entity.life > 0]
                 removed_entities.update(id(entity) for entity in entities if entity.life <= 0)
@@ -610,7 +625,7 @@ class GameManager:
             return 0
 
         population_cap = 0
-        for building in (*group.bases, *group.barracks, *group.houses):
+        for building in (*group.bases, *group.barracks, *group.houses, *group.mage_towers):
             if building.life <= 0 or building.is_under_construction:
                 continue
             try:
@@ -903,6 +918,8 @@ class GameManager:
                             group.barracks.append(entity)
                         case House():
                             group.houses.append(entity)
+                        case MageTower():
+                            group.mage_towers.append(entity)
                         case Wood():
                             self.resources.woods.append(entity)
                         case Gold():
@@ -970,6 +987,8 @@ class GameManager:
                     self._try_build_peasant_from_selection()
             elif event.key == pygame.K_y:
                 self.begin_construction_placement("house")
+            elif event.key == pygame.K_m:
+                self.begin_construction_placement("mage_tower")
             elif event.key == pygame.K_s:
                 selected_units = [entity for entity in self.selected_entities if isinstance(entity, Unit)]
                 self.issue_stop_order(self.current_team, selected_units)
@@ -1685,7 +1704,9 @@ class GameManager:
 
         if team_group:
             res = team_group.resources
-            num_buildings = len(team_group.bases) + len(team_group.barracks) + len(team_group.houses)
+            num_buildings = (
+                len(team_group.bases) + len(team_group.barracks) + len(team_group.houses) + len(team_group.mage_towers)
+            )
             num_units = (
                 len(team_group.peasents) + len(team_group.knights) + len(team_group.archers) + len(team_group.mages)
             )

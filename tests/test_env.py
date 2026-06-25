@@ -380,6 +380,41 @@ def test_env_action_mask_reports_military_production() -> None:
     env.close()
 
 
+def test_env_action_mask_exposes_mage_tower_construction() -> None:
+    """Action masks expose Mage Tower as a worker-constructable building."""
+    env = RtsNanoEnv(settings=_settings())
+    manager = env._require_simulation().manager
+    manager.entities[TeamColor.BLUE].resources.update({"wood": 180, "gold": 180})
+
+    specs = {(spec.kind, spec.team, spec.building_type): spec for spec in env.action_mask(TeamColor.BLUE)}
+
+    assert ("construct", "Blue", "mage_tower") in specs
+    assert specs[("construct", "Blue", "mage_tower")].enabled is True
+
+    env.close()
+
+
+def test_env_reports_game_over_when_one_team_remains() -> None:
+    """Eliminating every rival entity drives the env to a terminal win state."""
+    env = RtsNanoEnv(settings=_settings())
+    manager = env._require_simulation().manager
+
+    assert env.observe().game_over is None
+    assert env.is_done() is False
+
+    red_group = manager.entities[TeamColor.RED]
+    for entity in red_group.all_entities:
+        entity.life = 0
+
+    result = env.step(NoOpAction(frames=1))
+
+    assert result.observation.game_over == "Team Blue wins"
+    assert result.done is True
+    assert env.is_done() is True
+
+    env.close()
+
+
 def test_env_replays_same_action_sequence_deterministically() -> None:
     """Same settings, seed, actions, and production queue produce same snapshots."""
 

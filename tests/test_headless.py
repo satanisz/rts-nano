@@ -259,6 +259,37 @@ def test_worker_constructs_barracks_before_military_production() -> None:
     simulation.close()
 
 
+def test_worker_constructs_mage_tower_and_trains_mage() -> None:
+    """A peasant can build a Mage Tower, which then trains mages over time."""
+    simulation = HeadlessSimulation.from_settings(_settings())
+    manager = simulation.manager
+    group = manager.entities[TeamColor.BLUE]
+    peasant = group.peasents[0]
+    peasant.x, peasant.y = 170, 110
+    group.resources.update({"wood": 180, "gold": 180})
+
+    assert manager.construct_building(peasant, "mage_tower", (170, 70)) is True
+    assert group.resources == {"wood": 0, "gold": 0}
+
+    mage_tower = group.mage_towers[0]
+    assert mage_tower.is_under_construction is True
+    assert manager.produce_unit(mage_tower, "mage") is False
+
+    simulation.step(520)
+
+    assert mage_tower.is_under_construction is False
+    assert mage_tower.construction_progress == 1
+
+    group.resources.update({"wood": 70, "gold": 120})
+    assert manager.produce_unit(mage_tower, "mage") is True
+
+    simulation.step(180)
+
+    assert len(group.mages) == 1
+    assert not manager.production.queue_for(mage_tower)
+    simulation.close()
+
+
 def test_completed_house_increases_population_cap() -> None:
     """Only completed support buildings increase population capacity."""
     simulation = HeadlessSimulation.from_settings(_settings())

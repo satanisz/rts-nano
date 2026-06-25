@@ -51,7 +51,7 @@ class OrderSystem:
         group = self._manager.entities.get(team)
         if group is None:
             return []
-        return [*group.bases, *group.barracks]
+        return [*group.bases, *group.barracks, *group.mage_towers]
 
     def issue_move_order(
         self,
