@@ -89,6 +89,7 @@ MINIMAP_WIDTH = 220
 MINIMAP_HEIGHT = 150
 MINIMAP_PADDING = 12
 FORMATION_SPACING = 38
+DOUBLE_CLICK_MS = 350
 STUCK_FRAME_LIMIT = 75
 STUCK_PROGRESS_DISTANCE = 6.0
 UNSTUCK_COOLDOWN_FRAMES = 45
@@ -349,10 +350,13 @@ class GameManager:
         self.resources: ResourcesGroup = ResourcesGroup()
         self.selected_entities: list[Entity] = []
         self.current_team: TeamColor = TeamColor.BLUE
+        self.control_groups: dict[int, list[Unit]] = {}
         self.dragging: bool = False
         self.minimap_dragging: bool = False
         self.drag_start: tuple[int, int] | None = None
         self.drag_end: tuple[int, int] | None = None
+        self._last_click_ms: int = 0
+        self._last_click_pos: tuple[int, int] = (0, 0)
         self.paused: bool = False
         self.menu_active: bool = False
         self.fullscreen_enabled: bool = False
@@ -630,6 +634,28 @@ class GameManager:
         """Select team-owned units/buildings and return the selected count."""
         return self.orders.select_entities_for_team(team, entities)
 
+    def assign_control_group(self, group_id: int) -> int:
+        """Store the current team's selected units under a control-group number."""
+        units = [
+            entity
+            for entity in self.selected_entities
+            if isinstance(entity, Unit) and entity.team == self.current_team and entity.life > 0
+        ]
+        self.control_groups[group_id] = units
+        return len(units)
+
+    def recall_control_group(self, group_id: int) -> int:
+        """Reselect the living members of a previously stored control group."""
+        members = [unit for unit in self.control_groups.get(group_id, []) if unit.life > 0]
+        return self.orders.select_entities_for_team(self.current_team, members)
+
+    def select_units_like(self, reference: Unit) -> int:
+        """Select every current-team unit sharing the reference unit's type."""
+        if reference.team != self.current_team:
+            return 0
+        same_type = [unit for unit in self.orders.units_for_team(self.current_team) if type(unit) is type(reference)]
+        return self.orders.select_entities_for_team(self.current_team, same_type)
+
     def _handle_unit_command_button(self, command: str) -> None:
         """Apply a selected-unit command from the bottom command panel."""
         selected_units = [entity for entity in self.selected_entities if isinstance(entity, Unit)]
@@ -894,6 +920,14 @@ class GameManager:
         ]
         return nearest_entity(unit, candidates)
 
+    def _unit_at_world_pos(self, position: tuple[float, float]) -> Unit | None:
+        """Return the topmost unit under a world position."""
+        point = (int(position[0]), int(position[1]))
+        for entity in reversed(self.all_entities):
+            if isinstance(entity, Unit) and entity.contains_point(point):
+                return entity
+        return None
+
     def _resource_at_position(self, position: tuple[float, float]) -> Resource | None:
         """Return the topmost resource under a world position."""
         for entity in reversed(self.all_entities):
@@ -1057,6 +1091,12 @@ class GameManager:
                 self.begin_patrol_targeting()
             elif event.key == pygame.K_g:
                 self.begin_gather_targeting()
+            elif pygame.K_1 <= event.key <= pygame.K_9:
+                group_id = event.key - pygame.K_0
+                if event.mod & pygame.KMOD_CTRL:
+                    self.assign_control_group(group_id)
+                else:
+                    self.recall_control_group(group_id)
 
         elif event.type == pygame.MOUSEBUTTONDOWN:
             mouse_pos = event.pos
@@ -1120,6 +1160,20 @@ class GameManager:
                     selected_units = [entity for entity in self.selected_entities if isinstance(entity, Unit)]
                     self.issue_gather_order(self.current_team, resource, selected_units)
                     self.cancel_pending_unit_command()
+                    return
+
+                clicked_unit = self._unit_at_world_pos(world_pos)
+                now_ms = pygame.time.get_ticks()
+                is_double_click = (
+                    clicked_unit is not None
+                    and clicked_unit.team == self.current_team
+                    and now_ms - self._last_click_ms <= DOUBLE_CLICK_MS
+                    and distance_between_points(self._last_click_pos, mouse_pos) <= 6
+                )
+                self._last_click_ms = now_ms
+                self._last_click_pos = mouse_pos
+                if is_double_click and clicked_unit is not None:
+                    self.select_units_like(clicked_unit)
                     return
 
                 self.dragging = True
@@ -1728,16 +1782,15 @@ class GameManager:
             num_units = 0
             population_cap = 0
 
+        at_population_cap = population_cap > 0 and num_units >= population_cap
+        population_color = (255, 90, 90) if at_population_cap else ui_color
         hud_parts: list[pygame.Surface] = [
             font.render(f"Team {self.current_team.value} | ", True, ui_color),
             emoji_font.render(WOOD_ICON, True, ui_color),
             font.render(f": {res['wood']}   ", True, ui_color),
             emoji_font.render(GOLD_ICON, True, ui_color),
-            font.render(
-                f": {res['gold']} | Buildings: {num_buildings}   Units: {num_units}/{population_cap}",
-                True,
-                ui_color,
-            ),
+            font.render(f": {res['gold']} | Buildings: {num_buildings}   ", True, ui_color),
+            font.render(f"Units: {num_units}/{population_cap}", True, population_color),
         ]
 
         if self.paused and not self.menu_active:

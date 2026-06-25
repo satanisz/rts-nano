@@ -363,19 +363,38 @@ Full pygame-free `Simulation` boundary remains open follow-up work.
 
 ---
 
-### Sprint 6 — Human UI Completion
+### Sprint 6 — Human UI Completion — DONE (2026-06-26)
 
 **Goal:** a human can play a full skirmish session without missing UI.
 
 Tasks:
-1. Production queue progress bars in command panel for selected building
-2. Population near-cap warning in HUD
-3. Mage Tower and Defense Tower construction buttons and hotkeys
-4. Minimap click scrolls camera to location
-5. Patrol/Follow buttons in command panel
-6. Repair button for Peasant when adjacent to damaged building
-7. Control groups: Ctrl+1-9 assign, 1-9 recall
-8. Double-click to select all visible units of same type
+1. ◑ Production/construction progress is already shown in the command panel as a
+   percentage label (`Knight 42%`, `Build 73%`). Graphical progress *bars* are a
+   cosmetic upgrade, deferred.
+2. ✅ Population near-cap warning: the HUD `Units: n/cap` turns red at the cap.
+3. ✅ Mage Tower and Tower construction buttons appear automatically from
+   `supported_building_types()` (Sprints 1 & 3); Mage Tower also has hotkey `M`.
+4. ✅ Minimap click scrolls the camera (already wired via
+   `_center_camera_from_minimap_pos`).
+5. ◑ Patrol button + hotkey `T` shipped in Sprint 2. **Follow** is deferred.
+6. ◑ **Repair** deferred: a peasant sent to a completed allied building currently
+   enters `DEPOSITING`; repair needs an explicit repair-target flag to disambiguate
+   deposit vs repair without destabilizing the working economy path. Scheduled as a
+   focused follow-up.
+7. ✅ Control groups: `assign_control_group`/`recall_control_group` with `Ctrl+1–9`
+   to assign and `1–9` to recall; dead members are pruned on recall.
+8. ✅ Double-click selects all current-team units of the clicked unit's type, via the
+   testable `select_units_like` helper (double-click timing wired in `handle_input`).
+
+**Tests:** control-group assign/recall, recall-skips-dead, and select-same-type (headless).
+
+**Design call:** this sprint delivers the testable, low-risk selection/HUD features
+(control groups, select-by-type, population warning) and confirms the already-working
+minimap scroll and auto build buttons. Follow and Repair are deferred with clear
+rationale rather than rushed; progress bars are cosmetic over existing text.
+
+**Exit criteria:** ✅ control groups, type-selection, and the population warning work;
+build buttons cover all four buildings. Full gate green: ruff, ruff format, ty, 75 pytest.
 
 ---
 
@@ -412,14 +431,15 @@ The game is considered functionally complete when:
 
 ## 7. Immediate Next Task
 
-Sprints 1–4 are complete; Sprint 5 is partially done (Gather + Victory systems
-extracted; `GameState`/`Simulation` container deferred). Start Sprint 6: Human UI
-completion.
+Sprints 1–4 and 6 are complete; Sprint 5 is partial (Gather + Victory extracted).
+Start Sprint 7: Maps, scenarios, and a scripted AI.
 
-Begin with production-queue progress bars and a population near-cap warning in the
-HUD, then control groups (Ctrl+1–9 assign, 1–9 recall) and a Repair command for
-Peasants adjacent to a damaged allied building. Build buttons for Mage Tower and
-Tower already appear automatically from `supported_building_types()`.
+Begin with a scripted AI baseline (gather → build barracks → train knights →
+attack the enemy base) driven entirely through the public order/production API so
+it doubles as an integration test, plus map metadata (player count, start
+positions, victory rule). Carry the deferred items forward: `GameState`/`Simulation`
+container (Sprint 5), Follow/Repair orders and progress bars (Sprint 6), and the
+richer damage-type matrix (Sprint 3).
 
 ---
 

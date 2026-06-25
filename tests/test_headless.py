@@ -560,6 +560,55 @@ def test_peasant_starts_harvesting_targeted_resources() -> None:
     simulation.close()
 
 
+def _selection_settings() -> MapSettings:
+    settings = _settings()
+    settings["Blue"]["peasant"] = [[20, 20], [40, 20]]
+    settings["Blue"]["knight"] = [[80, 20], [100, 20]]
+    return settings
+
+
+def test_control_group_assign_and_recall_restores_selection() -> None:
+    """A stored control group reselects its members after selecting other units."""
+    simulation = HeadlessSimulation.from_settings(_selection_settings())
+    manager = simulation.manager
+    group = manager.entities[TeamColor.BLUE]
+
+    manager.select_entities_for_team(TeamColor.BLUE, group.knights)
+    assert manager.assign_control_group(1) == 2
+
+    manager.select_entities_for_team(TeamColor.BLUE, group.peasents)
+    assert manager.recall_control_group(1) == 2
+    assert set(manager.selected_entities) == set(group.knights)
+    simulation.close()
+
+
+def test_control_group_recall_skips_dead_members() -> None:
+    """Recalling a control group drops members that have since died."""
+    simulation = HeadlessSimulation.from_settings(_selection_settings())
+    manager = simulation.manager
+    group = manager.entities[TeamColor.BLUE]
+
+    manager.select_entities_for_team(TeamColor.BLUE, group.knights)
+    manager.assign_control_group(2)
+    group.knights[0].life = 0
+
+    assert manager.recall_control_group(2) == 1
+    simulation.close()
+
+
+def test_select_units_like_selects_same_type() -> None:
+    """Selecting like a unit selects every current-team unit of that type."""
+    simulation = HeadlessSimulation.from_settings(_selection_settings())
+    manager = simulation.manager
+    group = manager.entities[TeamColor.BLUE]
+
+    selected = manager.select_units_like(group.knights[0])
+
+    assert selected == 2
+    assert set(manager.selected_entities) == set(group.knights)
+    simulation.close()
+
+
 def test_peasant_gather_cycle_banks_resources() -> None:
     """The gather system runs the full harvest-return-deposit cycle into the bank."""
     settings = _settings()
