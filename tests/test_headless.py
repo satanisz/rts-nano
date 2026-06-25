@@ -560,6 +560,26 @@ def test_peasant_starts_harvesting_targeted_resources() -> None:
     simulation.close()
 
 
+def test_peasant_gather_cycle_banks_resources() -> None:
+    """The gather system runs the full harvest-return-deposit cycle into the bank."""
+    settings = _settings()
+    settings["Blue"]["base"] = [[60, 60]]
+    settings["Blue"]["peasant"] = [[90, 60]]
+    settings["Resources"]["wood"] = [[110, 60]]
+    simulation = HeadlessSimulation.from_settings(settings)
+    manager = simulation.manager
+    group = manager.entities[TeamColor.BLUE]
+    peasant = group.peasents[0]
+    wood = manager.resources.woods[0]
+
+    assert group.resources["wood"] == 0
+    manager.issue_gather_order(TeamColor.BLUE, wood, [peasant])
+    simulation.step(200)
+
+    assert group.resources["wood"] > 0
+    simulation.close()
+
+
 def test_peasant_harvests_resource_beyond_ramp_edge() -> None:
     """A* should not choose a diagonal shortcut that local movement rejects."""
     simulation = HeadlessSimulation.from_map_file(Path("src/rts_nano/maps/map_settings_01.json"))

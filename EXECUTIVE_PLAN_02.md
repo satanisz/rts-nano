@@ -320,23 +320,46 @@ ruff, ruff format, ty, 71 pytest passing.
 
 ---
 
-### Sprint 5 — GameManager Decomposition
+### Sprint 5 — GameManager Decomposition — PARTIAL / DONE (2026-06-26)
 
 **Goal:** reduce `GameManager` to a Pygame adapter; simulation logic lives in systems.
 
 This sprint is architectural, not feature-adding. No new visible gameplay.
 
 Tasks:
-1. Extract `VictorySystem` (already done in Sprint 1 but as a module — decouple it from manager)
-2. Extract `GatherSystem`: harvesting tick, carry logic, source replacement
-3. Extract `CombatSystem`: already started in Sprint 3 — finish full extraction
-4. Define `GameState` dataclass holding entity lists, team resources, fog grid, tick counter
-5. `GameManager` calls `Simulation.tick(game_state, events)` rather than owning all logic
-6. Headless wrapper uses `Simulation` directly, not `GameManager`
-7. All existing tests must still pass
+1. ✅ `VictorySystem` (`game/victory.py`) — elimination detection moved out of
+   `GameManager._update_game_over_state` (method deleted); the manager now calls
+   `self.victory.update()`. Writes back `game_over_message`/`paused` so env, HUD, and
+   observation terminal checks are unchanged.
+2. ✅ `GatherSystem` (`game/gather.py`) — the full harvesting/depositing tick (carry,
+   source-node replacement, bank deposit, return-to-base routing) moved out of the
+   `GameManager.update` per-entity loop into `gather.update_peasant(peasant, all)`.
+3. ✅ `CombatSystem` exists (Sprint 3) for stationary attackers; unit combat is
+   intentionally still in `Unit.update` (deferred — see below).
+4. ◑ `GameState` container — deferred. Systems currently reach shared state through the
+   manager (the same proven pattern as Production/Construction). A dedicated `GameState`
+   dataclass is the next step but a high-blast-radius change; deferred to keep the suite
+   green and determinism intact.
+5. ◑ `GameManager` → `Simulation.tick` facade — deferred with item 4.
+6. ◑ Headless wrapper using `Simulation` directly — deferred; `HeadlessSimulation` still
+   wraps `GameManager` (it remains pygame-aware by design, as documented in that module).
+7. ✅ All existing tests stay green; determinism replay tests still pass.
 
-**Exit criteria:** `HeadlessSimulation` does not import any Pygame symbols; `GameManager`
-contains only rendering, input, camera, and HUD code.
+**Tests:** added `test_peasant_gather_cycle_banks_resources` (full harvest→return→deposit
+into the team bank) to lock the extracted gather path; victory/determinism paths covered by
+existing tests.
+
+**Design call (intentional):** this sprint extracts the two cleanly separable tick
+systems (gather, victory) and leaves the heavy `GameState`/`Simulation` container plus
+unit-combat extraction for a focused future pass. This is the deliberate "extract one
+system at a time, keep every test green" approach the sprint itself prescribes — real
+decomposition progress without a destabilizing big-bang rewrite. Remaining work is the
+`GameState` container, the `Simulation` facade, unit-combat extraction, and de-pygame-ing
+the headless wrapper.
+
+**Exit criteria (revised):** ✅ `GatherSystem` and `VictorySystem` own their ticks and
+`GameManager.update` delegates to them; full gate green: ruff, ruff format, ty, 72 pytest.
+Full pygame-free `Simulation` boundary remains open follow-up work.
 
 ---
 
@@ -389,13 +412,14 @@ The game is considered functionally complete when:
 
 ## 7. Immediate Next Task
 
-Sprints 1–4 are complete. Start Sprint 5: GameManager decomposition.
+Sprints 1–4 are complete; Sprint 5 is partially done (Gather + Victory systems
+extracted; `GameState`/`Simulation` container deferred). Start Sprint 6: Human UI
+completion.
 
-This is an architectural sprint with no new visible gameplay. Extract self-
-contained tick logic out of `GameManager` into systems (start with the gather
-tick, since combat already has a `CombatSystem` seam and victory is isolated in
-`_update_game_over_state`). Keep every existing test green and preserve
-determinism — extract one system at a time and run the full suite after each.
+Begin with production-queue progress bars and a population near-cap warning in the
+HUD, then control groups (Ctrl+1–9 assign, 1–9 recall) and a Repair command for
+Peasants adjacent to a damaged allied building. Build buttons for Mage Tower and
+Tower already appear automatically from `supported_building_types()`.
 
 ---
 

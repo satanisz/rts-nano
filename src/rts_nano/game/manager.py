@@ -56,7 +56,6 @@ from rts_nano.game.constants import (
     BOTTOM_MENU_HEIGHT,
     CYAN,
     GREEN,
-    HARVEST_SEARCH_RADIUS,
     MAX_SELECTION_SIZE,
     RED,
     SCREEN_HEIGHT,
@@ -67,11 +66,13 @@ from rts_nano.game.constants import (
 from rts_nano.game.construction import ConstructionSystem
 from rts_nano.game.data import UNIT_SPECS, get_building_spec
 from rts_nano.game.fog import FogOfWar
+from rts_nano.game.gather import GatherSystem
 from rts_nano.game.orders import OrderSystem
 from rts_nano.game.pathfinding import find_path
 from rts_nano.game.production import ProductionSystem
-from rts_nano.game.rules import clamp_point, distance_between_points, find_replacement_resource, nearest_entity
+from rts_nano.game.rules import clamp_point, distance_between_points, nearest_entity
 from rts_nano.game.terrain import TerrainMap
+from rts_nano.game.victory import VictorySystem
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
@@ -378,6 +379,8 @@ class GameManager:
         self.production = ProductionSystem(self)
         self.construction = ConstructionSystem(self)
         self.combat = CombatSystem(self)
+        self.gather = GatherSystem(self)
+        self.victory = VictorySystem(self)
         self.orders = OrderSystem(self)
         self.game_over_message: str | None = None
         self.menu_status: str | None = None
@@ -728,20 +731,6 @@ class GameManager:
     def set_mouse_pos(self, pos: tuple[int, int]) -> None:
         """Store the current logical mouse position."""
         self.mouse_pos = pos
-
-    def _update_game_over_state(self) -> None:
-        """Detect a simple elimination victory condition."""
-        active_teams = [
-            team
-            for team, group in self.entities.items()
-            if team != TeamColor.RESOURCES and any(entity.life > 0 for entity in group.all_entities)
-        ]
-        if len(active_teams) == 1:
-            self.game_over_message = f"Team {active_teams[0].value} wins"
-            self.paused = True
-        elif not active_teams:
-            self.game_over_message = "Draw"
-            self.paused = True
 
     def _update_entity_height_levels(self) -> None:
         """Refresh entity height levels from the terrain map."""
@@ -1363,66 +1352,7 @@ class GameManager:
                 self._update_patrol(entity)
 
             if isinstance(entity, Peasant):
-                if entity.state == "GATHERING":
-                    resource = entity.target_entity or entity.source_resource
-                    if isinstance(resource, (Wood, Gold)):
-                        is_wood = isinstance(resource, Wood)
-
-                        if resource.amount > 0:
-                            gathered = min(1, resource.amount)
-                            resource.amount -= gathered
-
-                            if is_wood:
-                                entity.carry_wood += gathered
-                            else:
-                                entity.carry_gold += gathered
-
-                            if resource.amount <= 0:
-                                if isinstance(resource, Wood) and resource in self.resources.woods:
-                                    self.resources.woods.remove(resource)
-                                elif isinstance(resource, Gold) and resource in self.resources.golds:
-                                    self.resources.golds.remove(resource)
-
-                                resource_list = self.resources.woods if is_wood else self.resources.golds
-                                new_resource = find_replacement_resource(
-                                    resource,
-                                    resource_list,
-                                    search_radius=HARVEST_SEARCH_RADIUS,
-                                )
-                                entity.source_resource = new_resource
-                                entity.target_entity = new_resource
-
-                        carry_amount = entity.carry_wood if is_wood else entity.carry_gold
-                        if carry_amount >= entity.max_carry or resource.amount <= 0:
-                            if is_wood and entity.carry_wood > entity.max_carry:
-                                entity.carry_wood = entity.max_carry
-                            elif not is_wood and entity.carry_gold > entity.max_carry:
-                                entity.carry_gold = entity.max_carry
-
-                            team_group = self.entities.get(entity.team)
-                            team_bases = team_group.bases if team_group else []
-                            nearest_base = nearest_entity(entity, team_bases)
-                            if nearest_base:
-                                self._assign_unit_target(entity, nearest_base.get_center(), nearest_base)
-                            else:
-                                entity.state = "IDLE"
-
-                elif entity.state == "DEPOSITING":
-                    team_group = self.entities.get(entity.team)
-                    if team_group:
-                        team_group.resources["wood"] += entity.carry_wood
-                        team_group.resources["gold"] += entity.carry_gold
-                    entity.carry_wood = 0
-                    entity.carry_gold = 0
-                    if (
-                        entity.source_resource
-                        and entity.source_resource in all_ents
-                        and entity.source_resource.amount > 0
-                    ):
-                        self._assign_unit_target(entity, entity.source_resource.get_center(), entity.source_resource)
-                    else:
-                        entity.state = "IDLE"
-                        entity.source_resource = None
+                self.gather.update_peasant(entity, all_ents)
 
         self.construction.update()
         self.production.update()
@@ -1432,7 +1362,7 @@ class GameManager:
             )
         self._remove_dead_entities()
         self._update_entity_height_levels()
-        self._update_game_over_state()
+        self.victory.update()
         self.magic_missiles = [missile for missile in self.magic_missiles if missile.update()]
         self.archer_shots = [shot for shot in self.archer_shots if shot.update()]
         now_ms = pygame.time.get_ticks()
