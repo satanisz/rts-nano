@@ -22,6 +22,7 @@ from rts_nano.ai import ScriptedAI
 from rts_nano.game.assets.entities import TeamColor
 from rts_nano.game.constants import FPS, GRAY, SCREEN_HEIGHT, SCREEN_WIDTH
 from rts_nano.game.manager import FULLSCREEN_TOGGLE_EVENT, GameManager
+from rts_nano.game.ui.renderer import GameRenderer
 from rts_nano.map_schema import load_map_settings
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -116,6 +117,7 @@ def main() -> None:
     map_settings = load_map_settings(BASE_DIR / "maps" / "map_settings_01.json")
     game_manager = GameManager(map_settings)
     game_manager.set_viewport_size(*display_screen.get_size())
+    renderer = GameRenderer()
     opponent_ai = ScriptedAI(game_manager, TeamColor.RED)
 
     running = True
@@ -138,7 +140,7 @@ def main() -> None:
         game_manager.update()
 
         display_screen.fill(GRAY)
-        game_manager.draw(display_screen)
+        renderer.draw(display_screen, game_manager)
 
         pygame.display.flip()
         clock.tick(FPS * game_manager.fps_multiplier)
