@@ -64,7 +64,7 @@ from rts_nano.game.constants import (
     AttackType,
 )
 from rts_nano.game.construction import ConstructionSystem
-from rts_nano.game.data import UNIT_SPECS, get_building_spec
+from rts_nano.game.data import get_building_spec
 from rts_nano.game.fog import FogOfWar
 from rts_nano.game.gather import GatherSystem
 from rts_nano.game.orders import OrderSystem
@@ -72,6 +72,7 @@ from rts_nano.game.pathfinding import find_path
 from rts_nano.game.production import ProductionSystem
 from rts_nano.game.rules import clamp_point, distance_between_points, nearest_entity
 from rts_nano.game.terrain import TerrainMap
+from rts_nano.game.ui.command_panel import CommandButton, CommandPanel
 from rts_nano.game.victory import VictorySystem
 
 if TYPE_CHECKING:
@@ -372,11 +373,7 @@ class GameManager:
         self.magic_missiles: list[MagicMissile] = []
         self.archer_shots: list[ArcherShot] = []
         self.click_markers: list[ClickMarker] = []
-        self.production_buttons: list[tuple[pygame.Rect, Building, str]] = []
-        self.cancel_production_buttons: list[tuple[pygame.Rect, Building]] = []
-        self.construction_buttons: list[tuple[pygame.Rect, str]] = []
-        self.cancel_construction_buttons: list[tuple[pygame.Rect, Building]] = []
-        self.unit_command_buttons: list[tuple[pygame.Rect, str]] = []
+        self.command_panel = CommandPanel()
         self.pending_construction_type: str | None = None
         self.pending_construction_builder: Peasant | None = None
         self.pending_unit_command: str | None = None
@@ -672,6 +669,29 @@ class GameManager:
             self.begin_patrol_targeting()
         elif command == "gather":
             self.begin_gather_targeting()
+
+    def _handle_command_panel_click(self, mouse_pos: tuple[int, int]) -> bool:
+        """Dispatch a click on a command-panel button. Return True if handled."""
+        for button in self.command_panel.build(self, SCREEN_WIDTH, SCREEN_HEIGHT):
+            if not button.enabled or button.action is None or not button.rect.collidepoint(mouse_pos):
+                continue
+            self._dispatch_command_button(button)
+            return True
+        return False
+
+    def _dispatch_command_button(self, button: CommandButton) -> None:
+        """Run the manager action behind an enabled command-panel button."""
+        action = button.action
+        if action == "produce" and button.producer is not None and button.unit_type:
+            self.produce_unit(button.producer, button.unit_type)
+        elif action == "cancel" and button.producer is not None:
+            self.cancel_production(button.producer)
+        elif action == "construct" and button.building_type:
+            self.begin_construction_placement(button.building_type)
+        elif action == "cancel_construction" and button.producer is not None:
+            self.cancel_construction(button.producer)
+        elif action in {"stop", "hold", "attack_move", "patrol", "gather", "return_cargo"}:
+            self._handle_unit_command_button(action)
 
     def _count_units(self, team: TeamColor) -> int:
         """Return the number of living units owned by a team."""
@@ -1138,27 +1158,9 @@ class GameManager:
                     self._center_camera_from_minimap_pos(mouse_pos)
                     return
 
-                # Check UI buttons first
-                for rect, producer, unit_type in self.production_buttons:
-                    if rect.collidepoint(mouse_pos):
-                        self.produce_unit(producer, unit_type)
-                        return
-                for rect, producer in self.cancel_production_buttons:
-                    if rect.collidepoint(mouse_pos):
-                        self.cancel_production(producer)
-                        return
-                for rect, building_type in self.construction_buttons:
-                    if rect.collidepoint(mouse_pos):
-                        self.begin_construction_placement(building_type)
-                        return
-                for rect, building in self.cancel_construction_buttons:
-                    if rect.collidepoint(mouse_pos):
-                        self.cancel_construction(building)
-                        return
-                for rect, command in self.unit_command_buttons:
-                    if rect.collidepoint(mouse_pos):
-                        self._handle_unit_command_button(command)
-                        return
+                # Check command-panel buttons first
+                if self._handle_command_panel_click(mouse_pos):
+                    return
                 if mouse_pos[1] >= PLAY_AREA_HEIGHT:
                     return
 
@@ -1256,18 +1258,6 @@ class GameManager:
             if isinstance(entity, Base) and entity.team == self.current_team:
                 self.build_peasant(entity)
                 break
-
-    @staticmethod
-    def _format_cost(cost: object) -> str:
-        """Return a compact resource cost label for command buttons."""
-        wood = getattr(cost, "wood", 0)
-        gold = getattr(cost, "gold", 0)
-        parts: list[str] = []
-        if wood:
-            parts.append(f"{wood}W")
-        if gold:
-            parts.append(f"{gold}G")
-        return " ".join(parts) if parts else "Free"
 
     def _handle_menu_click(self, mouse_pos: tuple[int, int]) -> None:
         """Process clicks on the main menu."""
@@ -1489,12 +1479,6 @@ class GameManager:
         pygame.draw.rect(screen, (40, 40, 40), menu_rect)
         pygame.draw.rect(screen, (200, 200, 200), menu_rect, 2)
 
-        self.production_buttons.clear()
-        self.cancel_production_buttons.clear()
-        self.construction_buttons.clear()
-        self.cancel_construction_buttons.clear()
-        self.unit_command_buttons.clear()
-
         if not self.selected_entities:
             return
 
@@ -1591,115 +1575,26 @@ class GameManager:
             pygame.draw.rect(screen, (30, 30, 30), frame_rect)
             pygame.draw.rect(screen, WHITE, frame_rect, 2)
 
-        cmd_cols = 3
-        cmd_rows = 3
-        cmd_btn_size = 46
-        cmd_padding = 6
-        cmd_start_x = command_card_x + 12
-        cmd_start_y = SCREEN_HEIGHT - BOTTOM_MENU_HEIGHT + 10
-
         font_tiny = pygame.font.SysFont(None, 16)
+        buttons = self.command_panel.build(self, SCREEN_WIDTH, SCREEN_HEIGHT)
+        for index, slot_rect in enumerate(self.command_panel.slot_rects(SCREEN_WIDTH, SCREEN_HEIGHT)):
+            if index >= len(buttons):
+                pygame.draw.rect(screen, (30, 30, 30), slot_rect)
+                pygame.draw.rect(screen, (50, 50, 50), slot_rect, 1)
+                continue
 
-        commands: list[tuple[str, bool, str | None, str | None]] = []
-        selected_units = [entity for entity in self.selected_entities if isinstance(entity, Unit)]
-        if isinstance(primary_entity, Unit) and primary_entity.team == self.current_team:
-            commands.append(("Stop", True, "stop", None))
-            commands.append(("Hold", True, "hold", None))
-            if any(entity.attack_damage > 0 for entity in selected_units):
-                commands.append(("Attack Move", True, "attack_move", None))
-                commands.append(("Patrol", True, "patrol", None))
-            if any(isinstance(entity, Peasant) for entity in selected_units):
-                commands.append(("Gather", True, "gather", None))
-            if any(
-                isinstance(entity, Peasant) and (entity.carry_wood > 0 or entity.carry_gold > 0)
-                for entity in selected_units
-            ):
-                commands.append(("Return Cargo", True, "return_cargo", None))
+            button = buttons[index]
+            is_hovered = slot_rect.collidepoint(self.mouse_pos)
+            bg_color = (100, 100, 60) if (is_hovered and button.enabled) else (60, 60, 60)
+            pygame.draw.rect(screen, bg_color, slot_rect)
+            pygame.draw.rect(screen, WHITE, slot_rect, 1)
 
-        selected_producer: Building | None = None
-        if isinstance(primary_entity, Building) and getattr(primary_entity, "team", None) == self.current_team:
-            selected_producer = primary_entity
-            try:
-                producer_key = getattr(selected_producer, "spec_key", type(selected_producer).__name__.lower())
-                building_spec = get_building_spec(producer_key)
-            except ValueError:
-                building_spec = None
-
-            if selected_producer.is_under_construction:
-                commands.append((f"Build {selected_producer.construction_progress:.0%}", False, None, None))
-                commands.append(("Cancel Build", True, "cancel_construction", None))
-            elif building_spec is not None and building_spec.produces:
-                queue = self.production.queue_for(selected_producer)
-                if queue:
-                    active_unit = UNIT_SPECS[queue[0].unit_type].display_name
-                    commands.append((f"{active_unit} {queue[0].progress:.0%}", False, None, None))
-                    commands.append(("Cancel", True, "cancel", None))
-
-                for unit_type in building_spec.produces:
-                    can_build, reason = self.production.can_enqueue_unit(selected_producer, unit_type)
-                    unit_name = UNIT_SPECS[unit_type].display_name
-                    if can_build:
-                        commands.append((f"Train {unit_name}", True, "produce", unit_type))
-                    elif reason == "population_cap":
-                        commands.append(("Cap Reached", False, None, None))
-                    elif reason == "insufficient_resources":
-                        commands.append((f"Need {self._format_cost(UNIT_SPECS[unit_type].cost)}", False, None, None))
-                    else:
-                        commands.append(("Unavailable", False, None, None))
-        elif isinstance(primary_entity, Peasant) and primary_entity.team == self.current_team:
-            for building_type in self.construction.supported_building_types():
-                try:
-                    building_spec = get_building_spec(building_type)
-                except ValueError:
-                    continue
-                can_construct, reason = self.construction.can_team_construct(self.current_team, building_type)
-                if can_construct:
-                    commands.append((f"Build {building_spec.display_name}", True, "construct", building_type))
-                elif reason == "insufficient_resources":
-                    commands.append((f"Need {self._format_cost(building_spec.cost)}", False, None, None))
-                else:
-                    commands.append(("Unavailable", False, None, None))
-
-        for i in range(cmd_cols * cmd_rows):
-            col = i % cmd_cols
-            row = i // cmd_cols
-            pos_x = cmd_start_x + col * (cmd_btn_size + cmd_padding)
-            pos_y = cmd_start_y + row * (cmd_btn_size + cmd_padding)
-
-            btn_rect = pygame.Rect(pos_x, pos_y, cmd_btn_size, cmd_btn_size)
-
-            if i < len(commands):
-                cmd_name, cmd_active, cmd_action, cmd_unit_type = commands[i]
-
-                mouse_pos = self.mouse_pos
-                is_hovered = btn_rect.collidepoint(mouse_pos)
-                bg_color = (60, 60, 60)
-                if is_hovered and cmd_active:
-                    bg_color = (100, 100, 60)
-
-                pygame.draw.rect(screen, bg_color, btn_rect)
-                pygame.draw.rect(screen, WHITE, btn_rect, 1)
-
-                words = cmd_name.split()
-                for w_i, word in enumerate(words):
-                    text_surf = font_tiny.render(word, True, WHITE)
-                    text_rect = text_surf.get_rect(center=(pos_x + cmd_btn_size // 2, pos_y + 16 + w_i * 14))
-                    screen.blit(text_surf, text_rect)
-
-                if cmd_active and cmd_action == "produce" and selected_producer is not None and cmd_unit_type:
-                    self.production_buttons.append((btn_rect, selected_producer, cmd_unit_type))
-                elif cmd_active and cmd_action == "cancel" and selected_producer is not None:
-                    self.cancel_production_buttons.append((btn_rect, selected_producer))
-                elif cmd_active and cmd_action == "construct" and cmd_unit_type:
-                    self.construction_buttons.append((btn_rect, cmd_unit_type))
-                elif cmd_active and cmd_action == "cancel_construction" and selected_producer is not None:
-                    self.cancel_construction_buttons.append((btn_rect, selected_producer))
-                elif cmd_active and cmd_action in {"stop", "hold", "attack_move", "patrol", "gather", "return_cargo"}:
-                    self.unit_command_buttons.append((btn_rect, cmd_action))
-
-            else:
-                pygame.draw.rect(screen, (30, 30, 30), btn_rect)
-                pygame.draw.rect(screen, (50, 50, 50), btn_rect, 1)
+            for word_index, word in enumerate(button.label.split()):
+                text_surf = font_tiny.render(word, True, WHITE)
+                text_rect = text_surf.get_rect(
+                    center=(slot_rect.x + slot_rect.width // 2, slot_rect.y + 16 + word_index * 14)
+                )
+                screen.blit(text_surf, text_rect)
 
     def draw(self, screen: pygame.Surface) -> None:
         """Draw world entities, selection state, HUD, and pause overlay.
