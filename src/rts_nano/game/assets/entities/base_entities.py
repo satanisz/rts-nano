@@ -591,7 +591,7 @@ class Unit(Entity):
                         self._attack(self.target_entity)
                     else:
                         self._handle_target_reached()
-                    self.resolve_collisions(entities)
+                    self.resolve_collisions(entities, can_move_to)
                     return
                 if self.target_entity and self._is_hostile_target(self.target_entity):
                     self._attack(self.target_entity)
@@ -613,7 +613,7 @@ class Unit(Entity):
                     self.y = self.target_y
                     self._handle_target_reached()
 
-        self.resolve_collisions(entities)
+        self.resolve_collisions(entities, can_move_to)
 
     def _try_move_to(
         self,
@@ -637,8 +637,12 @@ class Unit(Entity):
 
         self.state = "IDLE"
 
-    def resolve_collisions(self, entities: Iterable[Entity]) -> None:
-        """Push the unit away from overlapping entities.
+    def resolve_collisions(
+        self,
+        entities: Iterable[Entity],
+        can_move_to: Callable[[Unit, tuple[float, float]], bool] | None = None,
+    ) -> None:
+        """Push the unit away from overlapping entities, respecting terrain.
 
         Collision response is simple pairwise separation. Resources remain
         selectable targets but do not block movement, matching terrain
@@ -646,8 +650,14 @@ class Unit(Entity):
         resource so multiple workers can gather from nearby nodes without
         constantly pushing each other off the resource.
 
+        Each separation push is validated through ``can_move_to`` so collision
+        response cannot shove a unit into water, rock, or off the map. A push
+        blocked on one axis still applies on the other, which lets crowded units
+        slide along an obstacle instead of tunnelling through it.
+
         Args:
             entities: Entities that may collide with the unit.
+            can_move_to: Optional terrain/bounds validator for the pushed point.
         """
         my_cx, my_cy = self.get_center()
 
@@ -670,6 +680,19 @@ class Unit(Entity):
                 overlap = min_dist - dist
                 push_x = (dx / dist) * (overlap / 2)
                 push_y = (dy / dist) * (overlap / 2)
+                self._apply_separation(push_x, push_y, can_move_to)
 
-                self.x += push_x
-                self.y += push_y
+    def _apply_separation(
+        self,
+        push_x: float,
+        push_y: float,
+        can_move_to: Callable[[Unit, tuple[float, float]], bool] | None,
+    ) -> None:
+        """Apply a separation push, falling back per-axis when terrain blocks it."""
+        target = (self.x + push_x, self.y + push_y)
+        if can_move_to is None or can_move_to(self, target):
+            self.x, self.y = target
+        elif can_move_to(self, (self.x + push_x, self.y)):
+            self.x += push_x
+        elif can_move_to(self, (self.x, self.y + push_y)):
+            self.y += push_y

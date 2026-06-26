@@ -62,6 +62,43 @@ def test_manager_public_move_order_helper_assigns_units() -> None:
     simulation.close()
 
 
+def test_collision_keeps_crowded_units_on_map_and_off_terrain() -> None:
+    """Collision separation never pushes a unit off-map or into blocked terrain."""
+    settings: MapSettings = {
+        "Blue": {
+            "peasant": [],
+            "base": [[400, 400]],
+            "knight": [[30 + (i % 4) * 3, 30 + (i // 4) * 3] for i in range(16)],
+            "archer": [],
+            "mage": [],
+        },
+        "Red": {"peasant": [], "base": [[700, 700]], "knight": [], "archer": [], "mage": []},
+        "Resources": {"wood": [], "gold": []},
+        "Terrain": {
+            "width": 800,
+            "height": 800,
+            "high_ground": [],
+            "water": [[[0, 80, 200, 40]]],
+            "ramps": [],
+            "rocks": [[120, 40, 30]],
+            "grass": [],
+        },
+    }
+    simulation = HeadlessSimulation.from_settings(settings)
+    manager = simulation.manager
+    knights = manager.entities[TeamColor.BLUE].knights
+
+    manager.issue_move_order(TeamColor.BLUE, (40, 40), knights)
+    for _ in range(120):
+        simulation.step(1)
+
+    for knight in knights:
+        assert 0 <= knight.x <= 800
+        assert 0 <= knight.y <= 800
+        assert not manager.terrain.blocks_movement((knight.x, knight.y), radius=0)
+    simulation.close()
+
+
 def test_manager_public_attack_move_acquires_hostile_target() -> None:
     """Attack-move keeps a route but retargets visible hostiles."""
     settings = _settings()

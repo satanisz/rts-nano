@@ -703,6 +703,17 @@ class GameManager:
             population_cap += spec.provides_population
         return population_cap
 
+    def _clamp_unit_to_world(self, unit: Unit) -> None:
+        """Keep a unit's body inside the map after movement and collision pushes.
+
+        Collision separation and edge steering can otherwise drift a unit's
+        center past the map border. Clamping by the unit radius keeps the whole
+        body on-map without affecting units away from the edges.
+        """
+        radius = unit.radius
+        unit.x = min(max(unit.x, radius), self.map_width - radius)
+        unit.y = min(max(unit.y, radius), self.map_height - radius)
+
     def _clamp_to_world(self, pos: tuple[float, float]) -> tuple[int, int]:
         """Clamp a world-space point to map bounds.
 
@@ -1383,13 +1394,15 @@ class GameManager:
 
         self._update_mobile_height_levels()
         all_ents = self.all_entities
+        collidable_entities = [entity for entity in all_ents if isinstance(entity, (Unit, Building))]
         for entity in all_ents:
             if getattr(entity, "life", 1) <= 0:
                 continue
 
             if isinstance(entity, Unit):
                 self._update_attack_move_target(entity, all_ents)
-                entity.update(all_ents, self._can_unit_move_to)
+                entity.update(collidable_entities, self._can_unit_move_to)
+                self._clamp_unit_to_world(entity)
                 self._update_unit_stuck_recovery(entity)
                 attack_event = entity.consume_attack_event()
                 if attack_event and attack_event[2] == AttackType.RANGED:

@@ -472,6 +472,28 @@ runs at **~3360 steps/sec**. Observation building is now the dominant remaining 
 cost and is inherent to the per-step snapshot contract; a future opt-in/lazy
 observation mode could skip it for callers that don't read every step.
 
+## 6c. Collision System Pass (2026-06-26)
+
+Fixed two demonstrable correctness bugs and trimmed collision cost; all tests stay
+green and determinism holds (same logic on both replay runs).
+
+- **No more terrain tunnelling.** `Unit.resolve_collisions` now receives the terrain
+  validator and routes each separation push through it (`_apply_separation`), with a
+  per-axis fallback so crowded units slide along an obstacle instead of being shoved into
+  water/rock. Previously collision ignored terrain entirely.
+- **No more off-map units.** A `_clamp_unit_to_world` pass after each unit update keeps the
+  whole body inside the map by its radius; collision/edge steering could previously push a
+  unit's center to negative coordinates.
+- **Cheaper neighbour scan.** The manager builds the collidable set (units + buildings)
+  once per tick and passes it to collision, so collision no longer iterates every resource
+  node per unit. Behaviour-identical (resources were skipped anyway), and env throughput
+  edged up to ~1.58k steps/sec.
+
+Reproduced both bugs first (a 16-unit crowd by a map corner with water/rock pushed units
+off-map and into blockers), then verified the fix and locked it with
+`test_collision_keeps_crowded_units_on_map_and_off_terrain`. A uniform spatial grid for
+O(N) neighbour queries remains the next step if unit counts grow large enough to justify it.
+
 ---
 
 ## 7. Status and Remaining Follow-Ups
