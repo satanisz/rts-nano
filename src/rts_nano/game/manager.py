@@ -1,9 +1,10 @@
-"""Game state coordination, input handling, simulation, and rendering.
+"""Game state coordination and simulation tick.
 
 ``GameManager`` is the central runtime object for the playable game. It owns the
 loaded map, all entities, camera state, selected units, transient VFX, resource
-collection, combat projectiles, HUD widgets, and the F10 menu. The outer
-``main.py`` loop owns only pygame display creation and process-level events.
+collection, combat projectiles, and the menu/selection state. Rendering lives in
+``GameRenderer``, event/input handling in ``InputController``, and the command
+panel layout in ``CommandPanel``; ``main.py`` wires those adapters to the manager.
 
 Coordinate model:
 
@@ -72,7 +73,7 @@ from rts_nano.game.pathfinding import find_path
 from rts_nano.game.production import ProductionSystem
 from rts_nano.game.rules import clamp_point, distance_between_points, nearest_entity
 from rts_nano.game.terrain import TerrainMap
-from rts_nano.game.ui.command_panel import CommandButton, CommandPanel
+from rts_nano.game.ui.command_panel import CommandPanel
 from rts_nano.game.victory import VictorySystem
 
 if TYPE_CHECKING:
@@ -351,8 +352,6 @@ class GameManager:
         self.minimap_dragging: bool = False
         self.drag_start: tuple[int, int] | None = None
         self.drag_end: tuple[int, int] | None = None
-        self._last_click_ms: int = 0
-        self._last_click_pos: tuple[int, int] = (0, 0)
         self.paused: bool = False
         self.menu_active: bool = False
         self.fullscreen_enabled: bool = False
@@ -679,29 +678,6 @@ class GameManager:
             self.begin_patrol_targeting()
         elif command == "gather":
             self.begin_gather_targeting()
-
-    def _handle_command_panel_click(self, mouse_pos: tuple[int, int]) -> bool:
-        """Dispatch a click on a command-panel button. Return True if handled."""
-        for button in self.command_panel.build(self, SCREEN_WIDTH, SCREEN_HEIGHT):
-            if not button.enabled or button.action is None or not button.rect.collidepoint(mouse_pos):
-                continue
-            self._dispatch_command_button(button)
-            return True
-        return False
-
-    def _dispatch_command_button(self, button: CommandButton) -> None:
-        """Run the manager action behind an enabled command-panel button."""
-        action = button.action
-        if action == "produce" and button.producer is not None and button.unit_type:
-            self.produce_unit(button.producer, button.unit_type)
-        elif action == "cancel" and button.producer is not None:
-            self.cancel_production(button.producer)
-        elif action == "construct" and button.building_type:
-            self.begin_construction_placement(button.building_type)
-        elif action == "cancel_construction" and button.producer is not None:
-            self.cancel_construction(button.producer)
-        elif action in {"stop", "hold", "attack_move", "patrol", "gather", "return_cargo"}:
-            self._handle_unit_command_button(action)
 
     def _count_units(self, team: TeamColor) -> int:
         """Return the number of living units owned by a team."""
@@ -1084,237 +1060,12 @@ class GameManager:
                 return int(x), int(y)
         raise TypeError(f"Invalid coordinate pair: {coord_pair!r}")
 
-    def handle_input(self, event: pygame.event.Event) -> None:
-        """Process keyboard and mouse input for team control and selection.
-
-        Mouse handling is split into three screen-space zones:
-
-        * F10 menu consumes all clicks while active,
-        * minimap consumes left clicks/drag before world selection,
-        * bottom panel blocks world orders and hosts build buttons.
-
-        World interactions convert to world coordinates immediately. Selection
-        rectangles store world coordinates so dragging remains correct while the
-        camera is moving.
-
-        Args:
-            event: Pygame event to process.
-        """
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_TAB:
-                self.cancel_pending_construction_placement()
-                self.cancel_pending_unit_command()
-                if self.current_team == TeamColor.BLUE:
-                    self.current_team = TeamColor.RED
-                else:
-                    self.current_team = TeamColor.BLUE
-                for entity in self.selected_entities:
-                    entity.selected = False
-                self.selected_entities.clear()
-            elif event.key == pygame.K_q:
-                pygame.event.post(pygame.event.Event(pygame.QUIT))
-            elif event.key == pygame.K_p:
-                if not self.menu_active:
-                    self.paused = not self.paused
-            elif event.key == pygame.K_F10:
-                self.menu_active = not self.menu_active
-                self.paused = self.menu_active
-            elif event.key == pygame.K_F11 or (event.key == pygame.K_RETURN and event.mod & pygame.KMOD_ALT):
-                self._request_fullscreen_toggle()
-            elif event.key == pygame.K_b:
-                if self._selected_construction_builder() is not None:
-                    self.begin_construction_placement("barracks")
-                else:
-                    self._try_build_peasant_from_selection()
-            elif event.key == pygame.K_y:
-                self.begin_construction_placement("house")
-            elif event.key == pygame.K_m:
-                self.begin_construction_placement("mage_tower")
-            elif event.key == pygame.K_s:
-                selected_units = [entity for entity in self.selected_entities if isinstance(entity, Unit)]
-                self.issue_stop_order(self.current_team, selected_units)
-            elif event.key == pygame.K_h:
-                selected_units = [entity for entity in self.selected_entities if isinstance(entity, Unit)]
-                self.issue_hold_order(self.current_team, selected_units)
-            elif event.key == pygame.K_c:
-                selected_units = [entity for entity in self.selected_entities if isinstance(entity, Unit)]
-                self.issue_return_cargo_order(self.current_team, selected_units)
-            elif event.key == pygame.K_a:
-                self.begin_attack_move_targeting()
-            elif event.key == pygame.K_t:
-                self.begin_patrol_targeting()
-            elif event.key == pygame.K_g:
-                self.begin_gather_targeting()
-            elif pygame.K_1 <= event.key <= pygame.K_9:
-                group_id = event.key - pygame.K_0
-                if event.mod & pygame.KMOD_CTRL:
-                    self.assign_control_group(group_id)
-                else:
-                    self.recall_control_group(group_id)
-
-        elif event.type == pygame.MOUSEBUTTONDOWN:
-            mouse_pos = event.pos
-            self.set_mouse_pos(mouse_pos)
-
-            if self.menu_active:
-                if event.button == 1:
-                    self._handle_menu_click(mouse_pos)
-                return  # Block world interaction while menu is open
-
-            if event.button == 1:
-                minimap_rect = self._minimap_rect()
-                if minimap_rect.collidepoint(mouse_pos):
-                    self.minimap_dragging = True
-                    self._center_camera_from_minimap_pos(mouse_pos)
-                    return
-
-                # Check command-panel buttons first
-                if self._handle_command_panel_click(mouse_pos):
-                    return
-                if mouse_pos[1] >= PLAY_AREA_HEIGHT:
-                    return
-
-                world_pos = self._screen_to_world(mouse_pos)
-                if self.pending_construction_type is not None:
-                    self.place_pending_construction(world_pos)
-                    return
-                if self.pending_unit_command == "attack_move":
-                    selected_units = [entity for entity in self.selected_entities if isinstance(entity, Unit)]
-                    self.issue_attack_move_order(self.current_team, world_pos, selected_units)
-                    self.cancel_pending_unit_command()
-                    return
-                if self.pending_unit_command == "patrol":
-                    selected_units = [entity for entity in self.selected_entities if isinstance(entity, Unit)]
-                    self.issue_patrol_order(self.current_team, world_pos, selected_units)
-                    self.cancel_pending_unit_command()
-                    return
-                if self.pending_unit_command == "gather":
-                    resource = self._resource_at_position(world_pos)
-                    if resource is None:
-                        self.menu_status = "Choose resource"
-                        return
-                    selected_units = [entity for entity in self.selected_entities if isinstance(entity, Unit)]
-                    self.issue_gather_order(self.current_team, resource, selected_units)
-                    self.cancel_pending_unit_command()
-                    return
-
-                clicked_unit = self._unit_at_world_pos(world_pos)
-                now_ms = pygame.time.get_ticks()
-                is_double_click = (
-                    clicked_unit is not None
-                    and clicked_unit.team == self.current_team
-                    and now_ms - self._last_click_ms <= DOUBLE_CLICK_MS
-                    and distance_between_points(self._last_click_pos, mouse_pos) <= 6
-                )
-                self._last_click_ms = now_ms
-                self._last_click_pos = mouse_pos
-                if is_double_click and clicked_unit is not None:
-                    self.select_units_like(clicked_unit)
-                    return
-
-                self.dragging = True
-                self.drag_start = world_pos
-                self.drag_end = world_pos
-
-            elif event.button == 3:
-                if self.pending_construction_type is not None:
-                    self.cancel_pending_construction_placement()
-                    return
-                if self.pending_unit_command is not None:
-                    self.cancel_pending_unit_command()
-                    return
-                if mouse_pos[1] >= PLAY_AREA_HEIGHT:
-                    return
-                order_pos = self._screen_to_world(mouse_pos)
-                if self.terrain.blocks_movement(order_pos):
-                    return
-                target_entity = None
-                for entity in self.all_entities:
-                    if entity.contains_point(order_pos):
-                        target_entity = entity
-                        break
-
-                marker_color = (255, 80, 80) if target_entity else (80, 255, 120)
-                self.click_markers.append(
-                    ClickMarker(order_pos[0], order_pos[1], marker_color, pygame.time.get_ticks())
-                )
-
-                selected_units = [entity for entity in self.selected_entities if isinstance(entity, Unit)]
-                if target_entity is None:
-                    self._assign_group_move_order(selected_units, order_pos)
-                else:
-                    for entity in selected_units:
-                        self._assign_unit_target(entity, order_pos, target_entity)
-
-        elif event.type == pygame.MOUSEBUTTONUP:
-            if event.button == 1 and self.minimap_dragging:
-                self.minimap_dragging = False
-            elif event.button == 1 and self.dragging:
-                self.dragging = False
-                self.select_units_in_box()
-                self.drag_start = None
-                self.drag_end = None
-
-        elif event.type == pygame.MOUSEMOTION:
-            self.set_mouse_pos(event.pos)
-            if self.minimap_dragging:
-                self._center_camera_from_minimap_pos(event.pos)
-            elif self.dragging:
-                self.drag_end = self._screen_to_world(event.pos)
-
-    def _try_build_peasant_from_selection(self) -> None:
-        """Attempt to build a peasant from the first selected base."""
-        for entity in self.selected_entities:
-            if isinstance(entity, Base) and entity.team == self.current_team:
-                self.build_peasant(entity)
-                break
-
-    def _handle_menu_click(self, mouse_pos: tuple[int, int]) -> None:
-        """Process clicks on the main menu."""
-        menu_width = 300
-        button_height = 50
-        spacing = 20
-        total_height = len(self.menu_options) * (button_height + spacing) - spacing
-        start_x = (SCREEN_WIDTH - menu_width) // 2
-        start_y = (SCREEN_HEIGHT - total_height) // 2
-
-        for i, option in enumerate(self.menu_options):
-            rect = pygame.Rect(start_x, start_y + i * (button_height + spacing), menu_width, button_height)
-            if rect.collidepoint(mouse_pos):
-                if option == "CONTINUE":
-                    self.menu_active = False
-                    self.paused = False
-                elif option == "SAVE":
-                    self.menu_status = "Save is not implemented yet."
-                elif option == "LOAD":
-                    self.menu_status = "Load is not implemented yet."
-                elif option.startswith("SPEED:"):
-                    self.menu_status = None
-                    if self.fps_multiplier == 1.0:
-                        self.fps_multiplier = 2.0
-                        self._set_menu_option("SPEED:", "SPEED: FAST")
-                    elif self.fps_multiplier == 2.0:
-                        self.fps_multiplier = 0.5
-                        self._set_menu_option("SPEED:", "SPEED: SLOW")
-                    else:
-                        self.fps_multiplier = 1.0
-                        self._set_menu_option("SPEED:", "SPEED: NORMAL")
-                elif option.startswith("FULLSCREEN:"):
-                    self._request_fullscreen_toggle()
-                elif option == "EXIT":
-                    pygame.event.post(pygame.event.Event(pygame.QUIT))
-
     def _set_menu_option(self, prefix: str, value: str) -> None:
         """Replace the first menu option that starts with prefix."""
         for index, option in enumerate(self.menu_options):
             if option.startswith(prefix):
                 self.menu_options[index] = value
                 return
-
-    def _request_fullscreen_toggle(self) -> None:
-        """Ask the application shell to toggle fullscreen mode."""
-        self.set_fullscreen_enabled(not self.fullscreen_enabled)
-        pygame.event.post(pygame.event.Event(FULLSCREEN_TOGGLE_EVENT, enabled=self.fullscreen_enabled))
 
     def set_fullscreen_enabled(self, enabled: bool) -> None:
         """Sync fullscreen state displayed by the menu."""
@@ -1375,13 +1126,12 @@ class GameManager:
                         self.selected_entities.append(entity)
 
     def update(self) -> None:
-        """Advance camera, unit simulation, harvesting, combat VFX, and victory.
+        """Advance unit simulation, harvesting, combat VFX, production, and victory.
 
-        The method returns early after camera update when paused. This lets the
-        user pan while paused/menu-free, but freezes unit movement, harvesting,
-        combat, projectiles, and click marker cleanup.
+        Returns early when paused, freezing unit movement, harvesting, combat,
+        projectiles, and click-marker cleanup. Camera scrolling lives in the
+        ``InputController`` so it can still pan while the simulation is paused.
         """
-        self._update_camera()
         if self.paused:
             return
 
@@ -1446,35 +1196,3 @@ class GameManager:
         self.archer_shots = [shot for shot in self.archer_shots if shot.update()]
         now_ms = pygame.time.get_ticks()
         self.click_markers = [marker for marker in self.click_markers if marker.is_alive(now_ms)]
-
-    def _update_camera(self) -> None:
-        """Scroll the viewport with keyboard keys or edge scrolling."""
-        if self.menu_active:
-            return
-
-        keys = pygame.key.get_pressed()
-        dx = 0
-        dy = 0
-        if keys[pygame.K_LEFT] or keys[pygame.K_a]:
-            dx -= CAMERA_SPEED
-        if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
-            dx += CAMERA_SPEED
-        if keys[pygame.K_UP] or keys[pygame.K_w]:
-            dy -= CAMERA_SPEED
-        if keys[pygame.K_DOWN] or keys[pygame.K_s]:
-            dy += CAMERA_SPEED
-
-        mouse_x, mouse_y = self.mouse_pos
-        if 0 <= mouse_y < SCREEN_HEIGHT:
-            if mouse_x <= EDGE_SCROLL_MARGIN:
-                dx -= CAMERA_SPEED
-            elif mouse_x >= SCREEN_WIDTH - EDGE_SCROLL_MARGIN:
-                dx += CAMERA_SPEED
-            if mouse_y <= EDGE_SCROLL_MARGIN:
-                dy -= CAMERA_SPEED
-            elif mouse_y >= SCREEN_HEIGHT - EDGE_SCROLL_MARGIN:
-                dy += CAMERA_SPEED
-
-        self.camera_x += dx
-        self.camera_y += dy
-        self._clamp_camera()

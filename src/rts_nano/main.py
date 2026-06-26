@@ -22,6 +22,7 @@ from rts_nano.ai import ScriptedAI
 from rts_nano.game.assets.entities import TeamColor
 from rts_nano.game.constants import FPS, GRAY, SCREEN_HEIGHT, SCREEN_WIDTH
 from rts_nano.game.manager import FULLSCREEN_TOGGLE_EVENT, GameManager
+from rts_nano.game.ui.input_controller import InputController
 from rts_nano.game.ui.renderer import GameRenderer
 from rts_nano.map_schema import load_map_settings
 
@@ -118,6 +119,7 @@ def main() -> None:
     game_manager = GameManager(map_settings)
     game_manager.set_viewport_size(*display_screen.get_size())
     renderer = GameRenderer()
+    input_controller = InputController()
     opponent_ai = ScriptedAI(game_manager, TeamColor.RED)
 
     running = True
@@ -133,8 +135,9 @@ def main() -> None:
                 display_screen, fullscreen_enabled = _create_display(fullscreen=event.enabled)
                 game_manager.set_fullscreen_enabled(fullscreen_enabled)
                 game_manager.set_viewport_size(*display_screen.get_size())
-            game_manager.handle_input(event)
+            input_controller.handle_event(game_manager, event)
 
+        input_controller.update_camera(game_manager)
         if not game_manager.paused:
             opponent_ai.step()
         game_manager.update()

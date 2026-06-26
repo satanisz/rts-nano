@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 import pygame
 
 from rts_nano.game.assets.entities.base_entities import TeamColor
+from rts_nano.game.ui.input_controller import InputController
 from rts_nano.headless import HeadlessSimulation
 
 if TYPE_CHECKING:
@@ -231,17 +232,18 @@ def test_manager_build_hotkeys_enter_worker_placement_modes() -> None:
     """Worker build hotkeys start construction placement for supported buildings."""
     simulation = HeadlessSimulation.from_settings(_settings())
     manager = simulation.manager
+    input_controller = InputController()
     group = manager.entities[TeamColor.BLUE]
     peasant = group.peasents[0]
     group.resources.update({"wood": 220, "gold": 60})
     manager.select_entities_for_team(TeamColor.BLUE, [peasant])
 
-    manager.handle_input(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_y))
+    input_controller.handle_event(manager, pygame.event.Event(pygame.KEYDOWN, key=pygame.K_y))
 
     assert manager.pending_construction_type == "house"
 
     manager.cancel_pending_construction_placement()
-    manager.handle_input(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_b))
+    input_controller.handle_event(manager, pygame.event.Event(pygame.KEYDOWN, key=pygame.K_b))
 
     assert manager.pending_construction_type == "barracks"
     simulation.close()

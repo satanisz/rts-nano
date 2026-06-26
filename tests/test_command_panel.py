@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from rts_nano.game.assets.entities.base_entities import TeamColor
 from rts_nano.game.constants import SCREEN_HEIGHT, SCREEN_WIDTH
+from rts_nano.game.ui.input_controller import InputController
 from rts_nano.headless import HeadlessSimulation
 
 if TYPE_CHECKING:
@@ -89,7 +90,7 @@ def test_command_panel_unit_shows_unit_commands() -> None:
 
 
 def test_command_panel_click_dispatch_queues_production() -> None:
-    """Dispatching a built produce button queues the unit, proving render/input share it."""
+    """Clicking a built produce button queues the unit, proving render/input share it."""
     simulation = HeadlessSimulation.from_settings(_settings())
     manager = simulation.manager
     base = manager.entities[TeamColor.BLUE].bases[0]
@@ -98,7 +99,8 @@ def test_command_panel_click_dispatch_queues_production() -> None:
 
     buttons = manager.command_panel.build(manager, SCREEN_WIDTH, SCREEN_HEIGHT)
     train = next(button for button in buttons if button.action == "produce" and button.unit_type == "peasant")
-    manager._dispatch_command_button(train)
+    handled = InputController()._handle_command_panel_click(manager, train.rect.center)
 
+    assert handled is True
     assert len(manager.production.queue_for(base)) == 1
     simulation.close()
