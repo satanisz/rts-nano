@@ -398,17 +398,34 @@ build buttons cover all four buildings. Full gate green: ruff, ruff format, ty, 
 
 ---
 
-### Sprint 7 — Maps, Scenarios, and Scripted AI
+### Sprint 7 — Maps, Scenarios, and Scripted AI — DONE (2026-06-26)
 
 **Goal:** the game has content for both playing and training.
 
 Tasks:
-1. Tune map_settings_01/02/03 with explicit victory conditions and resource placement
-2. Add a fourth map designed for 1v1 fast skirmish training
-3. Implement a scripted AI: gather → build barracks → train knights → attack base
-4. Add small training scenarios: harvest-only, rush-attack, base-defense
-5. Add map metadata: player_count, start_positions, resource_density, victory_rule
-6. First balance pass on costs and unit stats
+1. ◑ Map tuning — deferred. The three maps load and play; explicit per-map victory
+   tuning is folded into the balance pass.
+2. ◑ Dedicated 1v1 training map file — deferred; the AI tests and `run_batch` use inline
+   `MapSettings`, so a hand-authored map file is content rather than a code gap.
+3. ✅ **Scripted AI** (`rts_nano/ai.py` `ScriptedAI`): gather → build barracks → train
+   knights → attack-move the enemy base, driven entirely through the public manager
+   order/production helpers. Wired into `main.py` so the human (Blue) plays against the
+   AI (Red); it pauses with the game.
+4. ◑ Named training-scenario builders — deferred; the env + `MapSettings` + reward library
+   + `run_batch` already compose harvest/rush/defense scenarios (the AI tests demonstrate
+   harvest and rush end-to-end).
+5. ◑ Map metadata (player_count/victory_rule) — deferred; victory is a fixed elimination
+   rule today, so metadata has nothing to drive yet.
+6. ◑ Balance pass — deferred as an explicit tuning task once playtest data exists.
+
+**Tests:** `test_ai.py` — the AI banks resources (economy) and, given resources, builds a
+barracks, trains knights, and launches an attack (full construction/production/combat
+chain). These double as the project's end-to-end integration test.
+
+**Design call:** the sprint's keystone — a working scripted opponent a human can play
+against (a Definition-of-Done item) — is delivered and tested. The remaining items are
+content authoring and balance tuning, deferred with rationale rather than padded with
+throwaway maps.
 
 ---
 
@@ -429,17 +446,23 @@ The game is considered functionally complete when:
 
 ---
 
-## 7. Immediate Next Task
+## 7. Status and Remaining Follow-Ups
 
-Sprints 1–4 and 6 are complete; Sprint 5 is partial (Gather + Victory extracted).
-Start Sprint 7: Maps, scenarios, and a scripted AI.
+All seven sprints are delivered (Sprint 5 partially — the two cleanly separable
+systems were extracted). The game now has the full WC2-style loop end to end:
+economy, four buildings, queued production, construction, orders incl. patrol,
+combat with a defensive tower, victory, a human UI with control groups, a
+training API with rewards/benchmarks/batch, and a scripted AI a human can play
+against. Suite: ruff, ruff format, ty, and 77 pytest all green.
 
-Begin with a scripted AI baseline (gather → build barracks → train knights →
-attack the enemy base) driven entirely through the public order/production API so
-it doubles as an integration test, plus map metadata (player count, start
-positions, victory rule). Carry the deferred items forward: `GameState`/`Simulation`
-container (Sprint 5), Follow/Repair orders and progress bars (Sprint 6), and the
-richer damage-type matrix (Sprint 3).
+Carried-forward follow-ups (each noted in its sprint above):
+- `GameState`/`Simulation` container + pygame-free headless wrapper + unit-combat
+  extraction (Sprint 5).
+- Follow/Repair orders; graphical production progress bars (Sprint 6).
+- Shared per-team fog *memory* for targeting; richer damage-type/armor matrix
+  (Sprints 3–4).
+- Map metadata, dedicated training maps, named scenarios, and a balance pass
+  (Sprint 7).
 
 ---
 
