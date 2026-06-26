@@ -446,6 +446,34 @@ The game is considered functionally complete when:
 
 ---
 
+## 6b. Performance Pass (2026-06-26)
+
+Measured first (cProfile on 1500 headless env steps of the default map), then made
+three behavior-preserving optimizations. All 77 tests — including the deterministic
+replay tests — stay green, and the optimized fog grid was verified identical to the
+old full-scan implementation.
+
+- **Removed `ABC` from the entity base classes.** `Entity`/`Resource`/`Building`/`Unit`
+  kept their manual `type(self) is X` instantiation guards, so direct instantiation
+  still raises, but `isinstance` is now a normal C-level check instead of
+  `ABCMeta.__instancecheck__` (~2.7× faster per call). `isinstance` was the single
+  biggest cost, hit across observation, collision, action masks, and snapshotting.
+- **Height refresh is now mobile-only.** `_update_entity_height_levels` ran twice per
+  tick over *all* entities; resources (the bulk on real maps) never move and terrain is
+  static. Heights are now computed once at load, then only team units/buildings refresh
+  per tick, and the redundant second full pass was removed. Combat reads identical
+  heights, so this is determinism-safe.
+- **Fog downgrade is incremental.** `FogOfWar.update` scanned the whole grid every tick
+  to demote visible cells; it now tracks the visible-cell set and resets only those.
+
+Result on the default map: env throughput (with per-step observation) went from
+**~595 to ~1500 steps/sec (~2.5×)**; the raw simulation without observation building
+runs at **~3360 steps/sec**. Observation building is now the dominant remaining env
+cost and is inherent to the per-step snapshot contract; a future opt-in/lazy
+observation mode could skip it for callers that don't read every step.
+
+---
+
 ## 7. Status and Remaining Follow-Ups
 
 All seven sprints are delivered (Sprint 5 partially — the two cleanly separable

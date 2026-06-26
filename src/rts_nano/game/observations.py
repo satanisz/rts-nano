@@ -145,6 +145,7 @@ def _snapshot_team(manager: GameManager, team: TeamColor, group: EntitiesGroup) 
 def _snapshot_entity(manager: GameManager, entity: Entity, registry: EntityIdRegistry) -> EntitySnapshot:
     team = getattr(entity, "team", None)
     current_order = getattr(entity, "current_order", None)
+    building = entity if isinstance(entity, Building) else None
     return EntitySnapshot(
         id=registry.id_for(entity),
         kind=type(entity).__name__,
@@ -158,16 +159,14 @@ def _snapshot_entity(manager: GameManager, entity: Entity, registry: EntityIdReg
         carry_wood=getattr(entity, "carry_wood", 0),
         carry_gold=getattr(entity, "carry_gold", 0),
         selected=entity.selected,
-        production_queue=_snapshot_production_queue(manager, entity),
-        is_under_construction=isinstance(entity, Building) and entity.is_under_construction,
-        construction_progress=entity.construction_progress if isinstance(entity, Building) else None,
+        production_queue=_snapshot_production_queue(manager, building) if building is not None else (),
+        is_under_construction=building is not None and building.is_under_construction,
+        construction_progress=building.construction_progress if building is not None else None,
         order=current_order.kind if current_order is not None else None,
     )
 
 
-def _snapshot_production_queue(manager: GameManager, entity: Entity) -> tuple[ProductionSnapshot, ...]:
-    if not isinstance(entity, Building):
-        return ()
+def _snapshot_production_queue(manager: GameManager, building: Building) -> tuple[ProductionSnapshot, ...]:
     return tuple(
         ProductionSnapshot(
             unit_type=item.unit_type,
@@ -175,5 +174,5 @@ def _snapshot_production_queue(manager: GameManager, entity: Entity) -> tuple[Pr
             total_frames=item.total_frames,
             progress=item.progress,
         )
-        for item in manager.production.queue_for(entity)
+        for item in manager.production.queue_for(building)
     )

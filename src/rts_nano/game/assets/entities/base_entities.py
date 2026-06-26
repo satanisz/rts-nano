@@ -20,7 +20,6 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
 
     from rts_nano.game.order import Order
-from abc import ABC
 from enum import StrEnum
 from pathlib import Path
 
@@ -58,8 +57,7 @@ class TeamColor(StrEnum):
     RESOURCES = "Resources"
 
 
-class Entity(ABC):
-    # ruff: noqa: B024
+class Entity:
     """Represent a drawable selectable object on the map.
 
     ``Entity`` is the common API consumed by selection, collision, targeting,
@@ -202,7 +200,7 @@ class Entity(ABC):
         return self.x, self.y
 
 
-class Resource(Entity, ABC):
+class Resource(Entity):
     """Represent a harvestable world resource.
 
     Resources use ``amount`` instead of ``life`` as their depletion state. A
@@ -227,7 +225,7 @@ class Resource(Entity, ABC):
         self.amount: int = self.DEFAULT_AMOUNT
 
 
-class Building(Entity, ABC):
+class Building(Entity):
     """Represent a stationary structure owned by a team.
 
     Buildings are targetable combat entities and can receive deposited
@@ -288,7 +286,7 @@ class Building(Entity, ABC):
         return False
 
 
-class Unit(Entity, ABC):
+class Unit(Entity):
     """Represent a moving controllable entity.
 
     Units own their movement/combat state machine. A target can be a point or an

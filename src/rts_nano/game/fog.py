@@ -29,6 +29,7 @@ class FogOfWar:
         self.cols = int(math.ceil(map_width / FOG_CELL_SIZE))
         self.rows = int(math.ceil(map_height / FOG_CELL_SIZE))
         self.grid: list[list[int]] = [[self.UNEXPLORED for _ in range(self.cols)] for _ in range(self.rows)]
+        self._visible_cells: set[tuple[int, int]] = set()
 
     def update(self, visible_entities: list[Entity] | None) -> None:
         """Recalculate visibility based on current team's units and structures.
@@ -36,11 +37,10 @@ class FogOfWar:
         All previously visible cells are downgraded to explored.
         Then, new visible cells are calculated using entity vision ranges.
         """
-        # Downgrade VISIBLE to EXPLORED
-        for row in range(self.rows):
-            for col in range(self.cols):
-                if self.grid[row][col] == self.VISIBLE:
-                    self.grid[row][col] = self.EXPLORED
+        # Downgrade only the previously VISIBLE cells, avoiding a full-grid scan.
+        for row, col in self._visible_cells:
+            self.grid[row][col] = self.EXPLORED
+        self._visible_cells.clear()
 
         if not visible_entities:
             return
@@ -68,6 +68,7 @@ class FogOfWar:
                     dx = cell_x - cx
                     if dx * dx + dy * dy <= vision_sq:
                         self.grid[r][c] = self.VISIBLE
+                        self._visible_cells.add((r, c))
 
     def is_visible(self, x: float, y: float) -> bool:
         """Return whether a world coordinate is currently visible."""

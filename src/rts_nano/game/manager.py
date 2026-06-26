@@ -397,6 +397,7 @@ class GameManager:
         self.fog = FogOfWar(self.map_width, self.map_height)
 
         self._load_map_settings()
+        self._update_entity_height_levels()
         self.set_viewport_size(SCREEN_WIDTH, SCREEN_HEIGHT)
 
     def set_viewport_size(self, width: int, height: int) -> None:
@@ -759,9 +760,21 @@ class GameManager:
         self.mouse_pos = pos
 
     def _update_entity_height_levels(self) -> None:
-        """Refresh entity height levels from the terrain map."""
+        """Refresh height levels for every entity. Used once after map load."""
         for entity in self.all_entities:
             entity.height_level = self.terrain.height_at(entity.get_center())
+
+    def _update_mobile_height_levels(self) -> None:
+        """Refresh height levels for units and buildings each tick.
+
+        Neutral resources never move and terrain is static, so resource height is
+        computed once after load. Only team entities (movable units, plus
+        buildings that can be constructed mid-game) need a per-tick refresh, which
+        avoids re-querying terrain for every resource node every frame.
+        """
+        for group in self.entities.values():
+            for entity in group.all_entities:
+                entity.height_level = self.terrain.height_at(entity.get_center())
 
     def _selected_construction_builder(self) -> Peasant | None:
         return next(
@@ -1368,7 +1381,7 @@ class GameManager:
         else:
             self.fog.update([])
 
-        self._update_entity_height_levels()
+        self._update_mobile_height_levels()
         all_ents = self.all_entities
         for entity in all_ents:
             if getattr(entity, "life", 1) <= 0:
@@ -1415,7 +1428,6 @@ class GameManager:
                 ArcherShot(source_pos[0], source_pos[1], target_pos[0], target_pos[1], target_entity=target)
             )
         self._remove_dead_entities()
-        self._update_entity_height_levels()
         self.victory.update()
         self.magic_missiles = [missile for missile in self.magic_missiles if missile.update()]
         self.archer_shots = [shot for shot in self.archer_shots if shot.update()]
