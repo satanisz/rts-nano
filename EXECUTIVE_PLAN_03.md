@@ -2,6 +2,37 @@
 
 Last updated: 2026-06-27
 
+## STATUS: COMPLETE (Sprints A–E delivered 2026-06-27)
+
+All five decomposition sprints landed, each as its own commit with the test
+suite green and the deterministic "golden" digest byte-identical throughout:
+
+- **A — CommandPanel**: command-panel layout/logic extracted; render↔input
+  button-rect coupling removed (both read `CommandPanel`).
+- **B — GameRenderer**: all drawing moved to `game/ui/renderer.py`; the
+  `GameManager` class has zero `pygame.draw`/`pygame.font`.
+- **C — InputController**: all pygame event/key/click dispatch + camera moved to
+  `game/ui/input_controller.py`; the manager has no event handling.
+- **D — MovementSystem**: pathing/target-assignment/formation/attack-move/patrol/
+  stuck-recovery moved to `game/movement.py`.
+- **E — GameState**: `game/state.py` is the single source of truth (data +
+  queries + roster containers); every system (`combat`, `gather`, `victory`,
+  `production`, `movement`, `construction`, `orders`) depends on `GameState`
+  (plus injected collaborator systems), not `GameManager`.
+
+Result: `manager.py` went from **1972 → 1033 lines (−48%)**; throughput held at
+~1.57k steps/sec; 83 tests pass.
+
+**Deviations / not fully met:** the "coordinator under ~400 lines" target is only
+partially met — the `GameManager` class is leaner but still ~800 lines (it keeps
+the tick orchestration, map loading, selection, order delegators, placement
+state, and world↔screen transforms shared with input). The Sprint E stretch goal
+(make `HeadlessSimulation` pygame-free) is not done: the manager still imports
+pygame for the projectile/marker VFX value objects and `pygame.time`. Both are
+reasonable follow-ups.
+
+---
+
 This document continues EXECUTIVE_PLAN_02.md. That plan delivered the gameplay
 feature set (Sprints 1–7), a profile-driven performance pass, and a collision
 correctness pass. This plan is **single-purpose**: finish the `GameManager`
