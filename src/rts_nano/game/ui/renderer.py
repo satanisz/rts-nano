@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 import pygame
 
 from rts_nano.game.assets.entities import TeamColor, Wood
-from rts_nano.game.assets.entities.base_entities import Building, Resource, Unit
+from rts_nano.game.assets.entities.base_entities import Building, Resource, Unit, building_glyph
 from rts_nano.game.constants import (
     BLUE,
     BOTTOM_MENU_HEIGHT,
@@ -291,7 +291,14 @@ class GameRenderer:
             pygame.draw.rect(screen, WHITE, frame_rect, 2)
             screen.blit(primary_entity.avatar_image, (portrait_x, avatar_y))
         else:
-            pygame.draw.rect(screen, (30, 30, 30), frame_rect)
+            pygame.draw.rect(screen, (40, 42, 50), frame_rect)
+            if isinstance(primary_entity, Building):
+                label, accent = building_glyph(getattr(primary_entity, "spec_key", ""))
+                pygame.draw.rect(screen, accent, pygame.Rect(portrait_x, avatar_y, portrait_size, portrait_size // 5))
+                glyph = pygame.font.SysFont(None, 80).render(label, True, (235, 235, 235))
+                screen.blit(
+                    glyph, glyph.get_rect(center=(portrait_x + portrait_size // 2, avatar_y + portrait_size // 2))
+                )
             pygame.draw.rect(screen, WHITE, frame_rect, 2)
 
         font_tiny = pygame.font.SysFont(None, 16)

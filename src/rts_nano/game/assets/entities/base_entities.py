@@ -43,6 +43,31 @@ from rts_nano.game.rules import (
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Placeholder glyphs for buildings that have no sprite art yet: a type initial
+# and an accent "roof" color so each building reads as a distinct structure
+# rather than a flat team-colored square.
+_BUILDING_GLYPHS: dict[str, tuple[str, tuple[int, int, int]]] = {
+    "barracks": ("B", (160, 95, 70)),
+    "house": ("H", (95, 140, 90)),
+    "mage_tower": ("M", (120, 110, 190)),
+    "tower": ("T", (140, 140, 150)),
+}
+_glyph_font_cache: dict[int, pygame.font.Font] = {}
+
+
+def building_glyph(spec_key: str) -> tuple[str, tuple[int, int, int]]:
+    """Return the placeholder (label, accent color) for a building type."""
+    return _BUILDING_GLYPHS.get(spec_key, ("?", (110, 110, 120)))
+
+
+def _building_glyph_font(size: int) -> pygame.font.Font:
+    """Return a cached font for building placeholder labels at a given size."""
+    font = _glyph_font_cache.get(size)
+    if font is None:
+        font = pygame.font.SysFont(None, size)
+        _glyph_font_cache[size] = font
+    return font
+
 
 class TeamColor(StrEnum):
     """Available ownership groups for game entities.
@@ -284,6 +309,43 @@ class Building(Entity):
             self.life = self.max_life
             return True
         return False
+
+    def draw(self, screen: pygame.Surface, offset: tuple[float, float] = (0, 0)) -> None:
+        """Draw the building sprite, or a typed placeholder glyph when art is absent.
+
+        Only ``Base`` ships with a sprite today; the other structures render as a
+        stone body with a type-colored roof, a team-colored border, and a type
+        initial so they read as buildings rather than flat squares.
+        """
+        if self.image is not None:
+            super().draw(screen, offset)
+            return
+
+        offset_x, offset_y = offset
+        draw_x = int(self.x - offset_x)
+        draw_y = int(self.y - offset_y)
+        size = int(self.size)
+        top_left = (draw_x - size // 2, draw_y - size // 2)
+        body_rect = pygame.Rect(top_left[0], top_left[1], size, size)
+        label, accent = building_glyph(getattr(self, "spec_key", ""))
+
+        pygame.draw.rect(screen, (66, 68, 78), body_rect)
+        pygame.draw.rect(screen, accent, pygame.Rect(top_left[0], top_left[1], size, max(6, size // 4)))
+        pygame.draw.rect(screen, self.color, body_rect, 3)
+
+        glyph = _building_glyph_font(max(12, int(size * 0.5))).render(label, True, (235, 235, 235))
+        screen.blit(glyph, glyph.get_rect(center=(draw_x, draw_y + size // 8)))
+
+        if self.is_under_construction:
+            scaffold = pygame.Surface((size, size), pygame.SRCALPHA)
+            scaffold.fill((20, 20, 20, 110))
+            screen.blit(scaffold, top_left)
+            pygame.draw.rect(
+                screen, (80, 220, 120), (top_left[0], top_left[1] + size - 5, int(size * self.construction_progress), 4)
+            )
+
+        if self.selected:
+            pygame.draw.rect(screen, WHITE, body_rect, 1)
 
 
 class Unit(Entity):
