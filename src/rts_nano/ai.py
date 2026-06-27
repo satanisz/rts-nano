@@ -17,7 +17,8 @@ from rts_nano.game.rules import nearest_entity
 if TYPE_CHECKING:
     from rts_nano.game.assets.entities import TeamColor
     from rts_nano.game.assets.entities.buildings import Base
-    from rts_nano.game.manager import EntitiesGroup, GameManager
+    from rts_nano.game.manager import GameManager
+    from rts_nano.game.state import EntitiesGroup
 
 
 class ScriptedAI:

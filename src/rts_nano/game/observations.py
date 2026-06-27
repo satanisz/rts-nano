@@ -10,7 +10,8 @@ from rts_nano.game.assets.entities.base_entities import Building
 
 if TYPE_CHECKING:
     from rts_nano.game.assets.entities.base_entities import Entity
-    from rts_nano.game.manager import EntitiesGroup, GameManager
+    from rts_nano.game.manager import GameManager
+    from rts_nano.game.state import EntitiesGroup
 
 type EntityId = str
 

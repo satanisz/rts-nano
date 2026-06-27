@@ -71,7 +71,8 @@ from rts_nano.game.gather import GatherSystem
 from rts_nano.game.movement import MovementSystem
 from rts_nano.game.orders import OrderSystem
 from rts_nano.game.production import ProductionSystem
-from rts_nano.game.rules import clamp_point, distance_between_points
+from rts_nano.game.rules import distance_between_points
+from rts_nano.game.state import EntitiesGroup, GameState, ResourcesGroup
 from rts_nano.game.terrain import TerrainMap
 from rts_nano.game.ui.command_panel import CommandPanel
 from rts_nano.game.victory import VictorySystem
@@ -212,61 +213,6 @@ class ClickMarker:
         screen.blit(marker_surface, marker_surface.get_rect(center=draw_pos))
 
 
-class EntitiesGroup:
-    """Store team-owned entities and collected resources.
-
-    The map JSON groups entities by team, but the runtime further separates unit
-    classes into lists for simple counts, UI summaries, and production logic.
-    Neutral resources are not stored here; they live in ``ResourcesGroup``.
-
-    Args:
-        name: Team associated with the entity collection.
-    """
-
-    def __init__(self, name: TeamColor) -> None:
-        """Initialize the object."""
-        self.name: TeamColor = name
-        self.resources: dict[str, int] = {"wood": 0, "gold": 0}
-        self.bases: list[Base] = []
-        self.barracks: list[Barracks] = []
-        self.houses: list[House] = []
-        self.mage_towers: list[MageTower] = []
-        self.towers: list[Tower] = []
-        self.peasents: list[Peasant] = []
-        self.knights: list[Knight] = []
-        self.archers: list[Archer] = []
-        self.mages: list[Mage] = []
-
-    @property
-    def all_entities(self) -> list[Entity]:
-        """Return all entities owned by the team."""
-        all_ents: list[Entity] = []
-        all_ents.extend(self.bases)
-        all_ents.extend(self.barracks)
-        all_ents.extend(self.houses)
-        all_ents.extend(self.mage_towers)
-        all_ents.extend(self.towers)
-        all_ents.extend(self.peasents)
-        all_ents.extend(self.knights)
-        all_ents.extend(self.archers)
-        all_ents.extend(self.mages)
-        return all_ents
-
-
-class ResourcesGroup:
-    """Store neutral resource nodes available on the map.
-
-    Resources are normal entities for drawing/selection/collision, but their
-    lifetime differs from units: they disappear when ``amount`` reaches zero
-    rather than when ``life`` reaches zero.
-    """
-
-    def __init__(self) -> None:
-        """Initialize the object."""
-        self.golds: list[Gold] = []
-        self.woods: list[Wood] = []
-
-
 class EntityFactory:
     """Create game entities from map configuration values.
 
@@ -337,17 +283,20 @@ class GameManager:
     def __init__(self, map_settings: MapSettings) -> None:
         """Initialize the object."""
         self.map_settings = map_settings
-        self.terrain = TerrainMap(map_settings.get("Terrain"))
-        self.entities: dict[TeamColor, EntitiesGroup] = {}
-        self.resources: ResourcesGroup = ResourcesGroup()
-        self.selected_entities: list[Entity] = []
-        self.current_team: TeamColor = TeamColor.BLUE
+        terrain = TerrainMap(map_settings.get("Terrain"))
+        map_width = max(terrain.width, SCREEN_WIDTH)
+        map_height = max(terrain.height, PLAY_AREA_HEIGHT)
+        self.state = GameState(
+            terrain=terrain,
+            fog=FogOfWar(map_width, map_height),
+            map_width=map_width,
+            map_height=map_height,
+        )
         self.control_groups: dict[int, list[Unit]] = {}
         self.dragging: bool = False
         self.minimap_dragging: bool = False
         self.drag_start: tuple[int, int] | None = None
         self.drag_end: tuple[int, int] | None = None
-        self.paused: bool = False
         self.menu_active: bool = False
         self.fullscreen_enabled: bool = False
         self.fps_multiplier: float = 1.0
@@ -373,19 +322,90 @@ class GameManager:
         self.victory = VictorySystem(self)
         self.movement = MovementSystem(self)
         self.orders = OrderSystem(self)
-        self.game_over_message: str | None = None
         self.menu_status: str | None = None
         self.mouse_pos: tuple[int, int] = (0, 0)
         self.camera_x: float = 0
         self.camera_y: float = 0
-        self.map_width = max(self.terrain.width, SCREEN_WIDTH)
-        self.map_height = max(self.terrain.height, PLAY_AREA_HEIGHT)
-
-        self.fog = FogOfWar(self.map_width, self.map_height)
 
         self._load_map_settings()
         self._update_entity_height_levels()
         self.set_viewport_size(SCREEN_WIDTH, SCREEN_HEIGHT)
+
+    # --- GameState-backed data (single source of truth lives in self.state) ---
+
+    @property
+    def entities(self) -> dict[TeamColor, EntitiesGroup]:
+        """Team entity rosters (backed by ``GameState``)."""
+        return self.state.entities
+
+    @property
+    def resources(self) -> ResourcesGroup:
+        """Neutral resource nodes (backed by ``GameState``)."""
+        return self.state.resources
+
+    @property
+    def fog(self) -> FogOfWar:
+        """Fog-of-war grid (backed by ``GameState``)."""
+        return self.state.fog
+
+    @property
+    def terrain(self) -> TerrainMap:
+        """Terrain map (backed by ``GameState``)."""
+        return self.state.terrain
+
+    @property
+    def map_width(self) -> int:
+        """World width in pixels (backed by ``GameState``)."""
+        return self.state.map_width
+
+    @map_width.setter
+    def map_width(self, value: int) -> None:
+        self.state.map_width = value
+
+    @property
+    def map_height(self) -> int:
+        """World height in pixels (backed by ``GameState``)."""
+        return self.state.map_height
+
+    @map_height.setter
+    def map_height(self, value: int) -> None:
+        self.state.map_height = value
+
+    @property
+    def current_team(self) -> TeamColor:
+        """Team currently controlled/viewed (backed by ``GameState``)."""
+        return self.state.current_team
+
+    @current_team.setter
+    def current_team(self, value: TeamColor) -> None:
+        self.state.current_team = value
+
+    @property
+    def selected_entities(self) -> list[Entity]:
+        """Currently selected entities (backed by ``GameState``)."""
+        return self.state.selected_entities
+
+    @selected_entities.setter
+    def selected_entities(self, value: list[Entity]) -> None:
+        self.state.selected_entities = value
+
+    @property
+    def game_over_message(self) -> str | None:
+        """Terminal result label, or None while playing (backed by ``GameState``)."""
+        return self.state.game_over_message
+
+    @game_over_message.setter
+    def game_over_message(self, value: str | None) -> None:
+        self.state.game_over_message = value
+
+    @property
+    def paused(self) -> bool:
+        """Whether the simulation tick is frozen (backed by ``GameState``)."""
+        return self.state.paused
+
+    @paused.setter
+    def paused(self, value: bool) -> None:
+        self.state.paused = value
 
     def set_viewport_size(self, width: int, height: int) -> None:
         """Update the visible game area to match the current display size.
@@ -447,10 +467,7 @@ class GameManager:
     @property
     def all_entities(self) -> list[Entity]:
         """Return all active entities, including units, buildings, and resources."""
-        ents = [entity for group in self.entities.values() for entity in group.all_entities]
-        ents.extend(self.resources.woods)
-        ents.extend(self.resources.golds)
-        return ents
+        return self.state.all_entities
 
     def units_for_team(self, team: TeamColor) -> list[Unit]:
         """Return all living units owned by a team."""
@@ -676,11 +693,8 @@ class GameManager:
             self.begin_gather_targeting()
 
     def _count_units(self, team: TeamColor) -> int:
-        """Return the number of living units owned by a team."""
-        group = self.entities.get(team)
-        if group is None:
-            return 0
-        return len(group.peasents) + len(group.knights) + len(group.archers) + len(group.mages)
+        """Return the number of living units owned by a team (delegates to state)."""
+        return self.state.count_units(team)
 
     def _has_reached_unit_cap(self, team: TeamColor) -> bool:
         """Return whether a team is at the current unit cap."""
@@ -689,21 +703,8 @@ class GameManager:
         ) >= self.population_cap_for_team(team)
 
     def population_cap_for_team(self, team: TeamColor) -> int:
-        """Return the current population cap for a team."""
-        group = self.entities.get(team)
-        if group is None or team == TeamColor.RESOURCES:
-            return 0
-
-        population_cap = 0
-        for building in (*group.bases, *group.barracks, *group.houses, *group.mage_towers, *group.towers):
-            if building.life <= 0 or building.is_under_construction:
-                continue
-            try:
-                spec = get_building_spec(getattr(building, "spec_key", type(building).__name__.lower()))
-            except ValueError:
-                continue
-            population_cap += spec.provides_population
-        return population_cap
+        """Return the current population cap for a team (delegates to state)."""
+        return self.state.population_cap_for_team(team)
 
     def _clamp_unit_to_world(self, unit: Unit) -> None:
         """Keep a unit's body inside the map after movement and collision pushes.
@@ -717,14 +718,8 @@ class GameManager:
         unit.y = min(max(unit.y, radius), self.map_height - radius)
 
     def _clamp_to_world(self, pos: tuple[float, float]) -> tuple[int, int]:
-        """Clamp a world-space point to map bounds.
-
-        Use this for orders, spawned units, path goals, and converted mouse
-        coordinates. It clamps to full map dimensions, not to the visible
-        viewport.
-        """
-        x, y = clamp_point(pos, min_x=0, max_x=self.map_width, min_y=0, max_y=self.map_height)
-        return int(x), int(y)
+        """Clamp a world-space point to full map bounds (delegates to state)."""
+        return self.state.clamp_to_world(pos)
 
     def _clamp_camera(self) -> None:
         """Keep the viewport inside the map."""

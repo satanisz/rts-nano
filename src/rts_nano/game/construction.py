@@ -11,7 +11,8 @@ from rts_nano.game.rules import distance_between_points
 
 if TYPE_CHECKING:
     from rts_nano.game.assets.entities.units import Peasant
-    from rts_nano.game.manager import EntitiesGroup, GameManager
+    from rts_nano.game.manager import GameManager
+    from rts_nano.game.state import EntitiesGroup
 
 
 class ConstructionSystem:
