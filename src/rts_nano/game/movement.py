@@ -1,10 +1,11 @@
 """Unit movement, pathing, formation, and attack-move/patrol logic.
 
 Extracted from ``GameManager`` so the tick's movement behavior lives in one
-place. The system reaches map/terrain state through the manager (``terrain``,
-``map_width``/``map_height``, ``_clamp_to_world``) but owns target assignment,
-A* pathing, formation spread, attack-move acquisition, patrol leg flipping, and
-stuck recovery. Behavior is byte-identical to the previous in-manager version.
+place. Map/terrain state comes from the shared ``GameState`` (``terrain``,
+``map_width``/``map_height``, ``clamp_to_world``); the system owns target
+assignment, A* pathing, formation spread, attack-move acquisition, patrol leg
+flipping, and stuck recovery. Behavior is byte-identical to the previous
+in-manager version.
 """
 
 from __future__ import annotations
@@ -25,30 +26,30 @@ from rts_nano.game.rules import distance_between_points, nearest_entity
 
 if TYPE_CHECKING:
     from rts_nano.game.assets.entities.base_entities import Entity
-    from rts_nano.game.manager import GameManager
+    from rts_nano.game.state import GameState
 
 
 class MovementSystem:
     """Own unit pathing, target assignment, and attack-move/patrol updates."""
 
-    def __init__(self, manager: GameManager) -> None:
-        """Initialize the movement system for one game manager."""
-        self._manager = manager
+    def __init__(self, state: GameState) -> None:
+        """Initialize the movement system for one game state."""
+        self._state = state
 
     def can_unit_move_to(self, unit: Unit, next_point: tuple[float, float]) -> bool:
         """Return whether terrain permits a unit movement step."""
-        next_x, next_y = self._manager._clamp_to_world(next_point)
-        return self._manager.terrain.can_move_between(unit.get_center(), (next_x, next_y), radius=unit.radius)
+        next_x, next_y = self._state.clamp_to_world(next_point)
+        return self._state.terrain.can_move_between(unit.get_center(), (next_x, next_y), radius=unit.radius)
 
     def find_unit_path(self, unit: Unit, destination: tuple[float, float]) -> list[tuple[float, float]]:
         """Build a terrain-aware path for a unit."""
-        goal = self._manager._clamp_to_world(destination)
+        goal = self._state.clamp_to_world(destination)
         movement_cache: dict[tuple[tuple[float, float], tuple[float, float]], bool] = {}
 
         def can_move_between(current: tuple[float, float], next_point: tuple[float, float]) -> bool:
             key = (current, next_point)
             if key not in movement_cache:
-                movement_cache[key] = self._manager.terrain.can_move_between(
+                movement_cache[key] = self._state.terrain.can_move_between(
                     current,
                     next_point,
                     radius=unit.radius,
@@ -58,8 +59,8 @@ class MovementSystem:
         return find_path(
             unit.get_center(),
             goal,
-            width=self._manager.map_width,
-            height=self._manager.map_height,
+            width=self._state.map_width,
+            height=self._state.map_height,
             can_move_between=can_move_between,
         )
 
@@ -103,8 +104,8 @@ class MovementSystem:
         offsets.sort(key=lambda offset: offset[0] ** 2 + offset[1] ** 2)
         destinations: list[tuple[int, int]] = []
         for offset_x, offset_y in offsets[:count]:
-            slot = self._manager._clamp_to_world((center[0] + offset_x, center[1] + offset_y))
-            if self._manager.terrain.blocks_movement(slot):
+            slot = self._state.clamp_to_world((center[0] + offset_x, center[1] + offset_y))
+            if self._state.terrain.blocks_movement(slot):
                 slot = center
             destinations.append(slot)
         return destinations

@@ -10,7 +10,7 @@ from rts_nano.game.data import PRODUCTION_REFUND_RATIO, ResourceCost, UnitSpec, 
 
 if TYPE_CHECKING:
     from rts_nano.game.assets.entities.base_entities import Building, TeamColor, Unit
-    from rts_nano.game.manager import GameManager
+    from rts_nano.game.state import GameState
 
 
 @dataclass(slots=True)
@@ -40,9 +40,9 @@ class ProductionSystem:
         "mage": Mage,
     }
 
-    def __init__(self, manager: GameManager) -> None:
-        """Initialize production state for one manager."""
-        self._manager = manager
+    def __init__(self, state: GameState) -> None:
+        """Initialize production state for one game state."""
+        self._state = state
         self._queues: dict[Building, list[ProductionItem]] = {}
 
     def queue_for(self, producer: Building) -> tuple[ProductionItem, ...]:
@@ -83,15 +83,15 @@ class ProductionSystem:
         if producer.life <= 0 or producer.is_under_construction:
             return False, "inactive_building"
 
-        team_group = self._manager.entities.get(producer.team)
+        team_group = self._state.entities.get(producer.team)
         if team_group is None:
             return False, "missing_team"
 
         if not self._can_pay(team_group.resources, spec.cost):
             return False, "insufficient_resources"
 
-        reserved_population = self._manager._count_units(producer.team) + self.queued_population_for_team(producer.team)
-        if reserved_population + spec.population > self._manager.population_cap_for_team(producer.team):
+        reserved_population = self._state.count_units(producer.team) + self.queued_population_for_team(producer.team)
+        if reserved_population + spec.population > self._state.population_cap_for_team(producer.team):
             return False, "population_cap"
 
         return True, None
@@ -103,7 +103,7 @@ class ProductionSystem:
             return False
 
         spec = get_unit_spec(unit_type)
-        team_group = self._manager.entities[producer.team]
+        team_group = self._state.entities[producer.team]
         self._pay(team_group.resources, spec.cost)
         self._queues.setdefault(producer, []).append(
             ProductionItem(
@@ -124,7 +124,7 @@ class ProductionSystem:
         if not queue:
             del self._queues[producer]
 
-        team_group = self._manager.entities.get(producer.team)
+        team_group = self._state.entities.get(producer.team)
         if team_group is not None:
             self._refund(team_group.resources, get_unit_spec(item.unit_type).cost)
         return True
@@ -133,7 +133,7 @@ class ProductionSystem:
         """Advance active queues and spawn completed jobs."""
         live_producers = {
             producer
-            for group in self._manager.entities.values()
+            for group in self._state.entities.values()
             for producer in (*group.bases, *group.barracks, *group.mage_towers)
             if producer.life > 0 and not producer.is_under_construction
         }
@@ -167,7 +167,7 @@ class ProductionSystem:
         resources["gold"] = resources.get("gold", 0) + int(cost.gold * PRODUCTION_REFUND_RATIO)
 
     def _spawn_unit(self, producer: Building, spec: UnitSpec) -> None:
-        team_group = self._manager.entities.get(producer.team)
+        team_group = self._state.entities.get(producer.team)
         if team_group is None:
             return
 
@@ -175,7 +175,7 @@ class ProductionSystem:
         if unit_factory is None:
             return
 
-        spawn_x, spawn_y = self._manager._clamp_to_world((producer.x, producer.y + producer.size))
+        spawn_x, spawn_y = self._state.clamp_to_world((producer.x, producer.y + producer.size))
         unit: Unit = unit_factory(int(spawn_x), int(spawn_y), producer.team)
         roster = getattr(team_group, spec.roster_attribute)
         roster.append(unit)

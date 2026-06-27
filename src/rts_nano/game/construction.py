@@ -11,8 +11,8 @@ from rts_nano.game.rules import distance_between_points
 
 if TYPE_CHECKING:
     from rts_nano.game.assets.entities.units import Peasant
-    from rts_nano.game.manager import GameManager
-    from rts_nano.game.state import EntitiesGroup
+    from rts_nano.game.movement import MovementSystem
+    from rts_nano.game.state import EntitiesGroup, GameState
 
 
 class ConstructionSystem:
@@ -31,9 +31,10 @@ class ConstructionSystem:
         "tower": "towers",
     }
 
-    def __init__(self, manager: GameManager) -> None:
-        """Initialize construction state for one manager."""
-        self._manager = manager
+    def __init__(self, state: GameState, movement: MovementSystem) -> None:
+        """Initialize construction state for one game state."""
+        self._state = state
+        self._movement = movement
 
     @classmethod
     def supported_building_types(cls) -> tuple[str, ...]:
@@ -50,7 +51,7 @@ class ConstructionSystem:
         if building_type not in self._BUILDING_FACTORIES:
             return False, "unsupported_building"
 
-        group = self._manager.entities.get(team)
+        group = self._state.entities.get(team)
         if group is None:
             return False, "missing_team"
         if not any(builder.life > 0 for builder in group.peasents):
@@ -91,19 +92,19 @@ class ConstructionSystem:
             return None
 
         spec = get_building_spec(building_type)
-        group = self._manager.entities[builder.team]
+        group = self._state.entities[builder.team]
         self._pay(group.resources, spec.cost)
 
         factory = self._BUILDING_FACTORIES[building_type]
         building = factory(int(position[0]), int(position[1]), builder.team)
         building.start_construction(spec.build_frames)
         self._add_building_to_group(group, building_type, building)
-        self._manager._assign_unit_target(builder, building.get_center(), building)
+        self._movement.assign_unit_target(builder, building.get_center(), building)
         return building
 
     def unfinished_buildings_for_team(self, team: TeamColor) -> list[Building]:
         """Return unfinished buildings owned by a team."""
-        group = self._manager.entities.get(team)
+        group = self._state.entities.get(team)
         if group is None:
             return []
         return [
@@ -117,7 +118,7 @@ class ConstructionSystem:
         if building.life <= 0 or not building.is_under_construction:
             return False
 
-        group = self._manager.entities.get(building.team)
+        group = self._state.entities.get(building.team)
         if group is None:
             return False
 
@@ -134,15 +135,13 @@ class ConstructionSystem:
         building.is_under_construction = False
         building.life = 0
         self._detach_builders(group, building)
-        self._manager.selected_entities = [
-            entity for entity in self._manager.selected_entities if entity is not building
-        ]
+        self._state.selected_entities = [entity for entity in self._state.selected_entities if entity is not building]
         building.selected = False
         return True
 
     def update(self) -> None:
         """Advance unfinished buildings when workers are actively building them."""
-        for group in self._manager.entities.values():
+        for group in self._state.entities.values():
             for builder in group.peasents:
                 target = builder.target_entity
                 constructable_target = self._constructable_target(builder, target)
@@ -158,12 +157,12 @@ class ConstructionSystem:
         half_size = building.size / 2
         if center[0] - half_size < 0 or center[1] - half_size < 0:
             return False
-        if center[0] + half_size > self._manager.map_width or center[1] + half_size > self._manager.map_height:
+        if center[0] + half_size > self._state.map_width or center[1] + half_size > self._state.map_height:
             return False
-        if self._manager.terrain.blocks_movement(center, radius=building.radius):
+        if self._state.terrain.blocks_movement(center, radius=building.radius):
             return False
 
-        for entity in self._manager.all_entities:
+        for entity in self._state.all_entities:
             if entity is ignore:
                 continue
             min_distance = building.radius + entity.radius + 4

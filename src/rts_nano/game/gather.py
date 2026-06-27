@@ -2,9 +2,9 @@
 
 The system advances one peasant's harvesting state each frame: it decrements the
 targeted resource, accumulates cargo, finds a replacement node when one depletes,
-and routes the worker between resource and base. Cross-entity state (resource
-lists, team banks, path assignment) is reached through the manager, matching the
-``ProductionSystem``/``ConstructionSystem`` pattern.
+and routes the worker between resource and base. Resource lists and team banks
+come from the shared ``GameState``; path assignment is delegated to the
+``MovementSystem``.
 """
 
 from __future__ import annotations
@@ -18,15 +18,17 @@ from rts_nano.game.rules import find_replacement_resource, nearest_entity
 if TYPE_CHECKING:
     from rts_nano.game.assets.entities.base_entities import Entity
     from rts_nano.game.assets.entities.units import Peasant
-    from rts_nano.game.manager import GameManager
+    from rts_nano.game.movement import MovementSystem
+    from rts_nano.game.state import GameState
 
 
 class GatherSystem:
-    """Advance peasant harvesting and depositing for one manager."""
+    """Advance peasant harvesting and depositing over the game state."""
 
-    def __init__(self, manager: GameManager) -> None:
-        """Initialize the gather system for one game manager."""
-        self._manager = manager
+    def __init__(self, state: GameState, movement: MovementSystem) -> None:
+        """Initialize the gather system for one game state."""
+        self._state = state
+        self._movement = movement
 
     def update_peasant(self, peasant: Peasant, all_entities: list[Entity]) -> None:
         """Advance a single peasant's gather/deposit behavior for one frame."""
@@ -57,12 +59,12 @@ class GatherSystem:
             self._send_to_base(peasant, is_wood=is_wood)
 
     def _replace_depleted_resource(self, peasant: Peasant, resource: Wood | Gold, *, is_wood: bool) -> None:
-        if isinstance(resource, Wood) and resource in self._manager.resources.woods:
-            self._manager.resources.woods.remove(resource)
-        elif isinstance(resource, Gold) and resource in self._manager.resources.golds:
-            self._manager.resources.golds.remove(resource)
+        if isinstance(resource, Wood) and resource in self._state.resources.woods:
+            self._state.resources.woods.remove(resource)
+        elif isinstance(resource, Gold) and resource in self._state.resources.golds:
+            self._state.resources.golds.remove(resource)
 
-        resource_list = self._manager.resources.woods if is_wood else self._manager.resources.golds
+        resource_list = self._state.resources.woods if is_wood else self._state.resources.golds
         new_resource = find_replacement_resource(resource, resource_list, search_radius=HARVEST_SEARCH_RADIUS)
         peasant.source_resource = new_resource
         peasant.target_entity = new_resource
@@ -73,16 +75,16 @@ class GatherSystem:
         elif not is_wood and peasant.carry_gold > peasant.max_carry:
             peasant.carry_gold = peasant.max_carry
 
-        team_group = self._manager.entities.get(peasant.team)
+        team_group = self._state.entities.get(peasant.team)
         team_bases = team_group.bases if team_group else []
         nearest_base = nearest_entity(peasant, team_bases)
         if nearest_base:
-            self._manager._assign_unit_target(peasant, nearest_base.get_center(), nearest_base)
+            self._movement.assign_unit_target(peasant, nearest_base.get_center(), nearest_base)
         else:
             peasant.state = "IDLE"
 
     def _update_depositing(self, peasant: Peasant, all_entities: list[Entity]) -> None:
-        team_group = self._manager.entities.get(peasant.team)
+        team_group = self._state.entities.get(peasant.team)
         if team_group:
             team_group.resources["wood"] += peasant.carry_wood
             team_group.resources["gold"] += peasant.carry_gold
@@ -91,7 +93,7 @@ class GatherSystem:
 
         source = peasant.source_resource
         if source is not None and source in all_entities and source.amount > 0:
-            self._manager._assign_unit_target(peasant, source.get_center(), source)
+            self._movement.assign_unit_target(peasant, source.get_center(), source)
         else:
             peasant.state = "IDLE"
             peasant.source_resource = None

@@ -15,26 +15,38 @@ if TYPE_CHECKING:
     from rts_nano.game.assets.entities import TeamColor
     from rts_nano.game.assets.entities.base_entities import Resource
     from rts_nano.game.assets.entities.buildings import Base
-    from rts_nano.game.manager import GameManager
+    from rts_nano.game.construction import ConstructionSystem
+    from rts_nano.game.movement import MovementSystem
+    from rts_nano.game.production import ProductionSystem
+    from rts_nano.game.state import GameState
 
 
 class OrderSystem:
-    """Apply high-level unit, building, and selection orders to a manager."""
+    """Apply high-level unit, building, and selection orders over the game state."""
 
-    def __init__(self, manager: GameManager) -> None:
-        """Initialize the order system for one game manager."""
-        self._manager = manager
+    def __init__(
+        self,
+        state: GameState,
+        movement: MovementSystem,
+        production: ProductionSystem,
+        construction: ConstructionSystem,
+    ) -> None:
+        """Initialize the order system with the state and collaborator systems."""
+        self._state = state
+        self._movement = movement
+        self._production = production
+        self._construction = construction
 
     def units_for_team(self, team: TeamColor) -> list[Unit]:
         """Return all living units owned by a team."""
-        group = self._manager.entities.get(team)
+        group = self._state.entities.get(team)
         if group is None:
             return []
         return [*group.peasents, *group.knights, *group.archers, *group.mages]
 
     def bases_for_team(self, team: TeamColor) -> list[Base]:
         """Return all bases owned by a team."""
-        group = self._manager.entities.get(team)
+        group = self._state.entities.get(team)
         if group is None:
             return []
         return group.bases.copy()
@@ -49,7 +61,7 @@ class OrderSystem:
 
     def production_buildings_for_team(self, team: TeamColor) -> list[Building]:
         """Return production-capable buildings owned by a team."""
-        group = self._manager.entities.get(team)
+        group = self._state.entities.get(team)
         if group is None:
             return []
         return [*group.bases, *group.barracks, *group.mage_towers]
@@ -63,7 +75,7 @@ class OrderSystem:
         """Assign a move order to team units and return the affected count."""
         ordered_units = self._order_units_for_team(team, units)
         self._tag_order(ordered_units, "move", destination)
-        self._manager._assign_group_move_order(ordered_units, (int(destination[0]), int(destination[1])))
+        self._movement.assign_group_move_order(ordered_units, (int(destination[0]), int(destination[1])))
         return len(ordered_units)
 
     def issue_attack_move_order(
@@ -79,7 +91,7 @@ class OrderSystem:
 
         self._tag_order(ordered_units, "attack_move", destination)
         center = (int(destination[0]), int(destination[1]))
-        slots = self._manager._formation_destinations(center, len(ordered_units))
+        slots = self._movement.formation_destinations(center, len(ordered_units))
         remaining_slots = slots.copy()
         for unit in sorted(
             ordered_units,
@@ -87,7 +99,7 @@ class OrderSystem:
         ):
             slot = min(remaining_slots, key=lambda candidate: distance_between_points(unit.get_center(), candidate))
             remaining_slots.remove(slot)
-            self._manager._assign_unit_target(unit, slot)
+            self._movement.assign_unit_target(unit, slot)
             unit.attack_move_destination = slot
         return len(ordered_units)
 
@@ -112,7 +124,7 @@ class OrderSystem:
         for unit in ordered_units:
             origin = unit.get_center()
             unit.patrol_points = (origin, dest)
-            self._manager._assign_unit_target(unit, dest)
+            self._movement.assign_unit_target(unit, dest)
             unit.attack_move_destination = dest
         return len(ordered_units)
 
@@ -128,7 +140,7 @@ class OrderSystem:
         hostile = getattr(target, "team", team) != team
         self._tag_order(ordered_units, "attack" if hostile else "move", target_center)
         for unit in ordered_units:
-            self._manager._assign_unit_target(unit, target_center, target)
+            self._movement.assign_unit_target(unit, target_center, target)
         return len(ordered_units)
 
     def issue_gather_order(
@@ -143,7 +155,7 @@ class OrderSystem:
         ordered_peasants = [unit for unit in self._order_units_for_team(team, units) if isinstance(unit, Peasant)]
         self._tag_order(ordered_peasants, "gather", resource.get_center())
         for peasant in ordered_peasants:
-            self._manager._assign_unit_target(peasant, resource.get_center(), resource)
+            self._movement.assign_unit_target(peasant, resource.get_center(), resource)
         return len(ordered_peasants)
 
     def issue_stop_order(self, team: TeamColor, units: Iterable[Unit] | None = None) -> int:
@@ -197,7 +209,7 @@ class OrderSystem:
             target_base = base if base is not None else nearest_entity(peasant, bases)
             if target_base is None:
                 continue
-            self._manager._assign_unit_target(peasant, target_base.get_center(), target_base)
+            self._movement.assign_unit_target(peasant, target_base.get_center(), target_base)
             affected += 1
         return affected
 
@@ -207,15 +219,15 @@ class OrderSystem:
 
     def produce_unit(self, producer: Building, unit_type: str) -> bool:
         """Attempt to queue a unit at a production building."""
-        return self._manager.production.enqueue_unit(producer, unit_type)
+        return self._production.enqueue_unit(producer, unit_type)
 
     def construct_building(self, builder: Peasant, building_type: str, position: tuple[float, float]) -> bool:
         """Attempt to place a new building and assign a worker to construct it."""
-        return self._manager.construction.start_construction(builder, building_type, position) is not None
+        return self._construction.start_construction(builder, building_type, position) is not None
 
     def cancel_construction(self, building: Building) -> bool:
         """Attempt to cancel an unfinished building."""
-        return self._manager.construction.cancel_construction(building)
+        return self._construction.cancel_construction(building)
 
     def cancel_peasant_production(self, base: Base) -> bool:
         """Attempt to cancel the active Peasant production job at a base."""
@@ -223,19 +235,19 @@ class OrderSystem:
 
     def cancel_production(self, producer: Building) -> bool:
         """Attempt to cancel the active production job at a building."""
-        return self._manager.production.cancel_next(producer)
+        return self._production.cancel_next(producer)
 
     def select_entities_for_team(self, team: TeamColor, entities: Iterable[Entity]) -> int:
         """Select team-owned units/buildings and return the selected count."""
-        for entity in self._manager.all_entities:
+        for entity in self._state.all_entities:
             entity.selected = False
-        self._manager.selected_entities.clear()
+        self._state.selected_entities.clear()
 
         for entity in entities:
             if getattr(entity, "team", None) == team and isinstance(entity, (Unit, Building)):
                 entity.selected = True
-                self._manager.selected_entities.append(entity)
-        return len(self._manager.selected_entities)
+                self._state.selected_entities.append(entity)
+        return len(self._state.selected_entities)
 
     def _order_units_for_team(self, team: TeamColor, units: Iterable[Unit] | None = None) -> list[Unit]:
         """Normalize an optional unit iterable to units owned by a team."""

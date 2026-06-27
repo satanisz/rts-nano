@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 
     from rts_nano.game.assets.entities.base_entities import Entity
     from rts_nano.game.assets.entities.buildings import Tower
-    from rts_nano.game.manager import GameManager
+    from rts_nano.game.state import GameState
 
 type ShotEvent = tuple[tuple[float, float], tuple[float, float], "Entity"]
 
@@ -32,9 +32,9 @@ type ShotEvent = tuple[tuple[float, float], tuple[float, float], "Entity"]
 class CombatSystem:
     """Resolve auto-attacks for stationary combat buildings such as towers."""
 
-    def __init__(self, manager: GameManager) -> None:
-        """Initialize the combat system for one manager."""
-        self._manager = manager
+    def __init__(self, state: GameState) -> None:
+        """Initialize the combat system for one game state."""
+        self._state = state
 
     def update(self) -> list[ShotEvent]:
         """Advance tower cooldowns, fire at targets, and return shot visuals."""
@@ -52,7 +52,7 @@ class CombatSystem:
 
     def _attacking_buildings(self) -> Iterator[Tower]:
         """Yield completed, living towers able to attack this tick."""
-        for group in self._manager.entities.values():
+        for group in self._state.entities.values():
             for tower in group.towers:
                 if tower.life > 0 and not tower.is_under_construction and tower.attack_damage > 0:
                     yield tower
@@ -62,7 +62,7 @@ class CombatSystem:
         reach = attacker.attack_range + attacker.radius
         candidates = [
             entity
-            for entity in self._manager.all_entities
+            for entity in self._state.all_entities
             if isinstance(entity, (Unit, Building))
             and entity.team != attacker.team
             and entity.life > 0
