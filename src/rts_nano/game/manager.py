@@ -68,10 +68,10 @@ from rts_nano.game.construction import ConstructionSystem
 from rts_nano.game.data import get_building_spec
 from rts_nano.game.fog import FogOfWar
 from rts_nano.game.gather import GatherSystem
+from rts_nano.game.movement import MovementSystem
 from rts_nano.game.orders import OrderSystem
-from rts_nano.game.pathfinding import find_path
 from rts_nano.game.production import ProductionSystem
-from rts_nano.game.rules import clamp_point, distance_between_points, nearest_entity
+from rts_nano.game.rules import clamp_point, distance_between_points
 from rts_nano.game.terrain import TerrainMap
 from rts_nano.game.ui.command_panel import CommandPanel
 from rts_nano.game.victory import VictorySystem
@@ -85,12 +85,7 @@ FULLSCREEN_TOGGLE_EVENT = pygame.USEREVENT + 1
 PLAY_AREA_HEIGHT = SCREEN_HEIGHT - BOTTOM_MENU_HEIGHT
 CAMERA_SPEED = 12
 EDGE_SCROLL_MARGIN = 24
-FORMATION_SPACING = 38
 DOUBLE_CLICK_MS = 350
-STUCK_FRAME_LIMIT = 75
-STUCK_PROGRESS_DISTANCE = 6.0
-UNSTUCK_COOLDOWN_FRAMES = 45
-ATTACK_MOVE_MIN_ACQUIRE_RANGE = 160.0
 
 
 @dataclass
@@ -376,6 +371,7 @@ class GameManager:
         self.combat = CombatSystem(self)
         self.gather = GatherSystem(self)
         self.victory = VictorySystem(self)
+        self.movement = MovementSystem(self)
         self.orders = OrderSystem(self)
         self.game_over_message: str | None = None
         self.menu_status: str | None = None
@@ -809,146 +805,22 @@ class GameManager:
             return builder
         return self._selected_construction_builder()
 
-    def _can_unit_move_to(self, unit: Unit, next_point: tuple[float, float]) -> bool:
-        """Return whether terrain permits a unit movement step."""
-        next_x, next_y = self._clamp_to_world(next_point)
-        return self.terrain.can_move_between(unit.get_center(), (next_x, next_y), radius=unit.radius)
-
-    def _find_unit_path(self, unit: Unit, destination: tuple[float, float]) -> list[tuple[float, float]]:
-        """Build a terrain-aware path for a unit."""
-        goal = self._clamp_to_world(destination)
-        movement_cache: dict[tuple[tuple[float, float], tuple[float, float]], bool] = {}
-
-        def can_move_between(current: tuple[float, float], next_point: tuple[float, float]) -> bool:
-            key = (current, next_point)
-            if key not in movement_cache:
-                movement_cache[key] = self.terrain.can_move_between(
-                    current,
-                    next_point,
-                    radius=unit.radius,
-                )
-            return movement_cache[key]
-
-        return find_path(
-            unit.get_center(),
-            goal,
-            width=self.map_width,
-            height=self.map_height,
-            can_move_between=can_move_between,
-        )
-
     def _assign_unit_target(
         self,
         unit: Unit,
         destination: tuple[float, float],
         target_entity: Entity | None = None,
     ) -> None:
-        """Assign a unit target plus an A* path when one is available."""
-        unit.set_target(destination, target_entity)
-        unit.set_path(self._find_unit_path(unit, destination))
+        """Assign a unit movement target and path (delegates to MovementSystem)."""
+        self.movement.assign_unit_target(unit, destination, target_entity)
 
     def _assign_group_move_order(self, units: list[Unit], destination: tuple[int, int]) -> None:
-        """Assign a ground move order, spreading units across formation slots."""
-        if not units:
-            return
-        slots = self._formation_destinations(destination, len(units))
-        remaining_slots = slots.copy()
-        for unit in sorted(
-            units, key=lambda selected_unit: distance_between_points(selected_unit.get_center(), destination)
-        ):
-            slot = min(remaining_slots, key=lambda candidate: distance_between_points(unit.get_center(), candidate))
-            remaining_slots.remove(slot)
-            self._assign_unit_target(unit, slot)
+        """Assign a group move order (delegates to MovementSystem)."""
+        self.movement.assign_group_move_order(units, destination)
 
     def _formation_destinations(self, center: tuple[int, int], count: int) -> list[tuple[int, int]]:
-        """Return terrain-valid formation slots around a clicked ground point."""
-        if count <= 1:
-            return [center]
-
-        columns = math.ceil(math.sqrt(count))
-        rows = math.ceil(count / columns)
-        offsets: list[tuple[float, float]] = []
-        for row in range(rows):
-            for column in range(columns):
-                offset_x = (column - (columns - 1) / 2) * FORMATION_SPACING
-                offset_y = (row - (rows - 1) / 2) * FORMATION_SPACING
-                offsets.append((offset_x, offset_y))
-
-        offsets.sort(key=lambda offset: offset[0] ** 2 + offset[1] ** 2)
-        destinations: list[tuple[int, int]] = []
-        for offset_x, offset_y in offsets[:count]:
-            slot = self._clamp_to_world((center[0] + offset_x, center[1] + offset_y))
-            if self.terrain.blocks_movement(slot):
-                slot = center
-            destinations.append(slot)
-        return destinations
-
-    def _update_attack_move_target(self, unit: Unit, entities: list[Entity]) -> None:
-        """Acquire a hostile target while an attack-move order is active."""
-        destination = unit.attack_move_destination
-        if destination is None or unit.target_entity is not None:
-            return
-        if unit.state not in {"MOVING", "IDLE"}:
-            return
-
-        target = self._nearest_attack_move_target(unit, entities)
-        if target is None:
-            return
-
-        self._assign_unit_target(unit, target.get_center(), target)
-        unit.attack_move_destination = destination
-
-    def _resume_or_finish_attack_move(self, unit: Unit) -> None:
-        """Resume an attack-move route after combat or finish it at the goal."""
-        destination = unit.attack_move_destination
-        if destination is None or unit.target_entity is not None:
-            return
-
-        if distance_between_points(unit.get_center(), destination) <= max(unit.speed, 2):
-            unit.attack_move_destination = None
-            return
-
-        if unit.state == "IDLE":
-            self._assign_unit_target(unit, destination)
-            unit.attack_move_destination = destination
-
-    def _update_patrol(self, unit: Unit) -> None:
-        """Flip a patrolling unit to its other waypoint once a leg completes.
-
-        Patrol reuses the attack-move acquisition pipeline, so while a leg is
-        active (``attack_move_destination`` set) or the unit is fighting/moving,
-        this does nothing. When the unit goes idle at a waypoint with no target,
-        it heads to whichever patrol point is farther, producing a stable loop.
-        """
-        points = unit.patrol_points
-        if points is None or unit.target_entity is not None:
-            return
-        if unit.attack_move_destination is not None or unit.state != "IDLE":
-            return
-
-        first_point, second_point = points
-        current = unit.get_center()
-        farther = (
-            first_point
-            if distance_between_points(current, first_point) >= distance_between_points(current, second_point)
-            else second_point
-        )
-        self._assign_unit_target(unit, farther)
-        unit.attack_move_destination = farther
-
-    def _nearest_attack_move_target(self, unit: Unit, entities: list[Entity]) -> Entity | None:
-        """Return the nearest hostile unit/building in attack-move acquisition range."""
-        acquire_range = max(float(unit.vision_range), unit.attack_range + ATTACK_MOVE_MIN_ACQUIRE_RANGE)
-        candidates = [
-            entity
-            for entity in entities
-            if entity is not unit
-            and isinstance(entity, (Unit, Building))
-            and entity.team != unit.team
-            and entity.life > 0
-            and distance_between_points(unit.get_center(), entity.get_center()) <= acquire_range
-        ]
-        return nearest_entity(unit, candidates)
+        """Return formation slots around a point (delegates to MovementSystem)."""
+        return self.movement.formation_destinations(center, count)
 
     def _unit_at_world_pos(self, position: tuple[float, float]) -> Unit | None:
         """Return the topmost unit under a world position."""
@@ -964,38 +836,6 @@ class GameManager:
             if isinstance(entity, Resource) and entity.contains_point((int(position[0]), int(position[1]))):
                 return entity
         return None
-
-    def _update_unit_stuck_recovery(self, unit: Unit) -> None:
-        """Recover units nudged off path by local collision resolution."""
-        if unit.unstuck_cooldown > 0:
-            unit.unstuck_cooldown -= 1
-
-        if unit.state != "MOVING":
-            unit.progress_anchor_x = unit.x
-            unit.progress_anchor_y = unit.y
-            unit.stuck_frames = 0
-            return
-
-        progress_distance = distance_between_points((unit.x, unit.y), (unit.progress_anchor_x, unit.progress_anchor_y))
-        if progress_distance >= STUCK_PROGRESS_DISTANCE:
-            unit.progress_anchor_x = unit.x
-            unit.progress_anchor_y = unit.y
-            unit.stuck_frames = 0
-            return
-
-        unit.stuck_frames += 1
-        if unit.stuck_frames < STUCK_FRAME_LIMIT or unit.unstuck_cooldown > 0:
-            return
-
-        if unit.path:
-            unit.path.pop(0)
-        elif unit.target_entity and getattr(unit.target_entity, "life", 1) > 0:
-            self._assign_unit_target(unit, unit.target_entity.get_center(), unit.target_entity)
-
-        unit.progress_anchor_x = unit.x
-        unit.progress_anchor_y = unit.y
-        unit.stuck_frames = 0
-        unit.unstuck_cooldown = UNSTUCK_COOLDOWN_FRAMES
 
     def _load_map_settings(self) -> None:
         """Instantiate entities from the loaded map configuration.
@@ -1150,10 +990,10 @@ class GameManager:
                 continue
 
             if isinstance(entity, Unit):
-                self._update_attack_move_target(entity, all_ents)
-                entity.update(collidable_entities, self._can_unit_move_to)
+                self.movement.update_attack_move_target(entity, all_ents)
+                entity.update(collidable_entities, self.movement.can_unit_move_to)
                 self._clamp_unit_to_world(entity)
-                self._update_unit_stuck_recovery(entity)
+                self.movement.update_unit_stuck_recovery(entity)
                 attack_event = entity.consume_attack_event()
                 if attack_event and attack_event[2] == AttackType.RANGED:
                     source_pos, target_pos, _, target_entity = attack_event
@@ -1178,8 +1018,8 @@ class GameManager:
                                 target_entity=target_entity,
                             )
                         )
-                self._resume_or_finish_attack_move(entity)
-                self._update_patrol(entity)
+                self.movement.resume_or_finish_attack_move(entity)
+                self.movement.update_patrol(entity)
 
             if isinstance(entity, Peasant):
                 self.gather.update_peasant(entity, all_ents)

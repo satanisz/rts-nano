@@ -567,7 +567,7 @@ def test_stuck_unit_skips_blocked_waypoint() -> None:
     unit.path = [(80, 20), (120, 20)]
 
     for _ in range(75):
-        manager._update_unit_stuck_recovery(unit)
+        manager.movement.update_unit_stuck_recovery(unit)
 
     assert unit.path == [(120, 20)]
     simulation.close()
