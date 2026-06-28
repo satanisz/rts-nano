@@ -184,3 +184,69 @@ class Mage(Unit):
             str(BASE_DIR / "assets" / "sprites" / f"{team.value.lower()}_mage.png"),
             str(BASE_DIR / "assets" / "portraits" / "mage.png"),
         )
+
+
+# --- AEGIS (Blue): precision / armored / ranged elite. Signature mechanics
+# (shields, splash) are layered on in later phases; here they carry their stats
+# and reuse the base melee/ranged/missile behaviors via subclassing. ---
+
+
+class Marksman(Archer):
+    """AEGIS ranged core: hextech rifle with longer reach than a basic archer."""
+
+    DEFAULT_MAX_LIFE = 70
+    DEFAULT_ATTACK_DAMAGE = 9
+    DEFAULT_SHIELD_MODIFIER = 1
+    DEFAULT_SPEED = 2.2
+    RANGED_ATTACK_RANGE = 210
+
+
+class Guardian(Knight):
+    """AEGIS shield tank: durable, armored frontline that protects ranged units."""
+
+    DEFAULT_MAX_LIFE = 150
+    DEFAULT_ATTACK_DAMAGE = 8
+    DEFAULT_SHIELD_MODIFIER = 4
+    DEFAULT_SPEED = 1.9
+
+
+class Arclight(Mage):
+    """AEGIS artillery: very long range, high single-shot damage, fragile."""
+
+    DEFAULT_MAX_LIFE = 40
+    DEFAULT_ATTACK_DAMAGE = 16
+    DEFAULT_ATTACK_RANGE = 520
+    DEFAULT_ATTACK_SPEED = 1.3
+    DEFAULT_SPEED = 1.4
+
+
+# --- RUST (Red): cheap / fast / expendable swarm. Poison/frenzy are layered on
+# in later phases. ---
+
+
+class Ripper(Knight):
+    """RUST swarm melee: very fast and cheap, weak alone, terrifying in numbers."""
+
+    DEFAULT_MAX_LIFE = 45
+    DEFAULT_ATTACK_DAMAGE = 6
+    DEFAULT_SPEED = 3.0
+
+
+class Spitter(Archer):
+    """RUST chem thrower: cheap short-range ranged poke."""
+
+    DEFAULT_MAX_LIFE = 40
+    DEFAULT_ATTACK_DAMAGE = 6
+    DEFAULT_SPEED = 2.4
+    RANGED_ATTACK_RANGE = 130
+    RANGED_MIN_ATTACK_RANGE = 60
+
+
+class Brute(Knight):
+    """RUST heavy melee: the one big wrecking ball, slow but tanky and hard-hitting."""
+
+    DEFAULT_MAX_LIFE = 200
+    DEFAULT_ATTACK_DAMAGE = 14
+    DEFAULT_SHIELD_MODIFIER = 1
+    DEFAULT_ATTACK_SPEED = 1.1
+    DEFAULT_SPEED = 1.8

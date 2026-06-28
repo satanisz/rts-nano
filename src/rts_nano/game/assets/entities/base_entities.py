@@ -51,6 +51,14 @@ _BUILDING_GLYPHS: dict[str, tuple[str, tuple[int, int, int]]] = {
     "house": ("H", (95, 140, 90)),
     "mage_tower": ("M", (120, 110, 190)),
     "tower": ("T", (140, 140, 150)),
+    # AEGIS (cool blues/purples)
+    "arsenal": ("A", (80, 120, 190)),
+    "spire": ("S", (120, 110, 200)),
+    "bastion": ("D", (90, 130, 170)),
+    # RUST (warm reds/toxic greens)
+    "pit": ("P", (150, 80, 70)),
+    "chem_vat": ("C", (110, 160, 70)),
+    "spiker": ("X", (150, 90, 70)),
 }
 _glyph_font_cache: dict[int, pygame.font.Font] = {}
 

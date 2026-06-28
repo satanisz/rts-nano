@@ -80,3 +80,74 @@ class Tower(Building):
         self.attack_type = AttackType.RANGED
         self.attack_cooldown = 0
         self.last_attack_event: tuple[tuple[float, float], tuple[float, float], AttackType, Entity] | None = None
+
+
+# --- AEGIS (Blue) military structures. Production/combat plumbing is inherited
+# from Barracks/MageTower/Tower; only the spec key and tower stats differ. ---
+
+
+class Arsenal(Barracks):
+    """AEGIS tier-1 military building: trains Marksmen and Guardians."""
+
+    def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
+        """Initialize the object."""
+        super().__init__(x, y, team)
+        self.spec_key = "arsenal"
+
+
+class Spire(MageTower):
+    """AEGIS tier-2 building: trains Arclight artillery (requires an Arsenal)."""
+
+    def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
+        """Initialize the object."""
+        super().__init__(x, y, team)
+        self.spec_key = "spire"
+
+
+class Bastion(Tower):
+    """AEGIS defense: durable, long-range auto-attacking turret."""
+
+    MAX_LIFE = 350
+    DEFAULT_ATTACK_DAMAGE = 12
+    DEFAULT_ATTACK_RANGE = 200
+    DEFAULT_ATTACK_SPEED = 1.0
+
+    def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
+        """Initialize the object."""
+        super().__init__(x, y, team)
+        self.spec_key = "bastion"
+
+
+# --- RUST (Red) military structures. ---
+
+
+class Pit(Barracks):
+    """RUST tier-1 military building: trains Rippers and Spitters."""
+
+    def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
+        """Initialize the object."""
+        super().__init__(x, y, team)
+        self.spec_key = "pit"
+
+
+class ChemVat(MageTower):
+    """RUST tier-2 building: brews Brutes (requires a Pit)."""
+
+    def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
+        """Initialize the object."""
+        super().__init__(x, y, team)
+        self.spec_key = "chem_vat"
+
+
+class Spiker(Tower):
+    """RUST defense: cheaper, faster-firing, shorter-range turret."""
+
+    MAX_LIFE = 250
+    DEFAULT_ATTACK_DAMAGE = 8
+    DEFAULT_ATTACK_RANGE = 150
+    DEFAULT_ATTACK_SPEED = 0.625
+
+    def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
+        """Initialize the object."""
+        super().__init__(x, y, team)
+        self.spec_key = "spiker"

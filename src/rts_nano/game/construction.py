@@ -5,7 +5,18 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, ClassVar
 
 from rts_nano.game.assets.entities.base_entities import Building, Entity, TeamColor
-from rts_nano.game.assets.entities.buildings import Barracks, House, MageTower, Tower
+from rts_nano.game.assets.entities.buildings import (
+    Arsenal,
+    Barracks,
+    Bastion,
+    ChemVat,
+    House,
+    MageTower,
+    Pit,
+    Spiker,
+    Spire,
+    Tower,
+)
 from rts_nano.game.data import CONSTRUCTION_REFUND_RATIO, ResourceCost, get_building_spec
 from rts_nano.game.rules import distance_between_points
 
@@ -23,12 +34,26 @@ class ConstructionSystem:
         "house": House,
         "mage_tower": MageTower,
         "tower": Tower,
+        # AEGIS (slot into the barracks/mage_tower/tower rosters via subclassing)
+        "arsenal": Arsenal,
+        "spire": Spire,
+        "bastion": Bastion,
+        # RUST
+        "pit": Pit,
+        "chem_vat": ChemVat,
+        "spiker": Spiker,
     }
     _BUILDING_ROSTERS: ClassVar[dict[str, str]] = {
         "barracks": "barracks",
         "house": "houses",
         "mage_tower": "mage_towers",
         "tower": "towers",
+        "arsenal": "barracks",
+        "spire": "mage_towers",
+        "bastion": "towers",
+        "pit": "barracks",
+        "chem_vat": "mage_towers",
+        "spiker": "towers",
     }
 
     def __init__(self, state: GameState, movement: MovementSystem) -> None:

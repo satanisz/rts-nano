@@ -5,7 +5,18 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from rts_nano.game.assets.entities import Archer, Knight, Mage, Peasant
+from rts_nano.game.assets.entities import (
+    Archer,
+    Arclight,
+    Brute,
+    Guardian,
+    Knight,
+    Mage,
+    Marksman,
+    Peasant,
+    Ripper,
+    Spitter,
+)
 from rts_nano.game.data import PRODUCTION_REFUND_RATIO, ResourceCost, UnitSpec, get_building_spec, get_unit_spec
 
 if TYPE_CHECKING:
@@ -38,6 +49,14 @@ class ProductionSystem:
         "knight": Knight,
         "archer": Archer,
         "mage": Mage,
+        # AEGIS
+        "marksman": Marksman,
+        "guardian": Guardian,
+        "arclight": Arclight,
+        # RUST
+        "ripper": Ripper,
+        "spitter": Spitter,
+        "brute": Brute,
     }
 
     def __init__(self, state: GameState) -> None:
