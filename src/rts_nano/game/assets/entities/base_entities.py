@@ -47,10 +47,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # and an accent "roof" color so each building reads as a distinct structure
 # rather than a flat team-colored square.
 _BUILDING_GLYPHS: dict[str, tuple[str, tuple[int, int, int]]] = {
-    "barracks": ("B", (160, 95, 70)),
     "house": ("H", (95, 140, 90)),
-    "mage_tower": ("M", (120, 110, 190)),
-    "tower": ("T", (140, 140, 150)),
     # AEGIS (cool blues/purples)
     "arsenal": ("A", (80, 120, 190)),
     "spire": ("S", (120, 110, 200)),

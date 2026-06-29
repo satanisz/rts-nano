@@ -235,14 +235,8 @@ class EntityFactory:
 
     _TEAM_ENTITY_TYPES: dict[str, Callable[[int, int, TeamColor], Entity]] = {
         "peasant": Peasant,
-        "knight": Knight,
-        "archer": Archer,
-        "mage": Mage,
         "base": Base,
-        "barracks": Barracks,
         "house": House,
-        "mage_tower": MageTower,
-        "tower": Tower,
         # AEGIS
         "marksman": Marksman,
         "guardian": Guardian,

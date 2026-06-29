@@ -64,36 +64,6 @@ UNIT_SPECS: dict[str, UnitSpec] = {
         produced_at="base",
         roster_attribute="peasents",
     ),
-    "knight": UnitSpec(
-        key="knight",
-        display_name="Knight",
-        role="melee",
-        cost=ResourceCost(wood=100, gold=25),
-        production_frames=120,
-        population=2,
-        produced_at="barracks",
-        roster_attribute="knights",
-    ),
-    "archer": UnitSpec(
-        key="archer",
-        display_name="Archer",
-        role="ranged",
-        cost=ResourceCost(wood=80, gold=40),
-        production_frames=120,
-        population=2,
-        produced_at="barracks",
-        roster_attribute="archers",
-    ),
-    "mage": UnitSpec(
-        key="mage",
-        display_name="Mage",
-        role="caster",
-        cost=ResourceCost(wood=70, gold=120),
-        production_frames=180,
-        population=3,
-        produced_at="mage_tower",
-        roster_attribute="mages",
-    ),
     # --- AEGIS (Blue): precision / armored / ranged elite ---
     "marksman": UnitSpec(
         key="marksman",
@@ -184,32 +154,6 @@ BUILDING_SPECS: dict[str, BuildingSpec] = {
         footprint=(2, 2),
         provides_population=6,
     ),
-    "barracks": BuildingSpec(
-        key="barracks",
-        display_name="Barracks",
-        role="military_production",
-        cost=ResourceCost(wood=220, gold=60),
-        build_frames=360,
-        footprint=(3, 3),
-        produces=("knight", "archer"),
-    ),
-    "mage_tower": BuildingSpec(
-        key="mage_tower",
-        display_name="Mage Tower",
-        role="advanced_production",
-        cost=ResourceCost(wood=180, gold=180),
-        build_frames=420,
-        footprint=(3, 3),
-        produces=("mage",),
-    ),
-    "tower": BuildingSpec(
-        key="tower",
-        display_name="Tower",
-        role="defense",
-        cost=ResourceCost(wood=150, gold=80),
-        build_frames=240,
-        footprint=(2, 2),
-    ),
     # --- AEGIS (Blue) ---
     "arsenal": BuildingSpec(
         key="arsenal",
@@ -273,6 +217,15 @@ BUILDING_SPECS: dict[str, BuildingSpec] = {
         faction="RUST",
     ),
 }
+
+
+FACTION_BY_TEAM: dict[str, str] = {"Blue": "AEGIS", "Red": "RUST"}
+
+
+def faction_for_team(team: object) -> str:
+    """Return the faction a team plays (Blue=AEGIS, Red=RUST), else ``any``."""
+    team_name = str(getattr(team, "value", team))
+    return FACTION_BY_TEAM.get(team_name, "any")
 
 
 def units_for_faction(faction: str) -> dict[str, UnitSpec]:

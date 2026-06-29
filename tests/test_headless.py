@@ -17,8 +17,8 @@ if TYPE_CHECKING:
 
 def _settings() -> MapSettings:
     return {
-        "Blue": {"peasant": [[20, 20]], "base": [[60, 60]], "knight": [], "archer": [], "mage": []},
-        "Red": {"peasant": [], "base": [[250, 250]], "knight": [], "archer": [], "mage": []},
+        "Blue": {"peasant": [[20, 20]], "base": [[60, 60]], "guardian": [], "marksman": [], "arclight": []},
+        "Red": {"peasant": [], "base": [[250, 250]], "ripper": [], "spitter": [], "brute": []},
         "Resources": {"wood": [], "gold": []},
         "Terrain": {
             "width": 400,
@@ -32,10 +32,10 @@ def _settings() -> MapSettings:
     }
 
 
-def _settings_with_barracks() -> MapSettings:
+def _settings_with_arsenal() -> MapSettings:
     settings = _settings()
-    settings["Blue"]["barracks"] = [[90, 60]]
-    settings["Red"]["barracks"] = []
+    settings["Blue"]["arsenal"] = [[90, 60]]
+    settings["Red"]["pit"] = []
     return settings
 
 
@@ -69,11 +69,11 @@ def test_collision_keeps_crowded_units_on_map_and_off_terrain() -> None:
         "Blue": {
             "peasant": [],
             "base": [[400, 400]],
-            "knight": [[30 + (i % 4) * 3, 30 + (i // 4) * 3] for i in range(16)],
-            "archer": [],
-            "mage": [],
+            "guardian": [[30 + (i % 4) * 3, 30 + (i // 4) * 3] for i in range(16)],
+            "marksman": [],
+            "arclight": [],
         },
-        "Red": {"peasant": [], "base": [[700, 700]], "knight": [], "archer": [], "mage": []},
+        "Red": {"peasant": [], "base": [[700, 700]], "ripper": [], "spitter": [], "brute": []},
         "Resources": {"wood": [], "gold": []},
         "Terrain": {
             "width": 800,
@@ -104,7 +104,7 @@ def test_manager_public_attack_move_acquires_hostile_target() -> None:
     """Attack-move keeps a route but retargets visible hostiles."""
     settings = _settings()
     settings["Blue"]["peasant"] = []
-    settings["Blue"]["knight"] = [[20, 20]]
+    settings["Blue"]["guardian"] = [[20, 20]]
     settings["Red"]["peasant"] = [[120, 20]]
     simulation = HeadlessSimulation.from_settings(settings)
     manager = simulation.manager
@@ -127,8 +127,8 @@ def _wide_patrol_settings() -> MapSettings:
     test observe pure patrol movement without the unit diverting to a target.
     """
     return {
-        "Blue": {"peasant": [], "base": [[60, 60]], "knight": [[40, 150]], "archer": [], "mage": []},
-        "Red": {"peasant": [], "base": [[760, 280]], "knight": [], "archer": [], "mage": []},
+        "Blue": {"peasant": [], "base": [[60, 60]], "guardian": [[40, 150]], "marksman": [], "arclight": []},
+        "Red": {"peasant": [], "base": [[760, 280]], "ripper": [], "spitter": [], "brute": []},
         "Resources": {"wood": [], "gold": []},
         "Terrain": {
             "width": 800,
@@ -173,7 +173,7 @@ def test_stop_order_cancels_active_patrol() -> None:
     """Issuing a manual stop clears the patrol route and retags the order."""
     settings = _settings()
     settings["Blue"]["peasant"] = []
-    settings["Blue"]["knight"] = [[40, 150]]
+    settings["Blue"]["guardian"] = [[40, 150]]
     simulation = HeadlessSimulation.from_settings(settings)
     manager = simulation.manager
     knight = manager.entities[TeamColor.BLUE].knights[0]
@@ -192,7 +192,7 @@ def test_patrol_unit_acquires_hostile_target_along_route() -> None:
     """A patrolling unit retargets hostiles encountered on its route."""
     settings = _settings()
     settings["Blue"]["peasant"] = []
-    settings["Blue"]["knight"] = [[40, 150]]
+    settings["Blue"]["guardian"] = [[40, 150]]
     settings["Red"]["peasant"] = [[180, 150]]
     simulation = HeadlessSimulation.from_settings(settings)
     manager = simulation.manager
@@ -245,7 +245,7 @@ def test_manager_build_hotkeys_enter_worker_placement_modes() -> None:
     manager.cancel_pending_construction_placement()
     input_controller.handle_event(manager, pygame.event.Event(pygame.KEYDOWN, key=pygame.K_b))
 
-    assert manager.pending_construction_type == "barracks"
+    assert manager.pending_construction_type == "arsenal"
     simulation.close()
 
 
@@ -342,28 +342,28 @@ def test_manager_cancels_queued_peasant_with_partial_refund() -> None:
     simulation.close()
 
 
-def test_manager_trains_military_units_from_barracks() -> None:
-    """Barracks can queue and complete basic military production."""
-    simulation = HeadlessSimulation.from_settings(_settings_with_barracks())
+def test_manager_trains_military_units_from_arsenal() -> None:
+    """An arsenal can queue and complete basic AEGIS military production."""
+    simulation = HeadlessSimulation.from_settings(_settings_with_arsenal())
     manager = simulation.manager
     group = manager.entities[TeamColor.BLUE]
-    barracks = group.barracks[0]
-    group.resources["wood"] = 100
-    group.resources["gold"] = 25
+    arsenal = group.barracks[0]
+    group.resources["wood"] = 110
+    group.resources["gold"] = 55
 
-    assert manager.produce_unit(barracks, "knight") is True
+    assert manager.produce_unit(arsenal, "guardian") is True
     assert group.resources == {"wood": 0, "gold": 0}
-    assert manager.production.queue_for(barracks)[0].unit_type == "knight"
+    assert manager.production.queue_for(arsenal)[0].unit_type == "guardian"
 
-    simulation.step(120)
+    simulation.step(150)
 
     assert len(group.knights) == 1
-    assert not manager.production.queue_for(barracks)
+    assert not manager.production.queue_for(arsenal)
     simulation.close()
 
 
-def test_worker_constructs_barracks_before_military_production() -> None:
-    """A peasant can place, build, and unlock a Barracks over time."""
+def test_worker_constructs_arsenal_before_military_production() -> None:
+    """A peasant can place, build, and unlock an Arsenal over time."""
     simulation = HeadlessSimulation.from_settings(_settings())
     manager = simulation.manager
     group = manager.entities[TeamColor.BLUE]
@@ -371,61 +371,75 @@ def test_worker_constructs_barracks_before_military_production() -> None:
     peasant.x, peasant.y = 150, 120
     group.resources.update({"wood": 220, "gold": 60})
 
-    assert manager.construct_building(peasant, "barracks", (150, 70)) is True
+    assert manager.construct_building(peasant, "arsenal", (150, 70)) is True
     assert group.resources == {"wood": 0, "gold": 0}
 
-    barracks = group.barracks[0]
-    assert barracks.is_under_construction is True
-    assert barracks.construction_progress == 0
-    assert manager.produce_unit(barracks, "knight") is False
+    arsenal = group.barracks[0]
+    assert arsenal.is_under_construction is True
+    assert arsenal.construction_progress == 0
+    assert manager.produce_unit(arsenal, "guardian") is False
 
     simulation.step(430)
 
-    assert barracks.is_under_construction is False
-    assert barracks.construction_progress == 1
+    assert arsenal.is_under_construction is False
+    assert arsenal.construction_progress == 1
 
-    group.resources.update({"wood": 100, "gold": 25})
-    assert manager.produce_unit(barracks, "knight") is True
+    group.resources.update({"wood": 110, "gold": 55})
+    assert manager.produce_unit(arsenal, "guardian") is True
     simulation.close()
 
 
-def test_worker_constructs_mage_tower_and_trains_mage() -> None:
-    """A peasant can build a Mage Tower, which then trains mages over time."""
+def test_spire_requires_arsenal_before_construction() -> None:
+    """The AEGIS spire is tech-gated behind a completed arsenal."""
     simulation = HeadlessSimulation.from_settings(_settings())
     manager = simulation.manager
     group = manager.entities[TeamColor.BLUE]
-    peasant = group.peasents[0]
-    peasant.x, peasant.y = 170, 110
-    group.resources.update({"wood": 180, "gold": 180})
+    group.resources.update({"wood": 1000, "gold": 1000})
 
-    assert manager.construct_building(peasant, "mage_tower", (170, 70)) is True
+    can_build, reason = manager.construction.can_team_construct(TeamColor.BLUE, "spire")
+
+    assert can_build is False
+    assert reason == "missing_tech"
+    simulation.close()
+
+
+def test_worker_constructs_spire_and_trains_arclight() -> None:
+    """With an arsenal standing, a peasant can raise a Spire that trains arclights."""
+    simulation = HeadlessSimulation.from_settings(_settings_with_arsenal())
+    manager = simulation.manager
+    group = manager.entities[TeamColor.BLUE]
+    peasant = group.peasents[0]
+    peasant.x, peasant.y = 250, 240
+    group.resources.update({"wood": 200, "gold": 150})
+
+    assert manager.construct_building(peasant, "spire", (250, 200)) is True
     assert group.resources == {"wood": 0, "gold": 0}
 
-    mage_tower = group.mage_towers[0]
-    assert mage_tower.is_under_construction is True
-    assert manager.produce_unit(mage_tower, "mage") is False
+    spire = group.mage_towers[0]
+    assert spire.is_under_construction is True
+    assert manager.produce_unit(spire, "arclight") is False
 
-    simulation.step(520)
+    simulation.step(560)
 
-    assert mage_tower.is_under_construction is False
-    assert mage_tower.construction_progress == 1
+    assert spire.is_under_construction is False
+    assert spire.construction_progress == 1
 
-    group.resources.update({"wood": 70, "gold": 120})
-    assert manager.produce_unit(mage_tower, "mage") is True
+    group.resources.update({"wood": 80, "gold": 130})
+    assert manager.produce_unit(spire, "arclight") is True
 
     simulation.step(180)
 
     assert len(group.mages) == 1
-    assert not manager.production.queue_for(mage_tower)
+    assert not manager.production.queue_for(spire)
     simulation.close()
 
 
 def _tower_combat_settings() -> MapSettings:
-    """Map with a completed Blue tower and the rival base out of tower range."""
+    """Map with a completed Blue bastion and the rival base out of bastion range."""
     settings = _settings()
     settings["Blue"]["peasant"] = []
-    settings["Blue"]["tower"] = [[150, 150]]
-    settings["Red"]["knight"] = [[250, 150]]
+    settings["Blue"]["bastion"] = [[150, 150]]
+    settings["Red"]["ripper"] = [[250, 150]]
     settings["Red"]["base"] = [[380, 280]]
     return settings
 
@@ -466,7 +480,10 @@ def test_tower_does_not_attack_while_under_construction() -> None:
 def test_tower_ignores_enemy_beyond_attack_range() -> None:
     """A tower does not fire at hostiles outside its attack reach."""
     settings = _tower_combat_settings()
-    settings["Red"]["knight"] = [[380, 150]]
+    # Widen the map so the enemy sits clearly past the bastion's effective reach
+    # (attack_range + both radii) and cannot be clipped at the edge.
+    settings["Terrain"]["width"] = 600
+    settings["Red"]["ripper"] = [[430, 150]]
     simulation = HeadlessSimulation.from_settings(settings)
     manager = simulation.manager
     enemy = manager.entities[TeamColor.RED].knights[0]
@@ -602,7 +619,7 @@ def test_peasant_starts_harvesting_targeted_resources() -> None:
 def _selection_settings() -> MapSettings:
     settings = _settings()
     settings["Blue"]["peasant"] = [[20, 20], [40, 20]]
-    settings["Blue"]["knight"] = [[80, 20], [100, 20]]
+    settings["Blue"]["guardian"] = [[80, 20], [100, 20]]
     return settings
 
 

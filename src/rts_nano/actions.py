@@ -10,8 +10,28 @@ if TYPE_CHECKING:
     from rts_nano.game.observations import EntityId
 
 type WorldPoint = tuple[float, float]
-type UnitType = Literal["peasant", "knight", "archer", "mage"]
-type BuildingType = Literal["barracks", "house", "mage_tower", "tower"]
+type UnitType = Literal[
+    "peasant",
+    # AEGIS
+    "marksman",
+    "guardian",
+    "arclight",
+    # RUST
+    "ripper",
+    "spitter",
+    "brute",
+]
+type BuildingType = Literal[
+    "house",
+    # AEGIS
+    "arsenal",
+    "spire",
+    "bastion",
+    # RUST
+    "pit",
+    "chem_vat",
+    "spiker",
+]
 type ActionKind = Literal[
     "no_op",
     "move",
@@ -129,7 +149,7 @@ class ConstructAction:
     team: TeamColor
     position: WorldPoint
     builder_id: EntityId | None = None
-    building_type: BuildingType = "barracks"
+    building_type: BuildingType = "house"
     frames: int = 1
 
 

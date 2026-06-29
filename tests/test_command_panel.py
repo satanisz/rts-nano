@@ -15,8 +15,8 @@ if TYPE_CHECKING:
 
 def _settings() -> MapSettings:
     return {
-        "Blue": {"peasant": [[40, 40]], "base": [[120, 120]], "knight": [[60, 200]], "archer": [], "mage": []},
-        "Red": {"peasant": [], "base": [[350, 350]], "knight": [], "archer": [], "mage": []},
+        "Blue": {"peasant": [[40, 40]], "base": [[120, 120]], "guardian": [[60, 200]], "marksman": [], "arclight": []},
+        "Red": {"peasant": [], "base": [[350, 350]], "ripper": [], "spitter": [], "brute": []},
         "Resources": {"wood": [], "gold": []},
         "Terrain": {
             "width": 500,
@@ -31,7 +31,7 @@ def _settings() -> MapSettings:
 
 
 def test_command_panel_peasant_shows_build_buttons() -> None:
-    """A selected peasant with resources gets enabled construct buttons for every building."""
+    """An AEGIS peasant with resources gets enabled construct buttons for its faction buildings."""
     simulation = HeadlessSimulation.from_settings(_settings())
     manager = simulation.manager
     peasant = manager.entities[TeamColor.BLUE].peasents[0]
@@ -39,10 +39,15 @@ def test_command_panel_peasant_shows_build_buttons() -> None:
     manager.select_entities_for_team(TeamColor.BLUE, [peasant])
 
     buttons = manager.command_panel.build(manager, SCREEN_WIDTH, SCREEN_HEIGHT)
-    construct = [button for button in buttons if button.action == "construct"]
+    construct_types = {button.building_type for button in buttons if button.action == "construct"}
 
-    assert {"barracks", "house", "mage_tower", "tower"} <= {button.building_type for button in construct}
-    assert all(button.enabled for button in construct)
+    # House plus the AEGIS tier-1 buildings are immediately buildable; the
+    # spire is tech-gated behind an arsenal, so it is not an enabled construct.
+    assert {"house", "arsenal", "bastion"} <= construct_types
+    assert "spire" not in construct_types
+    # RUST buildings never leak into an AEGIS build menu.
+    assert {"pit", "chem_vat", "spiker"}.isdisjoint(construct_types)
+    assert all(button.enabled for button in buttons if button.action == "construct")
     simulation.close()
 
 
@@ -80,8 +85,8 @@ def test_command_panel_unit_shows_unit_commands() -> None:
     """A selected combat unit exposes stop/hold/attack-move/patrol commands."""
     simulation = HeadlessSimulation.from_settings(_settings())
     manager = simulation.manager
-    knight = manager.entities[TeamColor.BLUE].knights[0]
-    manager.select_entities_for_team(TeamColor.BLUE, [knight])
+    guardian = manager.entities[TeamColor.BLUE].knights[0]
+    manager.select_entities_for_team(TeamColor.BLUE, [guardian])
 
     buttons = manager.command_panel.build(manager, SCREEN_WIDTH, SCREEN_HEIGHT)
 

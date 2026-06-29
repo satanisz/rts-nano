@@ -60,24 +60,27 @@ RECT_TERRAIN_TOOLS = {"high_ground", "ramps", "water"}
 MERGED_RECT_TOOLS = {"high_ground", "water"}
 SPECIAL_TOOLS = {"erase", "flatten"}
 ENTITY_TOOLS = {
+    # Shared
     "blue_base",
-    "blue_barracks",
     "blue_house",
-    "blue_mage_tower",
-    "blue_tower",
     "blue_peasant",
-    "blue_knight",
-    "blue_archer",
-    "blue_mage",
     "red_base",
-    "red_barracks",
     "red_house",
-    "red_mage_tower",
-    "red_tower",
     "red_peasant",
-    "red_knight",
-    "red_archer",
-    "red_mage",
+    # AEGIS (Blue)
+    "blue_arsenal",
+    "blue_spire",
+    "blue_bastion",
+    "blue_guardian",
+    "blue_marksman",
+    "blue_arclight",
+    # RUST (Red)
+    "red_pit",
+    "red_chem_vat",
+    "red_spiker",
+    "red_ripper",
+    "red_spitter",
+    "red_brute",
 }
 
 TOOL_KEYS = {
@@ -91,22 +94,22 @@ TOOL_KEYS = {
     pygame.K_8: "blue_base",
     pygame.K_9: "red_base",
     pygame.K_0: "erase",
-    pygame.K_t: "blue_barracks",
-    pygame.K_g: "red_barracks",
+    pygame.K_t: "blue_arsenal",
+    pygame.K_g: "red_pit",
     pygame.K_y: "blue_house",
     pygame.K_h: "red_house",
-    pygame.K_z: "blue_mage_tower",
-    pygame.K_c: "red_mage_tower",
-    pygame.K_v: "blue_tower",
-    pygame.K_b: "red_tower",
+    pygame.K_z: "blue_spire",
+    pygame.K_c: "red_chem_vat",
+    pygame.K_v: "blue_bastion",
+    pygame.K_b: "red_spiker",
     pygame.K_q: "blue_peasant",
-    pygame.K_w: "blue_knight",
-    pygame.K_e: "blue_archer",
-    pygame.K_r: "blue_mage",
+    pygame.K_w: "blue_guardian",
+    pygame.K_e: "blue_marksman",
+    pygame.K_r: "blue_arclight",
     pygame.K_a: "red_peasant",
-    pygame.K_s: "red_knight",
-    pygame.K_d: "red_archer",
-    pygame.K_f: "red_mage",
+    pygame.K_s: "red_ripper",
+    pygame.K_d: "red_spitter",
+    pygame.K_f: "red_brute",
     pygame.K_x: "flatten",
 }
 
@@ -121,22 +124,22 @@ TOOL_LABELS = {
     "blue_base": "8 Blue base",
     "red_base": "9 Red base",
     "erase": "0 Erase",
-    "blue_barracks": "T Blue barracks",
-    "red_barracks": "G Red barracks",
+    "blue_arsenal": "T Blue arsenal",
+    "red_pit": "G Red pit",
     "blue_house": "Y Blue house",
     "red_house": "H Red house",
-    "blue_mage_tower": "Z Blue mage tower",
-    "red_mage_tower": "C Red mage tower",
-    "blue_tower": "V Blue tower",
-    "red_tower": "B Red tower",
+    "blue_spire": "Z Blue spire",
+    "red_chem_vat": "C Red chem vat",
+    "blue_bastion": "V Blue bastion",
+    "red_spiker": "B Red spiker",
     "blue_peasant": "Q Blue peasant",
-    "blue_knight": "W Blue knight",
-    "blue_archer": "E Blue archer",
-    "blue_mage": "R Blue mage",
+    "blue_guardian": "W Blue guardian",
+    "blue_marksman": "E Blue marksman",
+    "blue_arclight": "R Blue arclight",
     "red_peasant": "A Red peasant",
-    "red_knight": "S Red knight",
-    "red_archer": "D Red archer",
-    "red_mage": "F Red mage",
+    "red_ripper": "S Red ripper",
+    "red_spitter": "D Red spitter",
+    "red_brute": "F Red brute",
     "flatten": "X Flatten",
 }
 
@@ -203,24 +206,24 @@ class MapEditor:
             "Blue": {
                 "peasant": [],
                 "base": [],
-                "barracks": [],
                 "house": [],
-                "mage_tower": [],
-                "tower": [],
-                "knight": [],
-                "archer": [],
-                "mage": [],
+                "arsenal": [],
+                "spire": [],
+                "bastion": [],
+                "guardian": [],
+                "marksman": [],
+                "arclight": [],
             },
             "Red": {
                 "peasant": [],
                 "base": [],
-                "barracks": [],
                 "house": [],
-                "mage_tower": [],
-                "tower": [],
-                "knight": [],
-                "archer": [],
-                "mage": [],
+                "pit": [],
+                "chem_vat": [],
+                "spiker": [],
+                "ripper": [],
+                "spitter": [],
+                "brute": [],
             },
             "Resources": {"wood": [], "gold": []},
             "Terrain": {
@@ -323,7 +326,7 @@ class MapEditor:
         """Handle editor keyboard shortcuts.
 
         ``Ctrl`` shortcuts are checked before tool keys, so ``Ctrl+S`` saves
-        instead of selecting the red-knight tool bound to ``S``.
+        instead of selecting the red-ripper tool bound to ``S``.
         """
         if event.key == pygame.K_s and event.mod & pygame.KMOD_CTRL:
             self.save()
@@ -774,7 +777,11 @@ class MapEditor:
                     if not isinstance(point, list):
                         continue
                     pos = self._world_to_screen(cast("Sequence[int]", point))
-                    size = 24 if entity_name in {"base", "barracks", "house", "mage_tower", "tower"} else 12
+                    size = (
+                        24
+                        if entity_name in {"base", "house", "arsenal", "spire", "bastion", "pit", "chem_vat", "spiker"}
+                        else 12
+                    )
                     rect = pygame.Rect(0, 0, size, size)
                     rect.center = pos
                     pygame.draw.rect(screen, color, rect, width=2)

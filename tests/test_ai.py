@@ -19,13 +19,13 @@ if TYPE_CHECKING:
 def _ai_settings() -> MapSettings:
     wood = [[200 + 10 * i, 120] for i in range(6)]
     return {
-        "Blue": {"peasant": [], "base": [[700, 400]], "knight": [], "archer": [], "mage": []},
+        "Blue": {"peasant": [], "base": [[700, 400]], "guardian": [], "marksman": [], "arclight": []},
         "Red": {
             "peasant": [[120, 120], [150, 120], [120, 150]],
             "base": [[120, 90]],
-            "knight": [],
-            "archer": [],
-            "mage": [],
+            "ripper": [],
+            "spitter": [],
+            "brute": [],
         },
         "Resources": {"wood": wood, "gold": [[200, 170], [210, 170]]},
         "Terrain": {
@@ -57,27 +57,27 @@ def test_scripted_ai_gathers_resources_into_bank() -> None:
 
 
 def test_scripted_ai_builds_trains_and_attacks() -> None:
-    """With resources available the AI builds a barracks, trains knights, and attacks."""
+    """With resources the RUST AI raises a pit, trains rippers, and attacks."""
     simulation = HeadlessSimulation.from_settings(_ai_settings())
     manager = simulation.manager
     red = manager.entities[TeamColor.RED]
     red.resources.update({"wood": 600, "gold": 300})
     ai = ScriptedAI(manager, TeamColor.RED, decision_interval=10)
 
-    built_barracks = trained_knight = launched_attack = False
+    built_pit = trained_unit = launched_attack = False
     for _ in range(1500):
         ai.step()
         simulation.step(1)
         if red.barracks and not red.barracks[0].is_under_construction:
-            built_barracks = True
+            built_pit = True
         if red.knights:
-            trained_knight = True
-        if any(knight.attack_move_destination is not None for knight in red.knights):
+            trained_unit = True
+        if any(unit.attack_move_destination is not None for unit in red.knights):
             launched_attack = True
-        if built_barracks and trained_knight and launched_attack:
+        if built_pit and trained_unit and launched_attack:
             break
 
-    assert built_barracks
-    assert trained_knight
+    assert built_pit
+    assert trained_unit
     assert launched_attack
     simulation.close()

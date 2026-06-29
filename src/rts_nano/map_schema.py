@@ -35,17 +35,57 @@ type RectGroupPayload = list[RectPayload]
 
 
 class TeamSettings(TypedDict, total=False):
-    """Serialized spawn lists for one controllable team."""
+    """Serialized spawn lists for one controllable team.
 
+    Entity names are faction-aware: ``peasant``, ``base`` and ``house`` are
+    shared, while military units and tech buildings belong to a faction (AEGIS
+    on Blue, RUST on Red). The validator accepts any name in
+    :data:`TEAM_ENTITY_NAMES`, regardless of which team it appears under.
+    """
+
+    # Shared
     peasant: list[Coordinate]
     base: list[Coordinate]
-    barracks: list[Coordinate]
     house: list[Coordinate]
-    mage_tower: list[Coordinate]
-    tower: list[Coordinate]
-    knight: list[Coordinate]
-    archer: list[Coordinate]
-    mage: list[Coordinate]
+    # AEGIS
+    marksman: list[Coordinate]
+    guardian: list[Coordinate]
+    arclight: list[Coordinate]
+    arsenal: list[Coordinate]
+    spire: list[Coordinate]
+    bastion: list[Coordinate]
+    # RUST
+    ripper: list[Coordinate]
+    spitter: list[Coordinate]
+    brute: list[Coordinate]
+    pit: list[Coordinate]
+    chem_vat: list[Coordinate]
+    spiker: list[Coordinate]
+
+
+# Entity names accepted in a team's spawn section.
+TEAM_ENTITY_NAMES: frozenset[str] = frozenset(
+    {
+        # Shared
+        "peasant",
+        "base",
+        "house",
+        # AEGIS
+        "marksman",
+        "guardian",
+        "arclight",
+        "arsenal",
+        "spire",
+        "bastion",
+        # RUST
+        "ripper",
+        "spitter",
+        "brute",
+        "pit",
+        "chem_vat",
+        "spiker",
+    }
+)
 
 
 class ResourceSettings(TypedDict, total=False):
@@ -137,17 +177,7 @@ def _validate_team(payload: dict[object, object], key: str, errors: list[str]) -
         errors.append(f"{key} must be an object.")
         return
     for entity_name, coords in team.items():
-        if entity_name not in {
-            "peasant",
-            "base",
-            "barracks",
-            "house",
-            "mage_tower",
-            "tower",
-            "knight",
-            "archer",
-            "mage",
-        }:
+        if entity_name not in TEAM_ENTITY_NAMES:
             errors.append(f"{key}.{entity_name} is not a known entity type.")
             continue
         _validate_coordinate_list(coords, f"{key}.{entity_name}", errors)

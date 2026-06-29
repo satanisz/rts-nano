@@ -28,8 +28,8 @@ if TYPE_CHECKING:
 
 def _settings() -> MapSettings:
     return {
-        "Blue": {"peasant": [[20, 20]], "base": [[60, 60]], "knight": [], "archer": [], "mage": []},
-        "Red": {"peasant": [], "base": [[250, 250]], "knight": [], "archer": [], "mage": []},
+        "Blue": {"peasant": [[20, 20]], "base": [[60, 60]], "guardian": [], "marksman": [], "arclight": []},
+        "Red": {"peasant": [], "base": [[250, 250]], "ripper": [], "spitter": [], "brute": []},
         "Resources": {"wood": [[160, 20]], "gold": []},
         "Terrain": {
             "width": 400,
@@ -43,10 +43,10 @@ def _settings() -> MapSettings:
     }
 
 
-def _settings_with_barracks() -> MapSettings:
+def _settings_with_arsenal() -> MapSettings:
     settings = _settings()
-    settings["Blue"]["barracks"] = [[90, 60]]
-    settings["Red"]["barracks"] = []
+    settings["Blue"]["arsenal"] = [[90, 60]]
+    settings["Red"]["pit"] = []
     return settings
 
 
@@ -113,25 +113,26 @@ def test_action_translator_applies_build_orders() -> None:
 
 
 def test_action_translator_applies_military_build_orders() -> None:
-    """Action translator can produce military units from barracks."""
-    simulation = HeadlessSimulation.from_settings(_settings_with_barracks())
+    """Action translator can produce military units from an arsenal."""
+    simulation = HeadlessSimulation.from_settings(_settings_with_arsenal())
     manager = simulation.manager
-    manager.entities[TeamColor.BLUE].resources.update({"wood": 100, "gold": 25})
+    manager.entities[TeamColor.BLUE].resources.update({"wood": 110, "gold": 55})
     registry = EntityIdRegistry()
     observation = build_observation(manager, tick=0, registry=registry)
-    barracks_id = next(
-        entity.id for entity in observation.entities if entity.kind == "Barracks" and entity.team == "Blue"
+    arsenal_id = next(
+        entity.id for entity in observation.entities if entity.kind == "Arsenal" and entity.team == "Blue"
     )
 
     affected = ActionTranslator(manager, registry).apply(
-        BuildAction(TeamColor.BLUE, base_id=barracks_id, unit_type="knight")
+        BuildAction(TeamColor.BLUE, base_id=arsenal_id, unit_type="guardian")
     )
 
     assert affected == 1
     assert (
-        manager.production.queue_for(manager.production_buildings_for_team(TeamColor.BLUE)[1])[0].unit_type == "knight"
+        manager.production.queue_for(manager.production_buildings_for_team(TeamColor.BLUE)[1])[0].unit_type
+        == "guardian"
     )
-    simulation.step(120)
+    simulation.step(150)
     assert len(manager.entities[TeamColor.BLUE].knights) == 1
     simulation.close()
 
@@ -148,7 +149,7 @@ def test_action_translator_applies_worker_construction_orders() -> None:
     )
 
     affected = ActionTranslator(manager, registry).apply(
-        ConstructAction(TeamColor.BLUE, (160, 90), builder_id=builder_id)
+        ConstructAction(TeamColor.BLUE, (160, 90), builder_id=builder_id, building_type="arsenal")
     )
 
     assert affected == 1
@@ -278,8 +279,8 @@ def test_env_action_mask_reports_stateful_legality() -> None:
     assert specs[("build", "Blue", "peasant")].reason == "insufficient_resources"
     assert specs[("cancel_production", "Blue", None)].enabled is False
     construction_specs = {(spec.kind, spec.team, spec.building_type): spec for spec in mask}
-    assert construction_specs[("construct", "Blue", "barracks")].enabled is False
-    assert construction_specs[("construct", "Blue", "barracks")].reason == "insufficient_resources"
+    assert construction_specs[("construct", "Blue", "arsenal")].enabled is False
+    assert construction_specs[("construct", "Blue", "arsenal")].reason == "insufficient_resources"
     assert construction_specs[("construct", "Blue", "house")].enabled is False
     assert construction_specs[("construct", "Blue", "house")].reason == "insufficient_resources"
     assert specs[("cancel_construction", "Blue", None)].enabled is False
@@ -307,7 +308,7 @@ def test_env_action_mask_reports_stateful_legality() -> None:
     env.close()
 
 
-def test_env_construct_action_observes_unfinished_barracks() -> None:
+def test_env_construct_action_observes_unfinished_arsenal() -> None:
     """Environment exposes worker construction through actions and snapshots."""
     env = RtsNanoEnv(settings=_settings())
     manager = env._require_simulation().manager
@@ -317,11 +318,13 @@ def test_env_construct_action_observes_unfinished_barracks() -> None:
         entity.id for entity in observation.entities if entity.kind == "Peasant" and entity.team == "Blue"
     )
 
-    result = env.step(ConstructAction(TeamColor.BLUE, (160, 90), builder_id=builder_id, frames=0))
-    barracks = next(entity for entity in result.observation.entities if entity.kind == "Barracks")
+    result = env.step(
+        ConstructAction(TeamColor.BLUE, (160, 90), builder_id=builder_id, building_type="arsenal", frames=0)
+    )
+    arsenal = next(entity for entity in result.observation.entities if entity.kind == "Arsenal")
 
-    assert barracks.is_under_construction is True
-    assert barracks.construction_progress == 0
+    assert arsenal.is_under_construction is True
+    assert arsenal.construction_progress == 0
     assert result.observation.teams[0].wood == 0
     assert result.observation.teams[0].gold == 0
 
@@ -380,30 +383,43 @@ def test_env_cancel_construction_refunds_resources() -> None:
 
 
 def test_env_action_mask_reports_military_production() -> None:
-    """Action masks expose barracks production as unit-specific build options."""
-    env = RtsNanoEnv(settings=_settings_with_barracks())
+    """Action masks expose arsenal production as unit-specific build options."""
+    env = RtsNanoEnv(settings=_settings_with_arsenal())
     manager = env._require_simulation().manager
-    manager.entities[TeamColor.BLUE].resources.update({"wood": 100, "gold": 25})
+    # Enough for a marksman (90W/35G) but not a guardian (110W/55G).
+    manager.entities[TeamColor.BLUE].resources.update({"wood": 90, "gold": 35})
 
     specs = {(spec.kind, spec.team, spec.unit_type): spec for spec in env.action_mask(TeamColor.BLUE)}
 
-    assert specs[("build", "Blue", "knight")].enabled is True
-    assert specs[("build", "Blue", "archer")].enabled is False
-    assert specs[("build", "Blue", "archer")].reason == "insufficient_resources"
+    assert specs[("build", "Blue", "marksman")].enabled is True
+    assert specs[("build", "Blue", "guardian")].enabled is False
+    assert specs[("build", "Blue", "guardian")].reason == "insufficient_resources"
 
     env.close()
 
 
-def test_env_action_mask_exposes_mage_tower_construction() -> None:
-    """Action masks expose Mage Tower as a worker-constructable building."""
+def test_env_action_mask_exposes_spire_construction() -> None:
+    """Action masks expose the Spire as constructable once its arsenal tech is met."""
     env = RtsNanoEnv(settings=_settings())
     manager = env._require_simulation().manager
-    manager.entities[TeamColor.BLUE].resources.update({"wood": 180, "gold": 180})
+    manager.entities[TeamColor.BLUE].resources.update({"wood": 200, "gold": 150})
+
+    # Without an arsenal the spire is present but tech-gated.
+    gated = {(spec.kind, spec.team, spec.building_type): spec for spec in env.action_mask(TeamColor.BLUE)}
+    assert ("construct", "Blue", "spire") in gated
+    assert gated[("construct", "Blue", "spire")].enabled is False
+    assert gated[("construct", "Blue", "spire")].reason == "missing_tech"
+
+    env.close()
+
+    env = RtsNanoEnv(settings=_settings_with_arsenal())
+    manager = env._require_simulation().manager
+    manager.entities[TeamColor.BLUE].resources.update({"wood": 200, "gold": 150})
 
     specs = {(spec.kind, spec.team, spec.building_type): spec for spec in env.action_mask(TeamColor.BLUE)}
 
-    assert ("construct", "Blue", "mage_tower") in specs
-    assert specs[("construct", "Blue", "mage_tower")].enabled is True
+    assert ("construct", "Blue", "spire") in specs
+    assert specs[("construct", "Blue", "spire")].enabled is True
 
     env.close()
 
@@ -412,7 +428,7 @@ def test_env_patrol_action_sets_order_and_exposes_mask() -> None:
     """PatrolAction is legal, applies a patrol order, and surfaces in observations."""
     settings = _settings()
     settings["Blue"]["peasant"] = []
-    settings["Blue"]["knight"] = [[40, 150]]
+    settings["Blue"]["guardian"] = [[40, 150]]
     env = RtsNanoEnv(settings=settings)
 
     specs = {(spec.kind, spec.team): spec for spec in env.action_mask(TeamColor.BLUE)}
@@ -420,22 +436,22 @@ def test_env_patrol_action_sets_order_and_exposes_mask() -> None:
 
     result = env.step(PatrolAction(TeamColor.BLUE, (300, 150), frames=1))
 
-    knight = next(entity for entity in result.observation.entities if entity.kind == "Knight")
-    assert knight.order == "patrol"
+    guardian = next(entity for entity in result.observation.entities if entity.kind == "Guardian")
+    assert guardian.order == "patrol"
 
     env.close()
 
 
-def test_env_action_mask_exposes_tower_construction() -> None:
-    """Action masks expose the defensive Tower as a worker-constructable building."""
+def test_env_action_mask_exposes_bastion_construction() -> None:
+    """Action masks expose the defensive Bastion as a worker-constructable building."""
     env = RtsNanoEnv(settings=_settings())
     manager = env._require_simulation().manager
     manager.entities[TeamColor.BLUE].resources.update({"wood": 150, "gold": 80})
 
     specs = {(spec.kind, spec.team, spec.building_type): spec for spec in env.action_mask(TeamColor.BLUE)}
 
-    assert ("construct", "Blue", "tower") in specs
-    assert specs[("construct", "Blue", "tower")].enabled is True
+    assert ("construct", "Blue", "bastion") in specs
+    assert specs[("construct", "Blue", "bastion")].enabled is True
 
     env.close()
 
@@ -493,7 +509,7 @@ def test_env_replays_patrol_sequence_deterministically() -> None:
     def run_sequence() -> list[dict[str, object]]:
         settings = _settings()
         settings["Blue"]["peasant"] = []
-        settings["Blue"]["knight"] = [[40, 150]]
+        settings["Blue"]["guardian"] = [[40, 150]]
         env = RtsNanoEnv(settings=settings)
         env.reset(seed=5)
         snapshots = [env.observe().to_dict()]
@@ -504,5 +520,5 @@ def test_env_replays_patrol_sequence_deterministically() -> None:
 
     first_run = run_sequence()
     assert first_run == run_sequence()
-    knight = next(entity for entity in first_run[-1]["entities"] if entity["kind"] == "Knight")
-    assert knight["order"] == "patrol"
+    guardian = next(entity for entity in first_run[-1]["entities"] if entity["kind"] == "Guardian")
+    assert guardian["order"] == "patrol"

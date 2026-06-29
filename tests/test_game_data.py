@@ -27,20 +27,35 @@ def test_game_data_defines_current_worker_production() -> None:
 
 
 def test_game_data_defines_basic_military_production() -> None:
-    """Knight and archer production is owned by barracks data."""
-    barracks = BUILDING_SPECS["barracks"]
+    """Each faction's tier-1 military building owns its unit production."""
+    arsenal = BUILDING_SPECS["arsenal"]
+    pit = BUILDING_SPECS["pit"]
 
-    assert UNIT_SPECS["knight"].produced_at == "barracks"
-    assert UNIT_SPECS["archer"].produced_at == "barracks"
-    assert UNIT_SPECS["knight"].cost.wood == 100
-    assert UNIT_SPECS["knight"].cost.gold == 25
-    assert barracks.produces == ("knight", "archer")
+    assert UNIT_SPECS["guardian"].produced_at == "arsenal"
+    assert UNIT_SPECS["marksman"].produced_at == "arsenal"
+    assert UNIT_SPECS["guardian"].cost.wood == 110
+    assert UNIT_SPECS["guardian"].cost.gold == 55
+    assert arsenal.produces == ("marksman", "guardian")
+    assert pit.produces == ("ripper", "spitter")
+    assert arsenal.faction == "AEGIS"
+    assert pit.faction == "RUST"
+
+
+def test_game_data_defines_faction_tech_gates() -> None:
+    """Advanced production buildings require their faction's tier-1 building."""
+    assert BUILDING_SPECS["spire"].requires == ("arsenal",)
+    assert BUILDING_SPECS["chem_vat"].requires == ("pit",)
+    assert UNIT_SPECS["arclight"].produced_at == "spire"
+    assert UNIT_SPECS["brute"].produced_at == "chem_vat"
 
 
 def test_game_data_sketches_minimal_full_rts_roster() -> None:
     """The data layer names the minimal current and near-term RTS roles."""
     assert BUILDING_SPECS["house"].provides_population == 6
-    assert {spec.role for spec in UNIT_SPECS.values()} >= {"worker", "melee", "ranged", "caster"}
+    unit_roles = {spec.role for spec in UNIT_SPECS.values()}
+    assert "worker" in unit_roles
+    assert {"tank", "ranged", "artillery"} <= unit_roles  # AEGIS elite line
+    assert {"swarm", "heavy"} <= unit_roles  # RUST swarm line
     assert {spec.role for spec in BUILDING_SPECS.values()} >= {
         "dropoff_production",
         "population",

@@ -6,12 +6,9 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from rts_nano.game.assets.entities import (
-    Archer,
     Arclight,
     Brute,
     Guardian,
-    Knight,
-    Mage,
     Marksman,
     Peasant,
     Ripper,
@@ -46,9 +43,6 @@ class ProductionSystem:
 
     _UNIT_FACTORIES = {
         "peasant": Peasant,
-        "knight": Knight,
-        "archer": Archer,
-        "mage": Mage,
         # AEGIS
         "marksman": Marksman,
         "guardian": Guardian,

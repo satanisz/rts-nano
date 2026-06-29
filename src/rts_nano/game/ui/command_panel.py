@@ -21,7 +21,7 @@ import pygame
 from rts_nano.game.assets.entities.base_entities import Building, Unit
 from rts_nano.game.assets.entities.units import Peasant
 from rts_nano.game.constants import BOTTOM_MENU_HEIGHT
-from rts_nano.game.data import UNIT_SPECS, get_building_spec
+from rts_nano.game.data import UNIT_SPECS, faction_for_team, get_building_spec
 
 if TYPE_CHECKING:
     from rts_nano.game.manager import GameManager
@@ -167,16 +167,21 @@ class CommandPanel:
                     else:
                         commands.append(("Unavailable", False, None, None))
         elif isinstance(primary_entity, Peasant) and primary_entity.team == manager.current_team:
+            faction = faction_for_team(manager.current_team)
             for building_type in manager.construction.supported_building_types():
                 try:
                     building_spec = get_building_spec(building_type)
                 except ValueError:
+                    continue
+                if building_spec.faction not in {"any", faction}:
                     continue
                 can_construct, reason = manager.construction.can_team_construct(manager.current_team, building_type)
                 if can_construct:
                     commands.append((f"Build {building_spec.display_name}", True, "construct", building_type))
                 elif reason == "insufficient_resources":
                     commands.append((f"Need {format_cost(building_spec.cost)}", False, None, None))
+                elif reason == "missing_tech":
+                    commands.append((f"Build {building_spec.display_name}", False, None, None))
                 else:
                     commands.append(("Unavailable", False, None, None))
 

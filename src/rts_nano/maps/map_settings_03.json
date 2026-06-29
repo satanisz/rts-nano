@@ -2,16 +2,16 @@
     "Blue": {
         "peasant": [],
         "base": [],
-        "knight": [],
-        "archer": [],
-        "mage": []
+        "guardian": [],
+        "marksman": [],
+        "arclight": []
     },
     "Red": {
         "peasant": [],
         "base": [],
-        "knight": [],
-        "archer": [],
-        "mage": []
+        "ripper": [],
+        "spitter": [],
+        "brute": []
     },
     "Resources": {
         "wood": [],

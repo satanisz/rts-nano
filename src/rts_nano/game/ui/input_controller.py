@@ -17,6 +17,7 @@ import pygame
 
 from rts_nano.game.assets.entities import Base, TeamColor
 from rts_nano.game.assets.entities.base_entities import Unit
+from rts_nano.game.data import faction_for_team
 from rts_nano.game.manager import (
     CAMERA_SPEED,
     DOUBLE_CLICK_MS,
@@ -102,13 +103,13 @@ class InputController:
             self._request_fullscreen_toggle(manager)
         elif event.key == pygame.K_b:
             if manager._selected_construction_builder() is not None:
-                manager.begin_construction_placement("barracks")
+                manager.begin_construction_placement(self._faction_building(manager, "military"))
             else:
                 self._try_build_peasant_from_selection(manager)
         elif event.key == pygame.K_y:
             manager.begin_construction_placement("house")
         elif event.key == pygame.K_m:
-            manager.begin_construction_placement("mage_tower")
+            manager.begin_construction_placement(self._faction_building(manager, "tech"))
         elif event.key == pygame.K_s:
             selected_units = [entity for entity in manager.selected_entities if isinstance(entity, Unit)]
             manager.issue_stop_order(manager.current_team, selected_units)
@@ -265,6 +266,18 @@ class InputController:
             manager.cancel_construction(button.producer)
         elif action in {"stop", "hold", "attack_move", "patrol", "gather", "return_cargo"}:
             manager._handle_unit_command_button(action)
+
+    # Build hotkeys are faction-aware: ``B`` raises the faction's military
+    # building, ``M`` its tech/caster building (AEGIS vs RUST).
+    _FACTION_BUILD_HOTKEYS = {
+        "AEGIS": {"military": "arsenal", "tech": "spire"},
+        "RUST": {"military": "pit", "tech": "chem_vat"},
+    }
+
+    def _faction_building(self, manager: GameManager, role: str) -> str:
+        """Return the building type the current team builds for a hotkey role."""
+        faction = faction_for_team(manager.current_team)
+        return self._FACTION_BUILD_HOTKEYS.get(faction, self._FACTION_BUILD_HOTKEYS["AEGIS"])[role]
 
     def _try_build_peasant_from_selection(self, manager: GameManager) -> None:
         """Attempt to build a peasant from the first selected base."""

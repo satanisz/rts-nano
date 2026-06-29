@@ -16,12 +16,12 @@ def _valid_payload() -> dict[str, object]:
     return {
         "Blue": {
             "base": [[10, 10]],
-            "barracks": [[60, 60]],
+            "arsenal": [[60, 60]],
             "house": [[80, 80]],
-            "mage_tower": [[120, 120]],
+            "spire": [[120, 120]],
             "peasant": [],
         },
-        "Red": {"base": [[100, 100]], "barracks": [], "house": []},
+        "Red": {"base": [[100, 100]], "pit": [], "house": []},
         "Resources": {"wood": [[20, 20]], "gold": []},
         "Terrain": {
             "width": 500,

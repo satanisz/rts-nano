@@ -7,17 +7,14 @@ from typing import TYPE_CHECKING, ClassVar
 from rts_nano.game.assets.entities.base_entities import Building, Entity, TeamColor
 from rts_nano.game.assets.entities.buildings import (
     Arsenal,
-    Barracks,
     Bastion,
     ChemVat,
     House,
-    MageTower,
     Pit,
     Spiker,
     Spire,
-    Tower,
 )
-from rts_nano.game.data import CONSTRUCTION_REFUND_RATIO, ResourceCost, get_building_spec
+from rts_nano.game.data import CONSTRUCTION_REFUND_RATIO, ResourceCost, faction_for_team, get_building_spec
 from rts_nano.game.rules import distance_between_points
 
 if TYPE_CHECKING:
@@ -30,10 +27,7 @@ class ConstructionSystem:
     """Place unfinished buildings and advance them with workers."""
 
     _BUILDING_FACTORIES: ClassVar[dict[str, type[Building]]] = {
-        "barracks": Barracks,
         "house": House,
-        "mage_tower": MageTower,
-        "tower": Tower,
         # AEGIS (slot into the barracks/mage_tower/tower rosters via subclassing)
         "arsenal": Arsenal,
         "spire": Spire,
@@ -44,10 +38,7 @@ class ConstructionSystem:
         "spiker": Spiker,
     }
     _BUILDING_ROSTERS: ClassVar[dict[str, str]] = {
-        "barracks": "barracks",
         "house": "houses",
-        "mage_tower": "mage_towers",
-        "tower": "towers",
         "arsenal": "barracks",
         "spire": "mage_towers",
         "bastion": "towers",
@@ -75,15 +66,28 @@ class ConstructionSystem:
 
         if building_type not in self._BUILDING_FACTORIES:
             return False, "unsupported_building"
+        if spec.faction not in {"any", faction_for_team(team)}:
+            return False, "wrong_faction"
 
         group = self._state.entities.get(team)
         if group is None:
             return False, "missing_team"
         if not any(builder.life > 0 for builder in group.peasents):
             return False, "no_builder"
+        if not all(self._has_completed_building(group, required) for required in spec.requires):
+            return False, "missing_tech"
         if not self._can_pay(group.resources, spec.cost):
             return False, "insufficient_resources"
         return True, None
+
+    @staticmethod
+    def _has_completed_building(group: EntitiesGroup, spec_key: str) -> bool:
+        """Return whether a team owns a finished, living building of a given type."""
+        buildings = (*group.bases, *group.barracks, *group.houses, *group.mage_towers, *group.towers)
+        return any(
+            getattr(building, "spec_key", "") == spec_key and building.life > 0 and not building.is_under_construction
+            for building in buildings
+        )
 
     def can_start_construction(
         self,
