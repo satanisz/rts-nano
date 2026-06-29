@@ -2,7 +2,8 @@
 
 from pathlib import Path
 
-from rts_nano.game.assets.entities.base_entities import Building, Entity, TeamColor
+from rts_nano.game.assets.entities.base_entities import Building, Entity, TeamColor, init_shield
+from rts_nano.game.assets.entities.units import AEGIS_SHIELD_REGEN, AEGIS_SHIELD_REGEN_DELAY
 from rts_nano.game.constants import AttackType
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
@@ -68,6 +69,9 @@ class Tower(Building):
     DEFAULT_ATTACK_DAMAGE = 12
     DEFAULT_ATTACK_RANGE = 180
     DEFAULT_ATTACK_SPEED = 1.0
+    DEFAULT_SHIELD_MAX = 0
+    DEFAULT_SHIELD_REGEN = 0
+    DEFAULT_SHIELD_REGEN_DELAY = 0
 
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
         """Initialize the object."""
@@ -79,6 +83,7 @@ class Tower(Building):
         self.attack_speed = self.DEFAULT_ATTACK_SPEED
         self.attack_type = AttackType.RANGED
         self.attack_cooldown = 0
+        init_shield(self, self.DEFAULT_SHIELD_MAX, self.DEFAULT_SHIELD_REGEN, self.DEFAULT_SHIELD_REGEN_DELAY)
         self.last_attack_event: tuple[tuple[float, float], tuple[float, float], AttackType, Entity] | None = None
 
 
@@ -105,12 +110,15 @@ class Spire(MageTower):
 
 
 class Bastion(Tower):
-    """AEGIS defense: durable, long-range auto-attacking turret."""
+    """AEGIS defense: durable, long-range auto-attacking turret with a shield."""
 
     MAX_LIFE = 350
     DEFAULT_ATTACK_DAMAGE = 12
     DEFAULT_ATTACK_RANGE = 200
     DEFAULT_ATTACK_SPEED = 1.0
+    DEFAULT_SHIELD_MAX = 80
+    DEFAULT_SHIELD_REGEN = AEGIS_SHIELD_REGEN
+    DEFAULT_SHIELD_REGEN_DELAY = AEGIS_SHIELD_REGEN_DELAY
 
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
         """Initialize the object."""

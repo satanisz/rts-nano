@@ -15,8 +15,11 @@ if TYPE_CHECKING:
 
 type EntityId = str
 
-OBSERVATION_SCHEMA_VERSION = 1
-"""Version of the observation contract. Bump when fields change meaning."""
+OBSERVATION_SCHEMA_VERSION = 2
+"""Version of the observation contract. Bump when fields change meaning.
+
+v2: added ``shield`` / ``shield_max`` to ``EntitySnapshot`` (AEGIS shield buffer).
+"""
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,6 +56,8 @@ class EntitySnapshot:
     y: float
     life: int
     max_life: int | None
+    shield: int
+    shield_max: int
     amount: int | None
     state: str | None
     carry_wood: int
@@ -155,6 +160,8 @@ def _snapshot_entity(manager: GameManager, entity: Entity, registry: EntityIdReg
         y=entity.y,
         life=entity.life,
         max_life=getattr(entity, "max_life", None),
+        shield=entity.shield,
+        shield_max=entity.shield_max,
         amount=getattr(entity, "amount", None),
         state=getattr(entity, "state", None),
         carry_wood=getattr(entity, "carry_wood", 0),

@@ -78,6 +78,7 @@ from rts_nano.game.constants import (
 )
 from rts_nano.game.construction import ConstructionSystem
 from rts_nano.game.data import get_building_spec
+from rts_nano.game.effects import EffectsSystem
 from rts_nano.game.fog import FogOfWar
 from rts_nano.game.gather import GatherSystem
 from rts_nano.game.movement import MovementSystem
@@ -338,6 +339,7 @@ class GameManager:
         self.movement = MovementSystem(self.state)
         self.production = ProductionSystem(self.state)
         self.combat = CombatSystem(self.state)
+        self.effects = EffectsSystem(self.state)
         self.victory = VictorySystem(self.state)
         self.gather = GatherSystem(self.state, self.movement)
         self.construction = ConstructionSystem(self.state, self.movement)
@@ -1045,6 +1047,7 @@ class GameManager:
             self.archer_shots.append(
                 ArcherShot(source_pos[0], source_pos[1], target_pos[0], target_pos[1], target_entity=target)
             )
+        self.effects.update()
         self._remove_dead_entities()
         self.victory.update()
         self.magic_missiles = [missile for missile in self.magic_missiles if missile.update()]

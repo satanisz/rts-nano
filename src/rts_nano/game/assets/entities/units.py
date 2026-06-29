@@ -10,10 +10,17 @@ placement tool.
 from pathlib import Path
 
 from rts_nano.game.assets.entities.base_entities import Building, Entity, Resource, TeamColor, Unit
-from rts_nano.game.constants import AttackType
+from rts_nano.game.constants import FPS, AttackType
 from rts_nano.game.rules import calculate_height_range_bonus, distance_between
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
+
+# Every AEGIS unit shares the same shield regen profile; only the buffer size
+# (``DEFAULT_SHIELD_MAX``) differs per unit. Regen is slow and only kicks in a
+# few seconds after the unit was last hit, so shields reward disengaging rather
+# than acting as constant bonus health in a sustained fight.
+AEGIS_SHIELD_REGEN = 8  # shield points recovered per second out of combat
+AEGIS_SHIELD_REGEN_DELAY = int(4 * FPS)  # frames out of combat before regen starts
 
 
 class Peasant(Unit):
@@ -199,6 +206,9 @@ class Marksman(Archer):
     DEFAULT_SHIELD_MODIFIER = 1
     DEFAULT_SPEED = 2.2
     RANGED_ATTACK_RANGE = 210
+    DEFAULT_SHIELD_MAX = 30
+    DEFAULT_SHIELD_REGEN = AEGIS_SHIELD_REGEN
+    DEFAULT_SHIELD_REGEN_DELAY = AEGIS_SHIELD_REGEN_DELAY
 
 
 class Guardian(Knight):
@@ -208,6 +218,9 @@ class Guardian(Knight):
     DEFAULT_ATTACK_DAMAGE = 8
     DEFAULT_SHIELD_MODIFIER = 4
     DEFAULT_SPEED = 1.9
+    DEFAULT_SHIELD_MAX = 60
+    DEFAULT_SHIELD_REGEN = AEGIS_SHIELD_REGEN
+    DEFAULT_SHIELD_REGEN_DELAY = AEGIS_SHIELD_REGEN_DELAY
 
 
 class Arclight(Mage):
@@ -218,6 +231,9 @@ class Arclight(Mage):
     DEFAULT_ATTACK_RANGE = 520
     DEFAULT_ATTACK_SPEED = 1.3
     DEFAULT_SPEED = 1.4
+    DEFAULT_SHIELD_MAX = 20
+    DEFAULT_SHIELD_REGEN = AEGIS_SHIELD_REGEN
+    DEFAULT_SHIELD_REGEN_DELAY = AEGIS_SHIELD_REGEN_DELAY
 
 
 # --- RUST (Red): cheap / fast / expendable swarm. Poison/frenzy are layered on

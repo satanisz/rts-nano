@@ -35,6 +35,7 @@ from rts_nano.game.constants import (
     AttackType,
 )
 from rts_nano.game.rules import (
+    apply_damage,
     calculate_damage,
     calculate_height_damage_modifier,
     calculate_height_range_bonus,
@@ -63,6 +64,22 @@ _glyph_font_cache: dict[int, pygame.font.Font] = {}
 def building_glyph(spec_key: str) -> tuple[str, tuple[int, int, int]]:
     """Return the placeholder (label, accent color) for a building type."""
     return _BUILDING_GLYPHS.get(spec_key, ("?", (110, 110, 120)))
+
+
+def init_shield(entity: Entity, shield_max: int, shield_regen: int, shield_regen_delay: int) -> None:
+    """Attach a regenerating shield buffer to a combat entity (units and towers).
+
+    The shield starts full. ``frames_since_damaged`` counts frames since the last
+    hit so the ``EffectsSystem`` can honor the out-of-combat regen delay without
+    needing a global tick. Entities with ``shield_max == 0`` are inert: combat and
+    the effects tick both treat them as having no shield.
+    """
+    entity.shield_max = shield_max
+    entity.shield = shield_max
+    entity.shield_regen = shield_regen
+    entity.shield_regen_delay = shield_regen_delay
+    entity.frames_since_damaged = shield_regen_delay
+    entity.shield_regen_accumulator = 0.0
 
 
 def _building_glyph_font(size: int) -> pygame.font.Font:
@@ -102,6 +119,17 @@ class Entity:
         radius: Interaction radius used for collisions and selection.
         class_name: Human-readable entity label.
     """
+
+    # Shield buffer defaults shared by every entity. Only combat entities that
+    # call ``init_shield`` (AEGIS units/towers) get a nonzero buffer; everything
+    # else stays inert at 0 so combat and the effects tick can treat any target
+    # uniformly without ``hasattr`` checks.
+    shield_max: int = 0
+    shield: int = 0
+    shield_regen: int = 0
+    shield_regen_delay: int = 0
+    frames_since_damaged: int = 0
+    shield_regen_accumulator: float = 0.0
 
     def __init__(
         self, x: float, y: float, color: tuple[int, int, int], size: int, radius: float, class_name: str
@@ -381,6 +409,12 @@ class Unit(Entity):
     DEFAULT_ATTACK_SPEED: float = 0
     DEFAULT_ATTACK_TYPE: tuple[AttackType, ...] = (AttackType.NONE,)
     DEFAULT_SHIELD_MODIFIER: int = 0
+    # Shield buffer (AEGIS signature mechanic). ``shield_modifier`` above is flat
+    # armor; these are a separate regenerating absorb buffer drained before life.
+    # Non-AEGIS units leave ``DEFAULT_SHIELD_MAX`` at 0 and are unaffected.
+    DEFAULT_SHIELD_MAX: int = 0
+    DEFAULT_SHIELD_REGEN: int = 0
+    DEFAULT_SHIELD_REGEN_DELAY: int = 0
     HIT_FLASH_DURATION_MS: int = 120
 
     def __init__(self, x: int, y: int, team: TeamColor, size: int, radius: float) -> None:
@@ -414,6 +448,7 @@ class Unit(Entity):
             self.attack_types = (self.DEFAULT_ATTACK_TYPE,)
         self.attack_type: AttackType = self.attack_types[0]
         self.shield_modifier: int = self.DEFAULT_SHIELD_MODIFIER
+        init_shield(self, self.DEFAULT_SHIELD_MAX, self.DEFAULT_SHIELD_REGEN, self.DEFAULT_SHIELD_REGEN_DELAY)
         self.attack_cooldown: int = 0
         self.hit_flash_until_ms: int = 0
         self.last_attack_event: tuple[tuple[float, float], tuple[float, float], AttackType, Entity] | None = None
@@ -594,7 +629,7 @@ class Unit(Entity):
             self.attack_modifier + height_modifier,
             getattr(target, "shield_modifier", 0),
         )
-        target.life -= damage
+        apply_damage(target, damage)
         self.attack_cooldown = max(1, int(self.attack_speed * FPS))
         self._trigger_hit_flash()
         self.last_attack_event = ((self.x, self.y), target.get_center(), self.attack_type, target)

@@ -45,12 +45,36 @@ def squared_distance_between(first: Entity, second: Entity) -> float:
 
 
 def calculate_damage(attack_damage: int, attack_modifier: int, shield_modifier: int) -> int:
-    """Calculate effective damage after additive modifiers and shielding.
+    """Calculate effective damage after additive modifiers and armor.
 
     Combat balance currently uses additive modifiers rather than percentages.
-    Damage is clamped at zero so high shield values cannot heal the target.
+    ``shield_modifier`` here is flat armor, not the AEGIS shield buffer. Damage is
+    clamped at zero so high armor values cannot heal the target.
     """
     return max(0, attack_damage + attack_modifier - shield_modifier)
+
+
+def apply_damage(target: Entity, amount: int) -> int:
+    """Apply post-armor damage to a target, draining a shield buffer before life.
+
+    This is the single point every attacker routes through (unit melee/ranged,
+    tower auto-attack, and later poison ticks) so the AEGIS shield mechanic is
+    honored uniformly. AEGIS entities carry a regenerating ``shield`` absorb
+    buffer; ``amount`` drains it first and the remainder hits ``life``. Any hit on
+    a shielded target resets ``frames_since_damaged`` so the regen delay restarts.
+    Targets without a shield (``shield_max == 0``) simply lose life.
+
+    Returns the damage dealt to ``life`` (excludes shield absorption).
+    """
+    if amount <= 0:
+        return 0
+    if getattr(target, "shield_max", 0) > 0:
+        target.frames_since_damaged = 0
+        absorbed = min(target.shield, amount)
+        target.shield -= absorbed
+        amount -= absorbed
+    target.life -= amount
+    return amount
 
 
 def calculate_height_damage_modifier(attacker_height: int, target_height: int, attack_type: AttackType) -> int:
