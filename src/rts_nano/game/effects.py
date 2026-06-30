@@ -11,7 +11,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from rts_nano.game.constants import FPS
+from rts_nano.game.constants import FPS, POISON_INTERVAL
+from rts_nano.game.rules import apply_damage
 
 if TYPE_CHECKING:
     from rts_nano.game.assets.entities.base_entities import Entity
@@ -30,7 +31,24 @@ class EffectsSystem:
         for entity in self._state.all_entities:
             if entity.life <= 0:
                 continue
+            self._tick_poison(entity)
             self._regen_shield(entity)
+
+    @staticmethod
+    def _tick_poison(entity: Entity) -> None:
+        """Advance an active poison stack, dealing damage on its interval cadence."""
+        if entity.poison_remaining_frames <= 0:
+            return
+        entity.poison_remaining_frames -= 1
+        entity.poison_interval_counter += 1
+        if entity.poison_interval_counter >= POISON_INTERVAL:
+            entity.poison_interval_counter = 0
+            # Route through apply_damage so poison also chips AEGIS shields and
+            # keeps shielded targets out of regen while the toxin lingers.
+            apply_damage(entity, entity.poison_tick_damage)
+        if entity.poison_remaining_frames <= 0:
+            entity.poison_tick_damage = 0
+            entity.poison_interval_counter = 0
 
     @staticmethod
     def _regen_shield(entity: Entity) -> None:

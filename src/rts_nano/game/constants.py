@@ -57,6 +57,10 @@ GRAY = (128, 128, 128)
 FPS: float = 60.0
 HARVEST_SEARCH_RADIUS: float = 300.0
 
+# RUST poison/toxin DoT: a poisoned target takes its ``poison_tick_damage`` once
+# every ``POISON_INTERVAL`` frames until ``poison_remaining_frames`` runs out.
+POISON_INTERVAL: int = 30
+
 # Predefined selection limits (Starcraft uses 12, later changed to 24 or unlimited in SC2)
 # You can change MAX_SELECTION_SIZE to 12, 24, or 36 as requested.
 MAX_SELECTION_SIZE: int = 12

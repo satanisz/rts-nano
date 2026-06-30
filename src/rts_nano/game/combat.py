@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 
 from rts_nano.game.assets.entities.base_entities import Building, Unit
 from rts_nano.game.constants import FPS
-from rts_nano.game.rules import apply_damage, calculate_damage, distance_between, nearest_entity
+from rts_nano.game.rules import apply_damage, apply_poison, calculate_damage, distance_between, nearest_entity
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -78,5 +78,6 @@ class CombatSystem:
             getattr(target, "shield_modifier", 0),
         )
         apply_damage(target, damage)
+        apply_poison(target, attacker.poison_damage, attacker.poison_duration)
         attacker.attack_cooldown = max(1, int(attacker.attack_speed * FPS))
         return (attacker.get_center(), target.get_center(), target)

@@ -72,6 +72,8 @@ class Tower(Building):
     DEFAULT_SHIELD_MAX = 0
     DEFAULT_SHIELD_REGEN = 0
     DEFAULT_SHIELD_REGEN_DELAY = 0
+    POISON_DAMAGE = 0
+    POISON_DURATION = 0
 
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
         """Initialize the object."""
@@ -83,6 +85,8 @@ class Tower(Building):
         self.attack_speed = self.DEFAULT_ATTACK_SPEED
         self.attack_type = AttackType.RANGED
         self.attack_cooldown = 0
+        self.poison_damage = self.POISON_DAMAGE
+        self.poison_duration = self.POISON_DURATION
         init_shield(self, self.DEFAULT_SHIELD_MAX, self.DEFAULT_SHIELD_REGEN, self.DEFAULT_SHIELD_REGEN_DELAY)
         self.last_attack_event: tuple[tuple[float, float], tuple[float, float], AttackType, Entity] | None = None
 
@@ -148,12 +152,14 @@ class ChemVat(MageTower):
 
 
 class Spiker(Tower):
-    """RUST defense: cheaper, faster-firing, shorter-range turret."""
+    """RUST defense: cheaper, faster-firing, shorter-range turret that poisons."""
 
     MAX_LIFE = 250
     DEFAULT_ATTACK_DAMAGE = 8
     DEFAULT_ATTACK_RANGE = 150
     DEFAULT_ATTACK_SPEED = 0.625
+    POISON_DAMAGE = 2
+    POISON_DURATION = 90
 
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
         """Initialize the object."""

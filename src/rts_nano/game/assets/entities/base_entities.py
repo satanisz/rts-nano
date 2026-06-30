@@ -36,6 +36,7 @@ from rts_nano.game.constants import (
 )
 from rts_nano.game.rules import (
     apply_damage,
+    apply_poison,
     calculate_damage,
     calculate_height_damage_modifier,
     calculate_height_range_bonus,
@@ -130,6 +131,13 @@ class Entity:
     shield_regen_delay: int = 0
     frames_since_damaged: int = 0
     shield_regen_accumulator: float = 0.0
+
+    # RUST poison status: a poisoned target loses ``poison_tick_damage`` life on
+    # the ``POISON_INTERVAL`` cadence until ``poison_remaining_frames`` runs out.
+    # Inert (0) on everything until a poisoning attacker lands a hit.
+    poison_tick_damage: int = 0
+    poison_remaining_frames: int = 0
+    poison_interval_counter: int = 0
 
     def __init__(
         self, x: float, y: float, color: tuple[int, int, int], size: int, radius: float, class_name: str
@@ -415,6 +423,9 @@ class Unit(Entity):
     DEFAULT_SHIELD_MAX: int = 0
     DEFAULT_SHIELD_REGEN: int = 0
     DEFAULT_SHIELD_REGEN_DELAY: int = 0
+    # Poison this unit inflicts on a landed hit (RUST signature). 0 = no poison.
+    POISON_DAMAGE: int = 0
+    POISON_DURATION: int = 0
     HIT_FLASH_DURATION_MS: int = 120
 
     def __init__(self, x: int, y: int, team: TeamColor, size: int, radius: float) -> None:
@@ -449,6 +460,8 @@ class Unit(Entity):
         self.attack_type: AttackType = self.attack_types[0]
         self.shield_modifier: int = self.DEFAULT_SHIELD_MODIFIER
         init_shield(self, self.DEFAULT_SHIELD_MAX, self.DEFAULT_SHIELD_REGEN, self.DEFAULT_SHIELD_REGEN_DELAY)
+        self.poison_damage: int = self.POISON_DAMAGE
+        self.poison_duration: int = self.POISON_DURATION
         self.attack_cooldown: int = 0
         self.hit_flash_until_ms: int = 0
         self.last_attack_event: tuple[tuple[float, float], tuple[float, float], AttackType, Entity] | None = None
@@ -630,6 +643,7 @@ class Unit(Entity):
             getattr(target, "shield_modifier", 0),
         )
         apply_damage(target, damage)
+        apply_poison(target, self.poison_damage, self.poison_duration)
         self.attack_cooldown = max(1, int(self.attack_speed * FPS))
         self._trigger_hit_flash()
         self.last_attack_event = ((self.x, self.y), target.get_center(), self.attack_type, target)

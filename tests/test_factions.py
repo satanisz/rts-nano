@@ -5,8 +5,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from rts_nano.game.assets.entities.base_entities import TeamColor
+from rts_nano.game.constants import POISON_INTERVAL
 from rts_nano.game.observations import EntityIdRegistry, build_observation
-from rts_nano.game.rules import apply_damage
+from rts_nano.game.rules import apply_damage, apply_poison
 from rts_nano.headless import HeadlessSimulation
 
 if TYPE_CHECKING:
@@ -34,6 +35,13 @@ def _settings() -> MapSettings:
 def _with_guardian() -> MapSettings:
     settings = _settings()
     settings["Blue"]["guardian"] = [[200, 200]]
+    return settings
+
+
+def _with_ripper() -> MapSettings:
+    """A lone RUST ripper makes a clean, unshielded poison target."""
+    settings = _settings()
+    settings["Red"]["ripper"] = [[300, 300]]
     return settings
 
 
@@ -142,4 +150,110 @@ def test_shield_absorbs_damage_in_live_combat() -> None:
 
     assert guardian.shield < guardian.shield_max
     assert guardian.life == guardian.max_life  # shield soaked the early hits
+    simulation.close()
+
+
+# --- Poison (RUST) -------------------------------------------------------------
+
+
+def test_poison_attacker_stats() -> None:
+    """Only the RUST chem units inflict poison; rippers and AEGIS do not."""
+    settings = _settings()
+    settings["Red"]["spitter"] = [[300, 300]]
+    settings["Red"]["brute"] = [[340, 300]]
+    settings["Red"]["ripper"] = [[380, 300]]
+    settings["Blue"]["guardian"] = [[200, 200]]
+    simulation = HeadlessSimulation.from_settings(settings)
+    red = simulation.manager.entities[TeamColor.RED]
+    blue = simulation.manager.entities[TeamColor.BLUE]
+
+    spitter = red.archers[0]
+    brute = next(unit for unit in red.knights if type(unit).__name__ == "Brute")
+    ripper = next(unit for unit in red.knights if type(unit).__name__ == "Ripper")
+    guardian = blue.knights[0]
+
+    assert (spitter.poison_damage, spitter.poison_duration) == (2, 90)
+    assert (brute.poison_damage, brute.poison_duration) == (3, 120)
+    assert ripper.poison_damage == 0  # ripper relies on frenzy, not poison
+    assert guardian.poison_damage == 0
+    simulation.close()
+
+
+def test_apply_poison_refreshes_not_stacks() -> None:
+    """A second poison application refreshes the timer instead of stacking damage."""
+    simulation = HeadlessSimulation.from_settings(_with_ripper())
+    manager = simulation.manager
+    ripper = manager.entities[TeamColor.RED].knights[0]
+
+    apply_poison(ripper, 2, 90)
+    assert (ripper.poison_tick_damage, ripper.poison_remaining_frames) == (2, 90)
+
+    for _ in range(20):
+        manager.effects.update()
+    assert ripper.poison_remaining_frames == 70
+
+    apply_poison(ripper, 2, 90)
+    assert ripper.poison_remaining_frames == 90  # refreshed, not 70 + 90
+    assert ripper.poison_tick_damage == 2  # not stacked to 4
+    simulation.close()
+
+
+def test_poison_deals_periodic_damage_then_expires() -> None:
+    """Poison drains life on the interval cadence and stops once it runs out."""
+    simulation = HeadlessSimulation.from_settings(_with_ripper())
+    manager = simulation.manager
+    ripper = manager.entities[TeamColor.RED].knights[0]
+    start_life = ripper.life
+
+    apply_poison(ripper, 2, 3 * POISON_INTERVAL)
+
+    for _ in range(POISON_INTERVAL):
+        manager.effects.update()
+    assert ripper.life == start_life - 2  # one tick
+
+    for _ in range(2 * POISON_INTERVAL):
+        manager.effects.update()
+    assert ripper.life == start_life - 6  # three ticks total
+    assert ripper.poison_remaining_frames == 0
+    assert ripper.poison_tick_damage == 0
+
+    for _ in range(2 * POISON_INTERVAL):
+        manager.effects.update()
+    assert ripper.life == start_life - 6  # expired: no further damage
+    simulation.close()
+
+
+def test_poison_drains_shield_on_aegis_target() -> None:
+    """Poison ticks route through the shield buffer before life, like any damage."""
+    simulation = HeadlessSimulation.from_settings(_with_guardian())
+    manager = simulation.manager
+    guardian = manager.entities[TeamColor.BLUE].knights[0]
+
+    apply_poison(guardian, 2, 3 * POISON_INTERVAL)
+    for _ in range(POISON_INTERVAL):
+        manager.effects.update()
+
+    assert guardian.shield == guardian.shield_max - 2
+    assert guardian.life == guardian.max_life
+    simulation.close()
+
+
+def test_spitter_applies_poison_in_live_combat() -> None:
+    """A spitter's landed shot leaves lingering poison on its target."""
+    settings = _settings()
+    settings["Blue"]["guardian"] = [[300, 300]]
+    settings["Red"]["spitter"] = [[400, 300]]
+    simulation = HeadlessSimulation.from_settings(settings)
+    manager = simulation.manager
+    guardian = manager.entities[TeamColor.BLUE].knights[0]
+    spitter = manager.entities[TeamColor.RED].archers[0]
+
+    manager.issue_attack_move_order(TeamColor.RED, guardian.get_center(), [spitter])
+    for _ in range(200):
+        simulation.step(1)
+        if guardian.poison_remaining_frames > 0:
+            break
+
+    assert guardian.poison_tick_damage == 2
+    assert guardian.poison_remaining_frames > 0
     simulation.close()

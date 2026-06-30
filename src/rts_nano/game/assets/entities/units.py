@@ -249,20 +249,24 @@ class Ripper(Knight):
 
 
 class Spitter(Archer):
-    """RUST chem thrower: cheap short-range ranged poke."""
+    """RUST chem thrower: cheap short-range ranged poke that poisons on hit."""
 
     DEFAULT_MAX_LIFE = 40
     DEFAULT_ATTACK_DAMAGE = 6
     DEFAULT_SPEED = 2.4
     RANGED_ATTACK_RANGE = 130
     RANGED_MIN_ATTACK_RANGE = 60
+    POISON_DAMAGE = 2
+    POISON_DURATION = 90
 
 
 class Brute(Knight):
-    """RUST heavy melee: the one big wrecking ball, slow but tanky and hard-hitting."""
+    """RUST heavy melee: a slow, tanky wrecking ball whose hits poison hard."""
 
     DEFAULT_MAX_LIFE = 200
     DEFAULT_ATTACK_DAMAGE = 14
     DEFAULT_SHIELD_MODIFIER = 1
     DEFAULT_ATTACK_SPEED = 1.1
     DEFAULT_SPEED = 1.8
+    POISON_DAMAGE = 3
+    POISON_DURATION = 120

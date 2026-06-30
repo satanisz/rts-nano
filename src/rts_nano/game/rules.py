@@ -77,6 +77,21 @@ def apply_damage(target: Entity, amount: int) -> int:
     return amount
 
 
+def apply_poison(target: Entity, tick_damage: int, duration_frames: int) -> None:
+    """Apply (or refresh) a RUST poison stack on a target.
+
+    Poison refreshes rather than stacking: a new application overwrites the tick
+    damage and resets the remaining duration, so two poisoners do not add their
+    DoT together. The actual life loss happens on the ``POISON_INTERVAL`` cadence
+    in ``EffectsSystem``. ``tick_damage``/``duration_frames`` of 0 (non-poison
+    attackers) are a no-op.
+    """
+    if tick_damage <= 0 or duration_frames <= 0:
+        return
+    target.poison_tick_damage = tick_damage
+    target.poison_remaining_frames = duration_frames
+
+
 def calculate_height_damage_modifier(attacker_height: int, target_height: int, attack_type: AttackType) -> int:
     """Return ranged combat damage modifier from terrain height differences.
 
