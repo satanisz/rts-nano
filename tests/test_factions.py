@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from rts_nano.ai import ScriptedAI
 from rts_nano.game.assets.entities.base_entities import TeamColor
 from rts_nano.game.constants import POISON_INTERVAL
 from rts_nano.game.observations import EntityIdRegistry, build_observation
@@ -256,4 +257,193 @@ def test_spitter_applies_poison_in_live_combat() -> None:
 
     assert guardian.poison_tick_damage == 2
     assert guardian.poison_remaining_frames > 0
+    simulation.close()
+
+
+# --- Splash (Arclight) ---------------------------------------------------------
+
+
+def test_arclight_splash_hits_nearby_enemies() -> None:
+    """An arclight's shot mirrors its damage onto enemies near the primary target."""
+    settings = _settings()
+    settings["Blue"]["arclight"] = [[300, 300]]
+    settings["Red"]["ripper"] = [[400, 300], [440, 300]]  # 40px apart < 60 splash radius
+    simulation = HeadlessSimulation.from_settings(settings)
+    manager = simulation.manager
+    arclight = manager.entities[TeamColor.BLUE].mages[0]
+    primary, secondary = manager.entities[TeamColor.RED].knights
+
+    # Drive a single resolved volley directly to isolate one splash.
+    arclight._splash_candidates = [primary, secondary]
+    arclight.attack_cooldown = 0
+    dealt = arclight._attack(primary)
+
+    assert dealt == 16
+    assert primary.life == primary.max_life - 16  # direct hit, exactly once
+    assert secondary.life == secondary.max_life - 16  # splashed for the same amount
+    simulation.close()
+
+
+def test_arclight_splash_spares_allies() -> None:
+    """Splash only harms enemies; friendly units in the blast are untouched."""
+    settings = _settings()
+    settings["Blue"]["arclight"] = [[300, 300]]
+    settings["Blue"]["guardian"] = [[420, 300]]  # ally inside the blast radius
+    settings["Red"]["ripper"] = [[400, 300]]
+    simulation = HeadlessSimulation.from_settings(settings)
+    manager = simulation.manager
+    arclight = manager.entities[TeamColor.BLUE].mages[0]
+    ally = manager.entities[TeamColor.BLUE].knights[0]
+    primary = manager.entities[TeamColor.RED].knights[0]
+
+    arclight._splash_candidates = [primary, ally, arclight]
+    arclight.attack_cooldown = 0
+    arclight._attack(primary)
+
+    assert primary.life == primary.max_life - 16
+    assert ally.shield == ally.shield_max  # ally fully unscathed
+    assert ally.life == ally.max_life
+    simulation.close()
+
+
+# --- Frenzy (RUST Ripper/Brute) ------------------------------------------------
+
+
+def test_frenzy_speeds_attacks_when_wounded() -> None:
+    """A frenzied unit's cooldown shrinks once it drops below half life."""
+    simulation = HeadlessSimulation.from_settings(_with_ripper())
+    ripper = simulation.manager.entities[TeamColor.RED].knights[0]
+
+    ripper.life = ripper.max_life
+    healthy = ripper._attack_cooldown_frames()
+
+    ripper.life = ripper.max_life // 2  # at/below the 50% threshold
+    frenzied = ripper._attack_cooldown_frames()
+
+    assert frenzied < healthy
+    assert frenzied == max(1, int(healthy * ripper.FRENZY_COOLDOWN_MULTIPLIER))
+    simulation.close()
+
+
+def test_frenzy_threshold_is_half_life() -> None:
+    """Frenzy engages only at or below half life, not just above it."""
+    simulation = HeadlessSimulation.from_settings(_with_ripper())
+    ripper = simulation.manager.entities[TeamColor.RED].knights[0]
+    base = max(1, int(ripper.attack_speed * 60))
+
+    ripper.life = 23  # 23 > 0.5 * 45 -> no frenzy
+    assert ripper._attack_cooldown_frames() == base
+
+    ripper.life = 22  # 22 <= 22.5 -> frenzy
+    assert ripper._attack_cooldown_frames() < base
+    simulation.close()
+
+
+def test_non_frenzy_unit_keeps_constant_attack_speed() -> None:
+    """AEGIS units never frenzy: their cooldown is the same at full and low life."""
+    simulation = HeadlessSimulation.from_settings(_with_guardian())
+    guardian = simulation.manager.entities[TeamColor.BLUE].knights[0]
+
+    full = guardian._attack_cooldown_frames()
+    guardian.life = 1
+    assert guardian._attack_cooldown_frames() == full
+    simulation.close()
+
+
+# --- Matchup smoke tests (each faction can win from a material advantage) -------
+
+
+def _battlefield() -> MapSettings:
+    return {
+        "Blue": {"peasant": [], "base": [[80, 300]], "guardian": [], "marksman": [], "arclight": []},
+        "Red": {"peasant": [], "base": [[720, 300]], "ripper": [], "spitter": [], "brute": []},
+        "Resources": {"wood": [], "gold": []},
+        "Terrain": {
+            "width": 800,
+            "height": 600,
+            "high_ground": [],
+            "water": [],
+            "ramps": [],
+            "rocks": [],
+            "grass": [],
+        },
+    }
+
+
+def test_aegis_army_can_destroy_rust_base() -> None:
+    """An AEGIS strike force can march in and raze a lightly held RUST base."""
+    settings = _battlefield()
+    settings["Blue"]["guardian"] = [[600, 280], [600, 320], [620, 300]]
+    settings["Blue"]["marksman"] = [[560, 290], [560, 310]]
+    settings["Red"]["ripper"] = [[700, 300]]
+    simulation = HeadlessSimulation.from_settings(settings)
+    manager = simulation.manager
+    red_base = manager.entities[TeamColor.RED].bases[0]
+    army = [*manager.entities[TeamColor.BLUE].knights, *manager.entities[TeamColor.BLUE].archers]
+
+    manager.issue_attack_move_order(TeamColor.BLUE, red_base.get_center(), army)
+    for _ in range(2500):
+        simulation.step(1)
+        if red_base.life <= 0:
+            break
+
+    assert red_base.life <= 0
+    simulation.close()
+
+
+def test_rust_swarm_can_destroy_aegis_base() -> None:
+    """A RUST ripper swarm can overwhelm and destroy an undefended AEGIS base."""
+    settings = _battlefield()
+    settings["Red"]["ripper"] = [[200 + (i % 4) * 20, 280 + (i // 4) * 20] for i in range(8)]
+    simulation = HeadlessSimulation.from_settings(settings)
+    manager = simulation.manager
+    blue_base = manager.entities[TeamColor.BLUE].bases[0]
+    swarm = list(manager.entities[TeamColor.RED].knights)
+
+    manager.issue_attack_move_order(TeamColor.RED, blue_base.get_center(), swarm)
+    for _ in range(2500):
+        simulation.step(1)
+        if blue_base.life <= 0:
+            break
+
+    assert blue_base.life <= 0
+    simulation.close()
+
+
+def test_aegis_vs_rust_ai_game_progresses_to_engagement() -> None:
+    """A fair AEGIS-vs-RUST AI game forms armies and engages (no hard stalemate)."""
+    settings: MapSettings = {
+        "Blue": {"peasant": [[120, 120], [150, 120], [120, 150]], "base": [[140, 160]]},
+        "Red": {"peasant": [[680, 460], [650, 460], [680, 430]], "base": [[660, 440]]},
+        "Resources": {"wood": [[400, 280], [420, 280], [380, 300]], "gold": [[400, 320]]},
+        "Terrain": {
+            "width": 800,
+            "height": 600,
+            "high_ground": [],
+            "water": [],
+            "ramps": [],
+            "rocks": [],
+            "grass": [],
+        },
+    }
+    simulation = HeadlessSimulation.from_settings(settings)
+    manager = simulation.manager
+    manager.entities[TeamColor.BLUE].resources.update({"wood": 2000, "gold": 1000})
+    manager.entities[TeamColor.RED].resources.update({"wood": 2000, "gold": 1000})
+    blue_ai = ScriptedAI(manager, TeamColor.BLUE, decision_interval=10)
+    red_ai = ScriptedAI(manager, TeamColor.RED, decision_interval=10)
+
+    engaged = False
+    for _ in range(4000):
+        blue_ai.step()
+        red_ai.step()
+        simulation.step(1)
+        if manager.game_over_message:
+            break
+        units = [unit for group in manager.entities.values() for unit in (*group.knights, *group.archers, *group.mages)]
+        if any(unit.attack_move_destination is not None for unit in units):
+            engaged = True
+            break
+
+    assert engaged or manager.game_over_message
     simulation.close()

@@ -426,6 +426,11 @@ class Unit(Entity):
     # Poison this unit inflicts on a landed hit (RUST signature). 0 = no poison.
     POISON_DAMAGE: int = 0
     POISON_DURATION: int = 0
+    # Frenzy (RUST Ripper/Brute): below ``FRENZY_HEALTH_FRACTION`` of max life the
+    # attack cooldown is scaled by ``FRENZY_COOLDOWN_MULTIPLIER`` (faster attacks).
+    FRENZY: bool = False
+    FRENZY_HEALTH_FRACTION: float = 0.5
+    FRENZY_COOLDOWN_MULTIPLIER: float = 0.66
     HIT_FLASH_DURATION_MS: int = 120
 
     def __init__(self, x: int, y: int, team: TeamColor, size: int, radius: float) -> None:
@@ -613,8 +618,13 @@ class Unit(Entity):
             return self.radius + self.target_entity.radius + 2
         return self.speed
 
-    def _attack(self, target: Entity) -> None:
+    def _attack(self, target: Entity) -> int:
         """Apply damage to a hostile target when the cooldown has elapsed.
+
+        Returns the post-armor damage dealt to ``target`` this call (0 when no
+        attack landed: out of range, on cooldown, or non-hostile). Subclasses
+        with on-hit effects (e.g. Arclight splash) use the return value to mirror
+        the same damage onto nearby targets.
 
         Damage is resolved immediately. Ranged visual projectiles are created
         later by ``GameManager`` after it consumes ``last_attack_event``. This
@@ -622,15 +632,15 @@ class Unit(Entity):
         """
         if not self._is_hostile_target(target):
             self.state = "IDLE"
-            return
+            return 0
 
         if not self._is_in_attack_range(target):
             self.state = "MOVING"
-            return
+            return 0
 
         if self.attack_cooldown > 0:
             self.state = "ATTACKING"
-            return
+            return 0
 
         height_modifier = calculate_height_damage_modifier(
             self.height_level,
@@ -644,10 +654,23 @@ class Unit(Entity):
         )
         apply_damage(target, damage)
         apply_poison(target, self.poison_damage, self.poison_duration)
-        self.attack_cooldown = max(1, int(self.attack_speed * FPS))
+        self.attack_cooldown = self._attack_cooldown_frames()
         self._trigger_hit_flash()
         self.last_attack_event = ((self.x, self.y), target.get_center(), self.attack_type, target)
         self.state = "ATTACKING"
+        return damage
+
+    def _attack_cooldown_frames(self) -> int:
+        """Return frames until this unit may attack again, applying frenzy if low.
+
+        Frenzy units (RUST Ripper/Brute) attack faster once wounded; the boost is
+        evaluated here, at the moment the cooldown is set, so it tracks current
+        life rather than life at the start of the fight.
+        """
+        frames = max(1, int(self.attack_speed * FPS))
+        if self.FRENZY and self.life <= self.FRENZY_HEALTH_FRACTION * self.max_life:
+            frames = max(1, int(frames * self.FRENZY_COOLDOWN_MULTIPLIER))
+        return frames
 
     def consume_attack_event(self) -> tuple[tuple[float, float], tuple[float, float], AttackType, Entity] | None:
         """Return and clear the latest attack event emitted by the unit.

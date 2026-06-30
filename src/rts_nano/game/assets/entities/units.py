@@ -7,11 +7,17 @@ overrides. When adding a new unit type, also register it in
 placement tool.
 """
 
+from __future__ import annotations
+
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from rts_nano.game.assets.entities.base_entities import Building, Entity, Resource, TeamColor, Unit
 from rts_nano.game.constants import FPS, AttackType
-from rts_nano.game.rules import calculate_height_range_bonus, distance_between
+from rts_nano.game.rules import apply_damage, calculate_height_range_bonus, distance_between
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
 
@@ -93,12 +99,12 @@ class Knight(Unit):
             str(BASE_DIR / "assets" / "portraits" / "knight.png"),
         )
 
-    def _attack(self, target: Entity) -> None:
+    def _attack(self, target: Entity) -> int:
         """Perform a melee attack."""
         if self.attack_type != AttackType.MELEE:
             self.state = "IDLE"
-            return
-        super()._attack(target)
+            return 0
+        return super()._attack(target)
 
 
 class Archer(Unit):
@@ -149,7 +155,7 @@ class Archer(Unit):
         )
         return self.RANGED_ATTACK_RANGE + range_bonus + radius_sum
 
-    def _attack(self, target: Entity) -> None:
+    def _attack(self, target: Entity) -> int:
         """Choose melee or ranged attack mode before resolving damage."""
         dist = distance_between(self, target)
         radius_sum = self.radius + getattr(target, "radius", 0)
@@ -162,7 +168,7 @@ class Archer(Unit):
             self.attack_type = AttackType.RANGED
             self.attack_range = self.RANGED_ATTACK_RANGE
 
-        super()._attack(target)
+        return super()._attack(target)
 
 
 class Mage(Unit):
@@ -224,7 +230,14 @@ class Guardian(Knight):
 
 
 class Arclight(Mage):
-    """AEGIS artillery: very long range, high single-shot damage, fragile."""
+    """AEGIS artillery: very long range, high single-shot damage, fragile.
+
+    Signature mechanic: its shots splash. The post-armor damage dealt to the
+    primary target is mirrored onto every enemy unit/building within
+    ``SPLASH_RADIUS`` of that target (the primary is excluded; it already took
+    the hit). Splash damage routes through ``apply_damage`` like any other hit,
+    so enemy shields still soak it.
+    """
 
     DEFAULT_MAX_LIFE = 40
     DEFAULT_ATTACK_DAMAGE = 16
@@ -234,6 +247,43 @@ class Arclight(Mage):
     DEFAULT_SHIELD_MAX = 20
     DEFAULT_SHIELD_REGEN = AEGIS_SHIELD_REGEN
     DEFAULT_SHIELD_REGEN_DELAY = AEGIS_SHIELD_REGEN_DELAY
+    SPLASH_RADIUS = 60
+
+    def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
+        """Initialize the object."""
+        super().__init__(x, y, team)
+        # Latest collidable set, captured each frame so ``_attack`` can find
+        # splash victims around its target without a separate entity query.
+        self._splash_candidates: list[Entity] = []
+
+    def update(
+        self,
+        entities: Iterable[Entity],
+        can_move_to: Callable[[Unit, tuple[float, float]], bool] | None = None,
+    ) -> None:
+        """Capture the frame's entities for splash, then run normal unit update."""
+        self._splash_candidates = list(entities)
+        super().update(self._splash_candidates, can_move_to)
+
+    def _attack(self, target: Entity) -> int:
+        """Resolve the primary hit, then splash its damage onto nearby enemies."""
+        damage = super()._attack(target)
+        if damage > 0:
+            self._apply_splash(target, damage)
+        return damage
+
+    def _apply_splash(self, primary: Entity, damage: int) -> None:
+        """Deal ``damage`` to each enemy within ``SPLASH_RADIUS`` of the primary."""
+        center_x, center_y = primary.get_center()
+        radius_squared = self.SPLASH_RADIUS**2
+        for entity in self._splash_candidates:
+            if entity is primary or entity is self or entity.life <= 0:
+                continue
+            if getattr(entity, "team", None) == self.team:
+                continue
+            entity_x, entity_y = entity.get_center()
+            if (entity_x - center_x) ** 2 + (entity_y - center_y) ** 2 <= radius_squared:
+                apply_damage(entity, damage)
 
 
 # --- RUST (Red): cheap / fast / expendable swarm. Poison/frenzy are layered on
@@ -241,11 +291,16 @@ class Arclight(Mage):
 
 
 class Ripper(Knight):
-    """RUST swarm melee: very fast and cheap, weak alone, terrifying in numbers."""
+    """RUST swarm melee: very fast and cheap, weak alone, terrifying in numbers.
+
+    Frenzy: once wounded below half life it lashes out faster, so a swarm only
+    gets more dangerous as it takes losses.
+    """
 
     DEFAULT_MAX_LIFE = 45
     DEFAULT_ATTACK_DAMAGE = 6
     DEFAULT_SPEED = 3.0
+    FRENZY = True
 
 
 class Spitter(Archer):
@@ -261,7 +316,11 @@ class Spitter(Archer):
 
 
 class Brute(Knight):
-    """RUST heavy melee: a slow, tanky wrecking ball whose hits poison hard."""
+    """RUST heavy melee: a slow, tanky wrecking ball whose hits poison hard.
+
+    Frenzy: like the Ripper, it speeds up once below half life, making a wounded
+    Brute a frightening clean-up threat rather than an easy finish.
+    """
 
     DEFAULT_MAX_LIFE = 200
     DEFAULT_ATTACK_DAMAGE = 14
@@ -270,3 +329,4 @@ class Brute(Knight):
     DEFAULT_SPEED = 1.8
     POISON_DAMAGE = 3
     POISON_DURATION = 120
+    FRENZY = True
