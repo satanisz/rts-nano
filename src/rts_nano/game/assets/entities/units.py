@@ -52,9 +52,10 @@ class Peasant(Unit):
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
         """Initialize the object."""
         super().__init__(x, y, team, self.SIZE, self.RADIUS)
+        unit_name = self.__class__.__name__.lower()
         self.load_image(
-            str(BASE_DIR / "assets" / "sprites" / f"{team.value.lower()}_peasant.png"),
-            str(BASE_DIR / "assets" / "portraits" / "peasant.png"),
+            str(BASE_DIR / "assets" / "sprites" / f"{team.value.lower()}_{unit_name}.png"),
+            str(BASE_DIR / "assets" / "portraits" / f"{unit_name}.png"),
         )
 
     def _handle_target_reached(self) -> None:
@@ -94,9 +95,10 @@ class Knight(Unit):
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
         """Initialize the object."""
         super().__init__(x, y, team, self.SIZE, self.RADIUS)
+        unit_name = self.__class__.__name__.lower()
         self.load_image(
-            str(BASE_DIR / "assets" / "sprites" / f"{team.value.lower()}_knight.png"),
-            str(BASE_DIR / "assets" / "portraits" / "knight.png"),
+            str(BASE_DIR / "assets" / "sprites" / f"{team.value.lower()}_{unit_name}.png"),
+            str(BASE_DIR / "assets" / "portraits" / f"{unit_name}.png"),
         )
 
     def _attack(self, target: Entity) -> int:
@@ -136,9 +138,10 @@ class Archer(Unit):
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
         """Initialize the object."""
         super().__init__(x, y, team, self.SIZE, self.RADIUS)
+        unit_name = self.__class__.__name__.lower()
         self.load_image(
-            str(BASE_DIR / "assets" / "sprites" / f"{team.value.lower()}_archer.png"),
-            str(BASE_DIR / "assets" / "portraits" / "archer.png"),
+            str(BASE_DIR / "assets" / "sprites" / f"{team.value.lower()}_{unit_name}.png"),
+            str(BASE_DIR / "assets" / "portraits" / f"{unit_name}.png"),
         )
 
     def _get_attack_distance(self, target: Entity) -> float:
@@ -193,9 +196,10 @@ class Mage(Unit):
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
         """Initialize the object."""
         super().__init__(x, y, team, self.SIZE, self.RADIUS)
+        unit_name = self.__class__.__name__.lower()
         self.load_image(
-            str(BASE_DIR / "assets" / "sprites" / f"{team.value.lower()}_mage.png"),
-            str(BASE_DIR / "assets" / "portraits" / "mage.png"),
+            str(BASE_DIR / "assets" / "sprites" / f"{team.value.lower()}_{unit_name}.png"),
+            str(BASE_DIR / "assets" / "portraits" / f"{unit_name}.png"),
         )
 
 

@@ -7,6 +7,12 @@ from rts_nano.game.assets.entities.units import AEGIS_SHIELD_REGEN, AEGIS_SHIELD
 from rts_nano.game.constants import AttackType
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
+SPRITES_DIR = BASE_DIR / "assets" / "sprites"
+
+
+def _load_building_sprite(building: Building, sprite_name: str) -> None:
+    """Load a building sprite and reuse it as the command-panel portrait."""
+    building.load_image(str(SPRITES_DIR / f"{sprite_name}.png"))
 
 
 class Base(Building):
@@ -44,6 +50,7 @@ class House(Building):
         """Initialize the object."""
         super().__init__(x, y, team)
         self.spec_key = "house"
+        _load_building_sprite(self, "house")
 
 
 class MageTower(Building):
@@ -102,6 +109,7 @@ class Arsenal(Barracks):
         """Initialize the object."""
         super().__init__(x, y, team)
         self.spec_key = "arsenal"
+        _load_building_sprite(self, "arsenal")
 
 
 class Spire(MageTower):
@@ -111,6 +119,7 @@ class Spire(MageTower):
         """Initialize the object."""
         super().__init__(x, y, team)
         self.spec_key = "spire"
+        _load_building_sprite(self, "spire")
 
 
 class Bastion(Tower):
@@ -128,6 +137,7 @@ class Bastion(Tower):
         """Initialize the object."""
         super().__init__(x, y, team)
         self.spec_key = "bastion"
+        _load_building_sprite(self, "bastion")
 
 
 # --- RUST (Red) military structures. ---
@@ -140,6 +150,7 @@ class Pit(Barracks):
         """Initialize the object."""
         super().__init__(x, y, team)
         self.spec_key = "pit"
+        _load_building_sprite(self, "pit")
 
 
 class ChemVat(MageTower):
@@ -149,6 +160,7 @@ class ChemVat(MageTower):
         """Initialize the object."""
         super().__init__(x, y, team)
         self.spec_key = "chem_vat"
+        _load_building_sprite(self, "chem_vat")
 
 
 class Spiker(Tower):
@@ -165,3 +177,4 @@ class Spiker(Tower):
         """Initialize the object."""
         super().__init__(x, y, team)
         self.spec_key = "spiker"
+        _load_building_sprite(self, "spiker")

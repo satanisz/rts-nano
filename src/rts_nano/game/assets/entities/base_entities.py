@@ -92,6 +92,23 @@ def _building_glyph_font(size: int) -> pygame.font.Font:
     return font
 
 
+def _fit_surface_to_square(surface: pygame.Surface, size: int) -> pygame.Surface:
+    """Scale ``surface`` proportionally onto a transparent square canvas."""
+    source_width, source_height = surface.get_size()
+    if source_width <= 0 or source_height <= 0:
+        return pygame.Surface((size, size), pygame.SRCALPHA)
+
+    scale = min(size / source_width, size / source_height)
+    scaled_size = (
+        max(1, round(source_width * scale)),
+        max(1, round(source_height * scale)),
+    )
+    scaled = pygame.transform.smoothscale(surface, scaled_size)
+    canvas = pygame.Surface((size, size), pygame.SRCALPHA)
+    canvas.blit(scaled, scaled.get_rect(center=(size // 2, size // 2)))
+    return canvas
+
+
 class TeamColor(StrEnum):
     """Available ownership groups for game entities.
 
@@ -194,14 +211,14 @@ class Entity:
                 if avatar_path:
                     try:
                         raw_avatar = pygame.image.load(avatar_path)
-                        self.avatar_image = pygame.transform.scale(raw_avatar, (120, 120))
+                        self.avatar_image = _fit_surface_to_square(raw_avatar, 120)
                     except Exception as exc:
                         logging.warning(f"Could not load avatar {avatar_path}: {exc}")
-                        self.avatar_image = pygame.transform.scale(raw_image, (120, 120))
+                        self.avatar_image = _fit_surface_to_square(raw_image, 120)
                 else:
-                    self.avatar_image = pygame.transform.scale(raw_image, (120, 120))
+                    self.avatar_image = _fit_surface_to_square(raw_image, 120)
 
-                self.image = pygame.transform.scale(raw_image, (int(self.size), int(self.size)))
+                self.image = _fit_surface_to_square(raw_image, int(self.size))
                 self.original_image = self.image
             except Exception as exc:
                 logging.warning(f"Could not load image {image_path}: {exc}")
@@ -354,9 +371,8 @@ class Building(Entity):
     def draw(self, screen: pygame.Surface, offset: tuple[float, float] = (0, 0)) -> None:
         """Draw the building sprite, or a typed placeholder glyph when art is absent.
 
-        Only ``Base`` ships with a sprite today; the other structures render as a
-        stone body with a type-colored roof, a team-colored border, and a type
-        initial so they read as buildings rather than flat squares.
+        Structures without art render as a stone body with a type-colored roof,
+        a team-colored border, and a type initial so they remain distinguishable.
         """
         if self.image is not None:
             super().draw(screen, offset)
