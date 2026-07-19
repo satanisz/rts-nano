@@ -274,6 +274,17 @@ class GameSession:
         """Return all production-capable buildings owned by a team."""
         return self.orders.production_buildings_for_team(team)
 
+    def set_base_rally(
+        self,
+        team: TeamColor,
+        destination: tuple[float, float],
+        bases: Iterable[Base] | None = None,
+        *,
+        resource: Resource | None = None,
+    ) -> int:
+        """Set a ground or resource rally for selected team bases."""
+        return self.orders.set_base_rally(team, destination, bases, resource=resource)
+
     def issue_move_order(
         self,
         team: TeamColor,

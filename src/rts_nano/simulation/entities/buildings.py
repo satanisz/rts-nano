@@ -1,5 +1,7 @@
 """Building entity implementations."""
 
+from __future__ import annotations
+
 from typing import TYPE_CHECKING
 
 from rts_nano.content import CONTENT
@@ -8,6 +10,7 @@ from rts_nano.simulation.entities.base import Building, Entity, TeamColor, init_
 if TYPE_CHECKING:
     from rts_nano.content import BuildingDefinition
     from rts_nano.game.constants import AttackType
+    from rts_nano.game.order import Order
 
 
 class Base(Building):
@@ -22,6 +25,7 @@ class Base(Building):
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
         """Initialize the object."""
         super().__init__(x, y, team, CONTENT.get_building("base"))
+        self.rally_order: Order | None = None
 
 
 class Barracks(Building):

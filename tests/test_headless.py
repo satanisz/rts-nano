@@ -200,6 +200,84 @@ def test_shift_right_click_resource_adds_gather_order(monkeypatch: pytest.Monkey
     simulation.close()
 
 
+def test_base_ground_rally_moves_new_peasant_to_destination() -> None:
+    simulation = HeadlessSimulation.from_settings(_settings())
+    manager = simulation.manager
+    base = manager.state.entities_by_content_id("base", team=TeamColor.BLUE)[0]
+    manager.teams[TeamColor.BLUE].resources["wood"] = 50
+
+    assert manager.set_base_rally(TeamColor.BLUE, (240, 100), [base]) == 1
+    assert manager.produce_unit(base, "peasant")
+    simulation.step(61)
+    new_peasant = manager.state.entities_by_content_id("peasant", team=TeamColor.BLUE)[-1]
+
+    assert new_peasant.current_order is not None
+    assert new_peasant.current_order.kind == "move"
+    simulation.step(150)
+    assert new_peasant.get_center() == (240, 100)
+    simulation.close()
+
+
+def test_base_resource_rally_makes_new_peasant_gather() -> None:
+    settings = _settings()
+    settings["Resources"]["wood"] = [[200, 20]]
+    simulation = HeadlessSimulation.from_settings(settings)
+    manager = simulation.manager
+    base = manager.state.entities_by_content_id("base", team=TeamColor.BLUE)[0]
+    wood = manager.state.resources_by_content("wood")[0]
+    manager.teams[TeamColor.BLUE].resources["wood"] = 50
+
+    assert manager.set_base_rally(TeamColor.BLUE, wood.get_center(), [base], resource=wood) == 1
+    assert manager.produce_unit(base, "peasant")
+    simulation.step(180)
+    new_peasant = manager.state.entities_by_content_id("peasant", team=TeamColor.BLUE)[-1]
+
+    assert new_peasant.current_order is not None
+    assert new_peasant.current_order.kind == "gather"
+    assert new_peasant.carry_wood > 0 or manager.teams[TeamColor.BLUE].resources["wood"] > 0
+    simulation.close()
+
+
+def test_resource_rally_falls_back_when_original_node_depletes_before_spawn() -> None:
+    settings = _settings()
+    settings["Resources"]["wood"] = [[200, 20], [220, 80]]
+    simulation = HeadlessSimulation.from_settings(settings)
+    manager = simulation.manager
+    base = manager.state.entities_by_content_id("base", team=TeamColor.BLUE)[0]
+    original, fallback = manager.state.resources_by_content("wood")
+    manager.teams[TeamColor.BLUE].resources["wood"] = 50
+
+    manager.set_base_rally(TeamColor.BLUE, original.get_center(), [base], resource=original)
+    manager.produce_unit(base, "peasant")
+    original.amount = 0
+    simulation.step(61)
+    new_peasant = manager.state.entities_by_content_id("peasant", team=TeamColor.BLUE)[-1]
+
+    assert new_peasant.target_entity is fallback
+    simulation.close()
+
+
+def test_right_click_with_selected_base_sets_move_and_gather_rallies() -> None:
+    settings = _settings()
+    settings["Resources"]["gold"] = [[200, 20]]
+    simulation = HeadlessSimulation.from_settings(settings)
+    manager = simulation.manager
+    base = manager.state.entities_by_content_id("base", team=TeamColor.BLUE)[0]
+    manager.select_entities_for_team(TeamColor.BLUE, [base])
+    controller = InputController()
+
+    controller._handle_right_click(manager, (180, 100))
+    assert base.rally_order is not None
+    assert base.rally_order.kind == "move"
+    assert base.rally_order.destination == (180, 100)
+
+    controller._handle_right_click(manager, (200, 20))
+    assert base.rally_order is not None
+    assert base.rally_order.kind == "gather"
+    assert base.rally_order.target_content_id == "gold"
+    simulation.close()
+
+
 def test_collision_keeps_crowded_units_on_map_and_off_terrain() -> None:
     """Collision separation never pushes a unit off-map or into blocked terrain."""
     settings: MapSettings = {

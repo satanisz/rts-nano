@@ -64,7 +64,9 @@ class SimulationRunner:
                 self.gather.update_peasant(entity, all_entities)
 
         self.construction.update()
-        self.production.update()
+        spawned_units = self.production.update()
+        for producer, unit in spawned_units:
+            self.orders.apply_producer_rally(producer, unit)
         self.orders.update_queues()
         self.events.extend(self.combat.update())
         self.effects.update()

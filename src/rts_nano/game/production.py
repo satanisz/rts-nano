@@ -123,8 +123,11 @@ class ProductionSystem:
             self._refund(team_state.resources, CONTENT.get_unit(item.unit_type).cost)
         return True
 
-    def update(self) -> None:
-        """Advance active queues and spawn completed jobs."""
+    def update(self) -> tuple[tuple[Building, Unit], ...]:
+        """Advance queues and return producer/unit pairs spawned this tick."""
+        if not self._queues:
+            return ()
+        spawned: list[tuple[Building, Unit]] = []
         live_producers = {
             producer
             for team in self._state.teams
@@ -140,10 +143,14 @@ class ProductionSystem:
                 continue
             current = queue[0]
             current.remaining_frames = max(0, current.remaining_frames - 1)
-            if current.remaining_frames <= 0 and self._spawn_unit(producer, CONTENT.get_unit(current.unit_type)):
-                queue.pop(0)
+            if current.remaining_frames <= 0:
+                unit = self._spawn_unit(producer, CONTENT.get_unit(current.unit_type))
+                if unit is not None:
+                    spawned.append((producer, unit))
+                    queue.pop(0)
             if not queue:
                 del self._queues[producer]
+        return tuple(spawned)
 
     @staticmethod
     def _can_pay(resources: dict[str, int], cost: ResourceCost) -> bool:
@@ -159,17 +166,17 @@ class ProductionSystem:
         resources["wood"] = resources.get("wood", 0) + int(cost.wood * PRODUCTION_REFUND_RATIO)
         resources["gold"] = resources.get("gold", 0) + int(cost.gold * PRODUCTION_REFUND_RATIO)
 
-    def _spawn_unit(self, producer: Building, spec: UnitDefinition) -> bool:
+    def _spawn_unit(self, producer: Building, spec: UnitDefinition) -> Unit | None:
         if self._state.team(producer.team) is None:
-            return False
+            return None
 
         spawn_point = find_spawn_point(self._state, producer, spec)
         if spawn_point is None:
-            return False
+            return None
         spawn_x, spawn_y = spawn_point
         unit = cast("Unit", EntityFactory.create(spec.key, int(spawn_x), int(spawn_y), producer.team))
         self._state.add_runtime_entity(unit)
-        return True
+        return unit
 
     @staticmethod
     def _producer_key(producer: Building) -> str:

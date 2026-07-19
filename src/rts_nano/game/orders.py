@@ -59,6 +59,67 @@ class OrderSystem:
         """Return production-capable buildings owned by a team."""
         return [building for building in self._state.buildings_for_team(team) if building.definition.produces]
 
+    def set_base_rally(
+        self,
+        team: TeamColor,
+        destination: tuple[float, float],
+        bases: Iterable[Base] | None = None,
+        *,
+        resource: Resource | None = None,
+    ) -> int:
+        """Set a move or gather rally on living completed team bases."""
+        candidates = self.bases_for_team(team) if bases is None else bases
+        valid_bases = [
+            base for base in candidates if base.team == team and base.life > 0 and not base.is_under_construction
+        ]
+        if resource is not None:
+            if resource.amount <= 0 or resource.entity_id is None:
+                return 0
+            rally = Order(
+                "gather",
+                resource.get_center(),
+                target_entity_id=resource.entity_id,
+                target_content_id=resource.content_id,
+            )
+        else:
+            rally = Order("move", self._state.clamp_to_world(destination))
+        for base in valid_bases:
+            base.rally_order = rally
+        return len(valid_bases)
+
+    def apply_producer_rally(self, producer: Building, unit: Unit) -> bool:
+        """Apply a producer's rally to one newly spawned unit."""
+        if not isinstance(producer, Base) or producer.rally_order is None or unit.team != producer.team:
+            return False
+        rally = producer.rally_order
+        if rally.kind == "gather" and rally.target_content_id is not None:
+            target: Resource | None = None
+            if rally.target_entity_id is not None:
+                try:
+                    candidate = self._state.store.get(rally.target_entity_id)
+                except KeyError:
+                    candidate = None
+                if isinstance(candidate, Resource) and candidate.amount > 0:
+                    target = candidate
+            if target is None:
+                resources = [
+                    resource
+                    for resource in self._state.resources_by_content(str(rally.target_content_id))
+                    if resource.amount > 0
+                ]
+                if resources:
+                    origin = rally.destination or producer.get_center()
+                    target = min(resources, key=lambda resource: distance_between_points(origin, resource.get_center()))
+            if target is None or target.entity_id is None:
+                return False
+            rally = Order(
+                "gather",
+                target.get_center(),
+                target_entity_id=target.entity_id,
+                target_content_id=target.content_id,
+            )
+        return self._execute_order(unit, rally, clear_queue=True)
+
     def issue_move_order(
         self,
         team: TeamColor,
@@ -165,7 +226,12 @@ class OrderSystem:
         ordered_peasants = [unit for unit in self._order_units_for_team(team, units) if isinstance(unit, Peasant)]
         if resource.entity_id is None:
             return 0
-        order = Order("gather", resource.get_center(), resource.entity_id)
+        order = Order(
+            "gather",
+            resource.get_center(),
+            target_entity_id=resource.entity_id,
+            target_content_id=resource.content_id,
+        )
         return sum(self._queue_or_execute(peasant, order, queue=queue) for peasant in ordered_peasants)
 
     def issue_stop_order(self, team: TeamColor, units: Iterable[Unit] | None = None) -> int:

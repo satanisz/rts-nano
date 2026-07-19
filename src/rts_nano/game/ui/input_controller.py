@@ -220,10 +220,22 @@ class InputController:
                 target_entity = entity
                 break
 
-        marker_color = (255, 80, 80) if target_entity else (80, 255, 120)
+        marker_color = (230, 190, 40) if isinstance(target_entity, Resource) else (255, 80, 80)
+        if target_entity is None:
+            marker_color = (80, 255, 120)
         self.presentation.click_markers.append(
             ClickMarker(order_pos[0], order_pos[1], marker_color, pygame.time.get_ticks())
         )
+
+        selected_bases = [entity for entity in manager.selected_entities if isinstance(entity, Base)]
+        if selected_bases and (target_entity is None or isinstance(target_entity, Resource)):
+            manager.set_base_rally(
+                manager.current_team,
+                order_pos,
+                selected_bases,
+                resource=target_entity if isinstance(target_entity, Resource) else None,
+            )
+            return
 
         selected_units = [entity for entity in manager.selected_entities if isinstance(entity, Unit)]
         queue_order = bool(pygame.key.get_mods() & pygame.KMOD_SHIFT)

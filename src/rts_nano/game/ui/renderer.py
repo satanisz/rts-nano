@@ -29,7 +29,7 @@ from rts_nano.game.ui.pygame_assets import PygameAssets, building_glyph
 from rts_nano.game.ui.selection_panel import PORTRAIT_SIZE, build_selection_panel_layout
 from rts_nano.game.ui.state import PresentationState
 from rts_nano.game.ui.terrain_renderer import TerrainRenderer
-from rts_nano.simulation.entities import TeamColor, Wood
+from rts_nano.simulation.entities import Base, TeamColor, Wood
 from rts_nano.simulation.entities.base import Building, Entity, Resource, Unit
 
 if TYPE_CHECKING:
@@ -109,6 +109,8 @@ class GameRenderer:
                         manager.state.tick_count,
                         entity in manager.selected_entities,
                     )
+
+        self._draw_rally_points(world_surface, manager, camera_offset)
 
         for missile in self._magic_missiles:
             if manager.fog.is_visible(missile.x, missile.y):
@@ -205,6 +207,27 @@ class GameRenderer:
 
         if manager.menu_active:
             self._draw_main_menu(screen, manager)
+
+    @staticmethod
+    def _draw_rally_points(
+        screen: pygame.Surface,
+        manager: GameSession,
+        camera_offset: tuple[float, float],
+    ) -> None:
+        """Draw persistent rally lines for currently selected bases."""
+        for entity in manager.selected_entities:
+            if not isinstance(entity, Base) or entity.rally_order is None:
+                continue
+            destination = entity.rally_order.destination
+            if destination is None:
+                continue
+            start = (int(entity.x - camera_offset[0]), int(entity.y - camera_offset[1]))
+            end = (int(destination[0] - camera_offset[0]), int(destination[1] - camera_offset[1]))
+            color = (230, 190, 40) if entity.rally_order.kind == "gather" else (80, 255, 120)
+            pygame.draw.line(screen, color, start, end, width=1)
+            pygame.draw.circle(screen, color, end, 10, width=2)
+            pygame.draw.line(screen, color, (end[0] - 5, end[1]), (end[0] + 5, end[1]), width=2)
+            pygame.draw.line(screen, color, (end[0], end[1] - 5), (end[0], end[1] + 5), width=2)
 
     def _update_effects(self, manager: GameSession) -> None:
         """Consume each simulation tick's attack outputs exactly once."""
