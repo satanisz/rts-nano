@@ -14,5 +14,8 @@ htmlcov/
 .mypy_cache/
 .tox/
 
+# Layered image-editor source files
+*.xcf
+
 # Virtual environments
 .venv/
