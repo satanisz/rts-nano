@@ -332,6 +332,8 @@ class Unit(Entity):
         self.progress_anchor_y: float = float(y)
         self.stuck_frames: int = 0
         self.unstuck_cooldown: int = 0
+        self.path_obstacle_revision: int = 0
+        self.path_unreachable: bool = False
         self.vision_range: int = definition.vision_range
 
     def set_target(self, pos: tuple[float, float], target_entity: Entity | None = None) -> None:

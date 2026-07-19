@@ -103,7 +103,7 @@ class ConstructionSystem:
             "Building", EntityFactory.create(building_type, int(position[0]), int(position[1]), builder.team)
         )
         building.start_construction(spec.build_frames)
-        self._state.store.add(building)
+        self._state.add_runtime_entity(building)
         self._movement.assign_unit_target(builder, building.get_center(), building)
         return building
 
@@ -132,7 +132,7 @@ class ConstructionSystem:
         except ValueError:
             return False
 
-        if not self._state.store.remove(building):
+        if not self._state.remove_runtime_entity(building):
             return False
 
         self._refund(team_state.resources, spec.cost)

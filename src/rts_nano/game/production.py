@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, cast
 
 from rts_nano.content import CONTENT, PRODUCTION_REFUND_RATIO, ResourceCost, UnitDefinition
 from rts_nano.game.entity_factory import EntityFactory
+from rts_nano.game.spawning import find_spawn_point
 
 if TYPE_CHECKING:
     from rts_nano.game.state import GameState
@@ -138,10 +139,9 @@ class ProductionSystem:
             if not queue:
                 continue
             current = queue[0]
-            current.remaining_frames -= 1
-            if current.remaining_frames <= 0:
+            current.remaining_frames = max(0, current.remaining_frames - 1)
+            if current.remaining_frames <= 0 and self._spawn_unit(producer, CONTENT.get_unit(current.unit_type)):
                 queue.pop(0)
-                self._spawn_unit(producer, CONTENT.get_unit(current.unit_type))
             if not queue:
                 del self._queues[producer]
 
@@ -159,13 +159,17 @@ class ProductionSystem:
         resources["wood"] = resources.get("wood", 0) + int(cost.wood * PRODUCTION_REFUND_RATIO)
         resources["gold"] = resources.get("gold", 0) + int(cost.gold * PRODUCTION_REFUND_RATIO)
 
-    def _spawn_unit(self, producer: Building, spec: UnitDefinition) -> None:
+    def _spawn_unit(self, producer: Building, spec: UnitDefinition) -> bool:
         if self._state.team(producer.team) is None:
-            return
+            return False
 
-        spawn_x, spawn_y = self._state.clamp_to_world((producer.x, producer.y + producer.size))
+        spawn_point = find_spawn_point(self._state, producer, spec)
+        if spawn_point is None:
+            return False
+        spawn_x, spawn_y = spawn_point
         unit = cast("Unit", EntityFactory.create(spec.key, int(spawn_x), int(spawn_y), producer.team))
-        self._state.store.add(unit)
+        self._state.add_runtime_entity(unit)
+        return True
 
     @staticmethod
     def _producer_key(producer: Building) -> str:

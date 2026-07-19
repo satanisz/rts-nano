@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from rts_nano.simulation.entities.base import Entity
 
 GOLDEN_PATH = Path(__file__).with_name("golden") / "core_replay_v1.json"
-EXPECTED_SHA256 = "239c2b1b85c30a2d07526157f622dc297f844b04ed5ce2b63b692e02138f5c90"
+EXPECTED_SHA256 = "0b2cdca727b2b45b388fe026e7949dc53268bb12942d57667be69dcf8d1ec167"
 
 
 def _settings() -> MapSettings:

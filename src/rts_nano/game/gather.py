@@ -16,6 +16,8 @@ from rts_nano.game.rules import find_replacement_resource, nearest_entity
 from rts_nano.simulation.entities import Gold, Wood
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from rts_nano.game.movement import MovementSystem
     from rts_nano.game.state import GameState
     from rts_nano.simulation.entities.base import Entity
@@ -30,7 +32,7 @@ class GatherSystem:
         self._state = state
         self._movement = movement
 
-    def update_peasant(self, peasant: Peasant, all_entities: list[Entity]) -> None:
+    def update_peasant(self, peasant: Peasant, all_entities: Iterable[Entity]) -> None:
         """Advance a single peasant's gather/deposit behavior for one frame."""
         if peasant.state == "GATHERING":
             self._update_gathering(peasant)
@@ -59,7 +61,7 @@ class GatherSystem:
             self._send_to_base(peasant, is_wood=is_wood)
 
     def _replace_depleted_resource(self, peasant: Peasant, resource: Wood | Gold, *, is_wood: bool) -> None:
-        self._state.store.remove(resource)
+        self._state.remove_runtime_entity(resource)
         resource_list = self._state.resources_by_content("wood" if is_wood else "gold")
         new_resource = find_replacement_resource(resource, resource_list, search_radius=HARVEST_SEARCH_RADIUS)
         peasant.source_resource = new_resource
@@ -78,7 +80,7 @@ class GatherSystem:
         else:
             peasant.state = "IDLE"
 
-    def _update_depositing(self, peasant: Peasant, all_entities: list[Entity]) -> None:
+    def _update_depositing(self, peasant: Peasant, all_entities: Iterable[Entity]) -> None:
         team_state = self._state.team(peasant.team)
         if team_state:
             team_state.resources["wood"] += peasant.carry_wood

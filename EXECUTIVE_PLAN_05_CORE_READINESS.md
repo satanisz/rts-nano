@@ -2,12 +2,14 @@
 
 Last updated: 2026-07-19
 
-## STATUS: IN PROGRESS — S4 COMPLETE
+## STATUS: IN PROGRESS — S5 COMPLETE
 
-Sprints S0 through S4 completed on 2026-07-19. Gameplay definitions have one validated source of
+Sprints S0 through S5 completed on 2026-07-19. Gameplay definitions have one validated source of
 truth, runtime state uses one stable generic entity store, and `SimulationRunner` now advances the
 complete game without importing Pygame or owning application state. `GameSession` and Pygame
-presentation adapters compose the playable game. Behavior matches the S0 replay. Sprint S5 is next.
+presentation adapters compose the playable game. Spatial mutation, safe spawn, dynamic repathing,
+unreachable orders, boundary behavior, and scaling now have explicit contracts and benchmarks.
+Sprint S6 is next.
 
 Goal: bring the current game to a **game-core-complete state suitable for later AI and RL work**.
 “Complete” does not mean a commercial product, campaign, or polished HUD. It means:
@@ -326,6 +328,9 @@ compatibility-layer removal. Run the complete gate after every commit.
 ---
 
 ## 9. Sprint S5 — Correctness, scaling, and performance hardening
+
+**Status: COMPLETE (2026-07-19).** Review and measurements:
+`docs/reviews/SPRINT_S5_REVIEW.md` and `benchmarks/SPRINT_S5_REPORT.md`.
 
 **Size:** L
 **Goal:** close technical gameplay risks before AI and RL begin.

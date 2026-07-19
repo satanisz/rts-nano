@@ -21,7 +21,7 @@ from rts_nano.game.constants import (
     UNSTUCK_COOLDOWN_FRAMES,
 )
 from rts_nano.game.pathfinding import find_path
-from rts_nano.game.rules import distance_between_points, nearest_entity
+from rts_nano.game.rules import distance_between_points, squared_distance_between
 from rts_nano.game.types import EntityCategory
 from rts_nano.simulation.entities.base import Building, Unit
 
@@ -47,6 +47,7 @@ class MovementSystem:
     def find_unit_path(self, unit: Unit, destination: tuple[float, float]) -> list[tuple[float, float]]:
         """Build a terrain-aware path for a unit."""
         goal = self._state.clamp_to_world(destination)
+        blocking_buildings = tuple(self._state.store.by_category(EntityCategory.BUILDING))
         movement_cache: dict[tuple[tuple[float, float], tuple[float, float]], bool] = {}
 
         def can_move_between(current: tuple[float, float], next_point: tuple[float, float]) -> bool:
@@ -54,7 +55,15 @@ class MovementSystem:
             if key not in movement_cache:
                 movement_cache[key] = self._state.terrain.can_move_between(
                     current, next_point, radius=unit.radius
-                ) and not (self._building_blocks_segment(unit, current, next_point, unit.target_entity))
+                ) and not (
+                    self._building_blocks_segment(
+                        unit,
+                        current,
+                        next_point,
+                        unit.target_entity,
+                        blocking_buildings,
+                    )
+                )
             return movement_cache[key]
 
         if can_move_between(unit.get_center(), goal):
@@ -90,9 +99,13 @@ class MovementSystem:
         start: tuple[float, float],
         end: tuple[float, float],
         target: Entity | None,
+        buildings: tuple[Entity, ...] | None = None,
     ) -> bool:
         """Return whether a path edge crosses a living non-target building."""
-        for entity in self._state.store.by_category(EntityCategory.BUILDING):
+        candidates = (
+            buildings if buildings is not None else tuple(self._state.store.by_category(EntityCategory.BUILDING))
+        )
+        for entity in candidates:
             if entity is target or entity.life <= 0:
                 continue
             center = entity.get_center()
@@ -126,10 +139,27 @@ class MovementSystem:
         unit: Unit,
         destination: tuple[float, float],
         target_entity: Entity | None = None,
-    ) -> None:
-        """Assign a unit target plus an A* path when one is available."""
+    ) -> bool:
+        """Assign a target and return whether a traversable route exists."""
         unit.set_target(destination, target_entity)
-        unit.set_path(self.find_unit_path(unit, destination))
+        path = self.find_unit_path(unit, destination)
+        unit.set_path(path)
+        unit.path_obstacle_revision = self._state.obstacle_revision
+        unit.path_unreachable = not path
+        if not path:
+            unit.state = "IDLE"
+            return False
+        return True
+
+    def refresh_path_for_obstacles(self, unit: Unit) -> None:
+        """Recalculate an active route when building obstacles have changed."""
+        if unit.path_obstacle_revision == self._state.obstacle_revision:
+            return
+        if unit.state == "MOVING":
+            destination = unit._get_target_position()
+            self.assign_unit_target(unit, destination, unit.target_entity)
+        else:
+            unit.path_obstacle_revision = self._state.obstacle_revision
 
     def assign_group_move_order(self, units: list[Unit], destination: tuple[int, int]) -> None:
         """Assign a ground move order, spreading units across formation slots."""
@@ -147,7 +177,7 @@ class MovementSystem:
     def formation_destinations(self, center: tuple[int, int], count: int) -> list[tuple[int, int]]:
         """Return terrain-valid formation slots around a clicked ground point."""
         if count <= 1:
-            return [center]
+            return [self._state.clamp_to_world(center)]
 
         columns = math.ceil(math.sqrt(count))
         rows = math.ceil(count / columns)
@@ -162,10 +192,20 @@ class MovementSystem:
         destinations: list[tuple[int, int]] = []
         for offset_x, offset_y in offsets[:count]:
             slot = self._state.clamp_to_world((center[0] + offset_x, center[1] + offset_y))
-            if self._state.terrain.blocks_movement(slot):
-                slot = center
+            if self._state.terrain.blocks_movement(slot) or not self._formation_slot_is_open(slot):
+                slot = self._state.clamp_to_world(center)
             destinations.append(slot)
         return destinations
+
+    def _formation_slot_is_open(self, slot: tuple[int, int]) -> bool:
+        """Reject slots inside building footprints before invoking A*."""
+        query_radius = FORMATION_SPACING / 2 + self._state.spatial_index.max_radius
+        for entity in self._state.spatial_index.query(slot, query_radius):
+            if not isinstance(entity, Building) or entity.life <= 0:
+                continue
+            if distance_between_points(slot, entity.get_center()) < FORMATION_SPACING / 2 + entity.radius:
+                return False
+        return True
 
     def update_attack_move_target(self, unit: Unit, entities: list[Entity]) -> None:
         """Acquire a hostile target while an attack-move order is active."""
@@ -193,8 +233,10 @@ class MovementSystem:
             return
 
         if unit.state == "IDLE":
-            self.assign_unit_target(unit, destination)
-            unit.attack_move_destination = destination
+            if self.assign_unit_target(unit, destination):
+                unit.attack_move_destination = destination
+            else:
+                unit.attack_move_destination = None
 
     def update_patrol(self, unit: Unit) -> None:
         """Flip a patrolling unit to its other waypoint once a leg completes.
@@ -217,22 +259,29 @@ class MovementSystem:
             if distance_between_points(current, first_point) >= distance_between_points(current, second_point)
             else second_point
         )
-        self.assign_unit_target(unit, farther)
-        unit.attack_move_destination = farther
+        if self.assign_unit_target(unit, farther):
+            unit.attack_move_destination = farther
+        else:
+            unit.patrol_points = None
 
     def nearest_attack_move_target(self, unit: Unit, entities: list[Entity]) -> Entity | None:
         """Return the nearest hostile unit/building in attack-move acquisition range."""
-        acquire_range = self.attack_move_acquire_range(unit)
-        candidates = [
-            entity
-            for entity in entities
-            if entity is not unit
-            and isinstance(entity, (Unit, Building))
-            and entity.team != unit.team
-            and entity.life > 0
-            and distance_between_points(unit.get_center(), entity.get_center()) <= acquire_range
-        ]
-        return nearest_entity(unit, candidates)
+        acquire_range_squared = self.attack_move_acquire_range(unit) ** 2
+        nearest: Entity | None = None
+        nearest_distance = math.inf
+        for entity in entities:
+            if (
+                entity is unit
+                or not isinstance(entity, (Unit, Building))
+                or entity.team == unit.team
+                or entity.life <= 0
+            ):
+                continue
+            distance_squared = squared_distance_between(unit, entity)
+            if distance_squared <= acquire_range_squared and distance_squared < nearest_distance:
+                nearest = entity
+                nearest_distance = distance_squared
+        return nearest
 
     def update_unit_stuck_recovery(self, unit: Unit) -> None:
         """Recover units nudged off path by local collision resolution."""

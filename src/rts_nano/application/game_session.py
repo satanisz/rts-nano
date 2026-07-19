@@ -147,7 +147,7 @@ class GameSession:
         self.camera_y: float = 0
 
         self._load_map_settings()
-        self._rebuild_spatial_index()
+        self.state.refresh_spatial_index()
         self._update_entity_height_levels()
         self.set_viewport_size(SCREEN_WIDTH, SCREEN_HEIGHT)
 
@@ -727,7 +727,3 @@ class GameSession:
             self.selected_entities = [entity for entity in self.selected_entities if entity not in removed_entities]
         if self.game_over_message is not None:
             self.paused = True
-
-    def _rebuild_spatial_index(self) -> None:
-        """Refresh proximity-query data after loading or mutating entity rosters."""
-        self.state.spatial_index.rebuild(entity for entity in self.all_entities if isinstance(entity, (Unit, Building)))

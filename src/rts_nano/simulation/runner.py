@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from rts_nano.simulation.entities import Peasant
-from rts_nano.simulation.entities.base import Building, Resource, Unit
+from rts_nano.simulation.entities.base import Resource, Unit
 from rts_nano.simulation.events import AttackLanded
 
 if TYPE_CHECKING:
@@ -49,16 +49,14 @@ class SimulationRunner:
         """Advance exactly one simulation tick and return removed entities."""
         self.state.tick_count += 1
         self.events.clear()
-        self._update_mobile_height_levels()
-        all_entities = self.state.all_entities
-        collidables = [entity for entity in all_entities if isinstance(entity, (Unit, Building))]
-        self.state.spatial_index.rebuild(collidables)
-
+        all_entities = tuple(self.state.store)
+        self._update_height_levels(all_entities)
         for entity in all_entities:
             if getattr(entity, "life", 1) <= 0:
                 continue
             if isinstance(entity, Unit):
                 self._update_unit(entity)
+                self.state.spatial_index.update(entity)
             if isinstance(entity, Peasant):
                 self.gather.update_peasant(entity, all_entities)
 
@@ -66,15 +64,28 @@ class SimulationRunner:
         self.production.update()
         self.events.extend(self.combat.update())
         self.effects.update()
-        removed = self._remove_dead_entities()
+        removed = self._remove_dead_entities(all_entities)
         self.victory.update()
         return removed
 
     def _update_unit(self, entity: Unit) -> None:
-        query_radius = self.movement.attack_move_acquire_range(entity) + self.state.spatial_index.max_radius
-        query_radius += float(entity.splash_radius)
-        nearby = self.state.spatial_index.query(entity.get_center(), query_radius)
-        self.movement.update_attack_move_target(entity, nearby)
+        self.movement.refresh_path_for_obstacles(entity)
+        max_radius = self.state.spatial_index.max_radius
+        if entity.attack_move_destination is not None and entity.target_entity is None:
+            acquisition_radius = self.movement.attack_move_acquire_range(entity) + max_radius
+            acquisition_candidates = self.state.spatial_index.query(entity.get_center(), acquisition_radius)
+            self.movement.update_attack_move_target(entity, acquisition_candidates)
+
+        # Collision response needs only the swept local neighborhood, not every
+        # entity inside the much larger vision/acquisition square.
+        collision_radius = entity.speed + entity.radius + max_radius
+        nearby = self.state.spatial_index.query(entity.get_center(), collision_radius)
+        if entity.splash_radius > 0 and entity.target_entity is not None:
+            splash_candidates = self.state.spatial_index.query(
+                entity.target_entity.get_center(), entity.splash_radius + max_radius
+            )
+            seen = set(nearby)
+            nearby.extend(candidate for candidate in splash_candidates if candidate not in seen)
         entity.update(nearby, self.movement.can_unit_move_to)
         self._clamp_unit_to_world(entity)
         self.movement.update_unit_stuck_recovery(entity)
@@ -85,9 +96,10 @@ class SimulationRunner:
         self.movement.resume_or_finish_attack_move(entity)
         self.movement.update_patrol(entity)
 
-    def _update_mobile_height_levels(self) -> None:
-        for team in self.state.teams:
-            for entity in self.state.entities_for_team(team):
+    def _update_height_levels(self, entities: tuple[Entity, ...]) -> None:
+        """Update height without allocating one temporary team list per tick."""
+        for entity in entities:
+            if not isinstance(entity, Resource):
                 entity.height_level = self.state.terrain.height_at(entity.get_center())
 
     def _clamp_unit_to_world(self, unit: Unit) -> None:
@@ -95,10 +107,8 @@ class SimulationRunner:
         unit.x = min(max(unit.x, radius), self.state.map_width - radius)
         unit.y = min(max(unit.y, radius), self.state.map_height - radius)
 
-    def _remove_dead_entities(self) -> set[Entity]:
-        removed = {
-            entity for entity in self.state.all_entities if not isinstance(entity, Resource) and entity.life <= 0
-        }
+    def _remove_dead_entities(self, entities: tuple[Entity, ...]) -> set[Entity]:
+        removed = {entity for entity in entities if not isinstance(entity, Resource) and entity.life <= 0}
         for entity in removed:
-            self.state.store.remove(entity)
+            self.state.remove_runtime_entity(entity)
         return removed

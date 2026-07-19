@@ -40,6 +40,7 @@ class GameState:
     game_over_message: str | None = None
     tick_count: int = 0
     spatial_index: SpatialIndex = field(default_factory=SpatialIndex)
+    obstacle_revision: int = 0
 
     @property
     def all_entities(self) -> list[Entity]:
@@ -95,3 +96,31 @@ class GameState:
             for building in self.buildings_for_team(team)
             if building.life > 0 and not building.is_under_construction
         )
+
+    def refresh_spatial_index(self) -> None:
+        """Rebuild collision/target lookup after a runtime world mutation."""
+        from rts_nano.simulation.entities.base import Building, Unit
+
+        self.spatial_index.rebuild(entity for entity in self.store if isinstance(entity, (Unit, Building)))
+
+    def add_runtime_entity(self, entity: Entity) -> None:
+        """Register a spawned entity and publish obstacle/index changes immediately."""
+        from rts_nano.simulation.entities.base import Building, Unit
+
+        self.store.add(entity)
+        if isinstance(entity, Building):
+            self.obstacle_revision += 1
+        if isinstance(entity, (Unit, Building)):
+            self.spatial_index.add(entity)
+
+    def remove_runtime_entity(self, entity: Entity) -> bool:
+        """Remove an entity and publish obstacle/index changes immediately."""
+        from rts_nano.simulation.entities.base import Building
+
+        removed = self.store.remove(entity)
+        if not removed:
+            return False
+        if isinstance(entity, Building):
+            self.obstacle_revision += 1
+        self.spatial_index.remove(entity)
+        return True

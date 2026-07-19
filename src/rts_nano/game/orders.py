@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from rts_nano.game.order import Order, OrderKind
 from rts_nano.game.rules import distance_between_points, nearest_entity
+from rts_nano.simulation.entities.base import Building, Unit
 from rts_nano.simulation.entities.buildings import Base
 from rts_nano.simulation.entities.units import Peasant
 
@@ -17,7 +18,7 @@ if TYPE_CHECKING:
     from rts_nano.game.production import ProductionSystem
     from rts_nano.game.state import GameState
     from rts_nano.simulation.entities import TeamColor
-    from rts_nano.simulation.entities.base import Building, Entity, Resource, Unit
+    from rts_nano.simulation.entities.base import Entity, Resource
 
 
 class OrderSystem:
@@ -81,6 +82,17 @@ class OrderSystem:
 
         self._tag_order(ordered_units, "attack_move", destination)
         center = (int(destination[0]), int(destination[1]))
+        clicked_target = next(
+            (
+                entity
+                for entity in self._state.store
+                if isinstance(entity, (Unit, Building))
+                and entity.team != team
+                and entity.life > 0
+                and entity.contains_point(center)
+            ),
+            None,
+        )
         slots = self._movement.formation_destinations(center, len(ordered_units))
         remaining_slots = slots.copy()
         for unit in sorted(
@@ -89,8 +101,9 @@ class OrderSystem:
         ):
             slot = min(remaining_slots, key=lambda candidate: distance_between_points(unit.get_center(), candidate))
             remaining_slots.remove(slot)
-            self._movement.assign_unit_target(unit, slot)
-            unit.attack_move_destination = slot
+            target_point = clicked_target.get_center() if clicked_target is not None else slot
+            if self._movement.assign_unit_target(unit, target_point, clicked_target):
+                unit.attack_move_destination = slot
         return len(ordered_units)
 
     def issue_patrol_order(
@@ -114,8 +127,10 @@ class OrderSystem:
         for unit in ordered_units:
             origin = unit.get_center()
             unit.patrol_points = (origin, dest)
-            self._movement.assign_unit_target(unit, dest)
-            unit.attack_move_destination = dest
+            if self._movement.assign_unit_target(unit, dest):
+                unit.attack_move_destination = dest
+            else:
+                unit.patrol_points = None
         return len(ordered_units)
 
     def issue_target_order(
