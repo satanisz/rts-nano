@@ -2,11 +2,11 @@
 
 Last updated: 2026-07-19
 
-## STATUS: IN PROGRESS — S0 COMPLETE
+## STATUS: IN PROGRESS — S1 COMPLETE
 
-Sprint S0 completed on 2026-07-19. Baseline metrics, deterministic golden replay,
-architectural import boundaries, migration inventory, and stable domain vocabulary are tracked.
-See `docs/reviews/SPRINT_S0_REVIEW.md`. Sprint S1 is next.
+Sprints S0 and S1 completed on 2026-07-19. Gameplay definitions now have one validated,
+Pygame-free source of truth, while runtime behavior remains identical to the S0 golden replay.
+See `docs/reviews/SPRINT_S0_REVIEW.md` and `docs/reviews/SPRINT_S1_REVIEW.md`. Sprint S2 is next.
 
 Goal: bring the current game to a **game-core-complete state suitable for later AI and RL work**.
 “Complete” does not mean a commercial product, campaign, or polished HUD. It means:

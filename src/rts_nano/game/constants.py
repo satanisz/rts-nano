@@ -27,16 +27,9 @@ Attributes:
     HARVEST_SEARCH_RADIUS: Maximum radius for searching replacement resources.
 """
 
-from enum import StrEnum
+from rts_nano.game.types import AttackKind
 
-
-class AttackType(StrEnum):
-    """Supported attack categories for units."""
-
-    MELEE = "Melee"
-    RANGED = "Ranged"
-    NONE = "None"
-
+AttackType = AttackKind
 
 SCREEN_WIDTH: int = 1600
 SCREEN_HEIGHT: int = 720

@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from rts_nano.content import CONTENT, PRODUCTION_REFUND_RATIO, ResourceCost, UnitDefinition
 from rts_nano.game.assets.entities import (
     Arclight,
     Brute,
@@ -15,7 +16,6 @@ from rts_nano.game.assets.entities import (
     Spitter,
 )
 from rts_nano.game.assets.entities.base_entities import visual_assets_enabled
-from rts_nano.game.data import PRODUCTION_REFUND_RATIO, ResourceCost, UnitSpec, get_building_spec, get_unit_spec
 
 if TYPE_CHECKING:
     from rts_nano.game.assets.entities.base_entities import Building, TeamColor, Unit
@@ -76,19 +76,19 @@ class ProductionSystem:
             if producer.team != team or producer.life <= 0:
                 continue
             for item in queue:
-                total += get_unit_spec(item.unit_type).population
+                total += CONTENT.get_unit(item.unit_type).population
         return total
 
     def can_enqueue_unit(self, producer: Building, unit_type: str = "peasant") -> tuple[bool, str | None]:
         """Return whether a building can queue a unit and, if not, why."""
         try:
-            spec = get_unit_spec(unit_type)
+            spec = CONTENT.get_unit(unit_type)
         except ValueError:
             return False, "unsupported_unit"
 
         producer_key = self._producer_key(producer)
         try:
-            producer_spec = get_building_spec(producer_key)
+            producer_spec = CONTENT.get_building(producer_key)
         except ValueError:
             return False, "unsupported_building"
 
@@ -116,7 +116,7 @@ class ProductionSystem:
         if not can_enqueue:
             return False
 
-        spec = get_unit_spec(unit_type)
+        spec = CONTENT.get_unit(unit_type)
         team_group = self._state.entities[producer.team]
         self._pay(team_group.resources, spec.cost)
         self._queues.setdefault(producer, []).append(
@@ -140,7 +140,7 @@ class ProductionSystem:
 
         team_group = self._state.entities.get(producer.team)
         if team_group is not None:
-            self._refund(team_group.resources, get_unit_spec(item.unit_type).cost)
+            self._refund(team_group.resources, CONTENT.get_unit(item.unit_type).cost)
         return True
 
     def update(self) -> None:
@@ -162,7 +162,7 @@ class ProductionSystem:
             current.remaining_frames -= 1
             if current.remaining_frames <= 0:
                 queue.pop(0)
-                self._spawn_unit(producer, get_unit_spec(current.unit_type))
+                self._spawn_unit(producer, CONTENT.get_unit(current.unit_type))
             if not queue:
                 del self._queues[producer]
 
@@ -180,7 +180,7 @@ class ProductionSystem:
         resources["wood"] = resources.get("wood", 0) + int(cost.wood * PRODUCTION_REFUND_RATIO)
         resources["gold"] = resources.get("gold", 0) + int(cost.gold * PRODUCTION_REFUND_RATIO)
 
-    def _spawn_unit(self, producer: Building, spec: UnitSpec) -> None:
+    def _spawn_unit(self, producer: Building, spec: UnitDefinition) -> None:
         team_group = self._state.entities.get(producer.team)
         if team_group is None:
             return

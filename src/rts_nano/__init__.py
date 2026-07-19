@@ -1,30 +1,6 @@
-"""RTS Nano public Python API."""
+"""RTS Nano public Python API with lazy imports for lightweight submodules."""
 
-from rts_nano.env import (
-    Action,
-    ActionSpec,
-    AttackAction,
-    AttackMoveAction,
-    BuildAction,
-    BuildingType,
-    CancelConstructionAction,
-    CancelProductionAction,
-    ConstructAction,
-    DepositAction,
-    EntitySnapshot,
-    GatherAction,
-    HoldAction,
-    MoveAction,
-    NoOpAction,
-    Observation,
-    ProductionSnapshot,
-    ReturnCargoAction,
-    RtsNanoEnv,
-    SelectAction,
-    StepResult,
-    StopAction,
-    TeamSnapshot,
-)
+from __future__ import annotations
 
 __all__ = [
     "Action",
@@ -51,3 +27,14 @@ __all__ = [
     "StopAction",
     "TeamSnapshot",
 ]
+
+
+def __getattr__(name: str) -> object:
+    """Load the environment API only when a public facade symbol is requested."""
+    if name not in __all__:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    from rts_nano import env
+
+    value = getattr(env, name)
+    globals()[name] = value
+    return value

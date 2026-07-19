@@ -12,21 +12,15 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from rts_nano.content import CONTENT, UnitDefinition
 from rts_nano.game.assets.entities.base_entities import Building, Entity, Resource, TeamColor, Unit
-from rts_nano.game.constants import FPS, AttackType
+from rts_nano.game.constants import AttackType
 from rts_nano.game.rules import apply_damage, calculate_height_range_bonus, distance_between
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
-
-# Every AEGIS unit shares the same shield regen profile; only the buffer size
-# (``DEFAULT_SHIELD_MAX``) differs per unit. Regen is slow and only kicks in a
-# few seconds after the unit was last hit, so shields reward disengaging rather
-# than acting as constant bonus health in a sustained fight.
-AEGIS_SHIELD_REGEN = 8  # shield points recovered per second out of combat
-AEGIS_SHIELD_REGEN_DELAY = int(4 * FPS)  # frames out of combat before regen starts
 
 
 class Peasant(Unit):
@@ -37,22 +31,10 @@ class Peasant(Unit):
     the actual resource transfer because it owns team resource banks.
     """
 
-    SIZE = 30
-    RADIUS = 10.0
-    DEFAULT_SPEED = 2.0
-    DEFAULT_MAX_CARRY = 10
-    DEFAULT_MAX_LIFE = 5
-    DEFAULT_ATTACK_DAMAGE = 3
-    DEFAULT_ATTACK_MODIFIER = 0
-    DEFAULT_ATTACK_RANGE = 0
-    DEFAULT_ATTACK_SPEED = 1
-    DEFAULT_ATTACK_TYPE = (AttackType.MELEE,)
-    DEFAULT_SHIELD_MODIFIER = 0
-
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
         """Initialize the object."""
-        super().__init__(x, y, team, self.SIZE, self.RADIUS)
-        unit_name = self.__class__.__name__.lower()
+        super().__init__(x, y, team, CONTENT.get_unit("peasant"))
+        unit_name = self.visual_key
         self.load_image(
             str(BASE_DIR / "assets" / "sprites" / f"{team.value.lower()}_{unit_name}.png"),
             str(BASE_DIR / "assets" / "portraits" / f"{unit_name}.png"),
@@ -80,22 +62,10 @@ class Peasant(Unit):
 class Knight(Unit):
     """Frontline melee unit."""
 
-    SIZE = 40
-    RADIUS = 13.0
-    DEFAULT_SPEED = 2.5
-    DEFAULT_MAX_CARRY = 3
-    DEFAULT_MAX_LIFE = 100
-    DEFAULT_ATTACK_DAMAGE = 10
-    DEFAULT_ATTACK_MODIFIER = 0
-    DEFAULT_ATTACK_RANGE = 5
-    DEFAULT_ATTACK_SPEED = 1
-    DEFAULT_ATTACK_TYPE = (AttackType.MELEE,)
-    DEFAULT_SHIELD_MODIFIER = 0
-
-    def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
+    def __init__(self, x: int, y: int, team: TeamColor, definition: UnitDefinition) -> None:
         """Initialize the object."""
-        super().__init__(x, y, team, self.SIZE, self.RADIUS)
-        unit_name = self.__class__.__name__.lower()
+        super().__init__(x, y, team, definition)
+        unit_name = self.visual_key
         self.load_image(
             str(BASE_DIR / "assets" / "sprites" / f"{team.value.lower()}_{unit_name}.png"),
             str(BASE_DIR / "assets" / "portraits" / f"{unit_name}.png"),
@@ -117,28 +87,10 @@ class Archer(Unit):
     enemies beyond ``RANGED_MIN_ATTACK_RANGE`` to use its stronger range.
     """
 
-    SIZE = 40
-    RADIUS = 13.0
-    DEFAULT_SPEED = 2.0
-    DEFAULT_MAX_CARRY = 2
-    DEFAULT_MAX_LIFE = 70
-    DEFAULT_ATTACK_DAMAGE = 5
-    DEFAULT_ATTACK_MODIFIER = 0
-    DEFAULT_ATTACK_RANGE = 50
-    DEFAULT_ATTACK_SPEED = 1
-    MELEE_ATTACK_RANGE = 10
-    RANGED_MIN_ATTACK_RANGE = 100
-    RANGED_ATTACK_RANGE = 200
-    DEFAULT_ATTACK_TYPE = (
-        AttackType.MELEE,
-        AttackType.RANGED,
-    )
-    DEFAULT_SHIELD_MODIFIER = 0
-
-    def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
+    def __init__(self, x: int, y: int, team: TeamColor, definition: UnitDefinition) -> None:
         """Initialize the object."""
-        super().__init__(x, y, team, self.SIZE, self.RADIUS)
-        unit_name = self.__class__.__name__.lower()
+        super().__init__(x, y, team, definition)
+        unit_name = self.visual_key
         self.load_image(
             str(BASE_DIR / "assets" / "sprites" / f"{team.value.lower()}_{unit_name}.png"),
             str(BASE_DIR / "assets" / "portraits" / f"{unit_name}.png"),
@@ -148,28 +100,28 @@ class Archer(Unit):
         """Pick interaction distance based on archer dead-zone rules."""
         dist = distance_between(self, target)
         radius_sum = self.radius + getattr(target, "radius", 0)
-        ranged_min = self.RANGED_MIN_ATTACK_RANGE + radius_sum
+        ranged_min = self.ranged_min_attack_range + radius_sum
         if dist < ranged_min:
-            return self.MELEE_ATTACK_RANGE + radius_sum
+            return self.melee_attack_range + radius_sum
         range_bonus = calculate_height_range_bonus(
             self.height_level,
             getattr(target, "height_level", 0),
             AttackType.RANGED,
         )
-        return self.RANGED_ATTACK_RANGE + range_bonus + radius_sum
+        return self.ranged_attack_range + range_bonus + radius_sum
 
     def _attack(self, target: Entity) -> int:
         """Choose melee or ranged attack mode before resolving damage."""
         dist = distance_between(self, target)
         radius_sum = self.radius + getattr(target, "radius", 0)
-        ranged_min = self.RANGED_MIN_ATTACK_RANGE + radius_sum
+        ranged_min = self.ranged_min_attack_range + radius_sum
 
         if dist < ranged_min:
             self.attack_type = AttackType.MELEE
-            self.attack_range = self.MELEE_ATTACK_RANGE
+            self.attack_range = self.melee_attack_range
         else:
             self.attack_type = AttackType.RANGED
-            self.attack_range = self.RANGED_ATTACK_RANGE
+            self.attack_range = self.ranged_attack_range
 
         return super()._attack(target)
 
@@ -181,22 +133,10 @@ class Mage(Unit):
     manager's attack-event pipeline.
     """
 
-    SIZE = 40
-    RADIUS = 13.0
-    DEFAULT_SPEED = 1.5
-    DEFAULT_MAX_CARRY = 1
-    DEFAULT_MAX_LIFE = 30
-    DEFAULT_ATTACK_DAMAGE = 5
-    DEFAULT_ATTACK_MODIFIER = 0
-    DEFAULT_ATTACK_RANGE = 500
-    DEFAULT_ATTACK_SPEED = 1
-    DEFAULT_ATTACK_TYPE = (AttackType.RANGED,)
-    DEFAULT_SHIELD_MODIFIER = 0
-
-    def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
+    def __init__(self, x: int, y: int, team: TeamColor, definition: UnitDefinition) -> None:
         """Initialize the object."""
-        super().__init__(x, y, team, self.SIZE, self.RADIUS)
-        unit_name = self.__class__.__name__.lower()
+        super().__init__(x, y, team, definition)
+        unit_name = self.visual_key
         self.load_image(
             str(BASE_DIR / "assets" / "sprites" / f"{team.value.lower()}_{unit_name}.png"),
             str(BASE_DIR / "assets" / "portraits" / f"{unit_name}.png"),
@@ -211,26 +151,17 @@ class Mage(Unit):
 class Marksman(Archer):
     """AEGIS ranged core: hextech rifle with longer reach than a basic archer."""
 
-    DEFAULT_MAX_LIFE = 70
-    DEFAULT_ATTACK_DAMAGE = 9
-    DEFAULT_SHIELD_MODIFIER = 1
-    DEFAULT_SPEED = 2.2
-    RANGED_ATTACK_RANGE = 210
-    DEFAULT_SHIELD_MAX = 30
-    DEFAULT_SHIELD_REGEN = AEGIS_SHIELD_REGEN
-    DEFAULT_SHIELD_REGEN_DELAY = AEGIS_SHIELD_REGEN_DELAY
+    def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
+        """Initialize from the Marksman content definition."""
+        super().__init__(x, y, team, CONTENT.get_unit("marksman"))
 
 
 class Guardian(Knight):
     """AEGIS shield tank: durable, armored frontline that protects ranged units."""
 
-    DEFAULT_MAX_LIFE = 150
-    DEFAULT_ATTACK_DAMAGE = 8
-    DEFAULT_SHIELD_MODIFIER = 4
-    DEFAULT_SPEED = 1.9
-    DEFAULT_SHIELD_MAX = 60
-    DEFAULT_SHIELD_REGEN = AEGIS_SHIELD_REGEN
-    DEFAULT_SHIELD_REGEN_DELAY = AEGIS_SHIELD_REGEN_DELAY
+    def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
+        """Initialize from the Guardian content definition."""
+        super().__init__(x, y, team, CONTENT.get_unit("guardian"))
 
 
 class Arclight(Mage):
@@ -243,19 +174,9 @@ class Arclight(Mage):
     so enemy shields still soak it.
     """
 
-    DEFAULT_MAX_LIFE = 40
-    DEFAULT_ATTACK_DAMAGE = 16
-    DEFAULT_ATTACK_RANGE = 520
-    DEFAULT_ATTACK_SPEED = 1.3
-    DEFAULT_SPEED = 1.4
-    DEFAULT_SHIELD_MAX = 20
-    DEFAULT_SHIELD_REGEN = AEGIS_SHIELD_REGEN
-    DEFAULT_SHIELD_REGEN_DELAY = AEGIS_SHIELD_REGEN_DELAY
-    SPLASH_RADIUS = 60
-
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
         """Initialize the object."""
-        super().__init__(x, y, team)
+        super().__init__(x, y, team, CONTENT.get_unit("arclight"))
         # Latest collidable set, captured each frame so ``_attack`` can find
         # splash victims around its target without a separate entity query.
         self._splash_candidates: list[Entity] = []
@@ -279,7 +200,7 @@ class Arclight(Mage):
     def _apply_splash(self, primary: Entity, damage: int) -> None:
         """Deal ``damage`` to each enemy within ``SPLASH_RADIUS`` of the primary."""
         center_x, center_y = primary.get_center()
-        radius_squared = self.SPLASH_RADIUS**2
+        radius_squared = self.splash_radius**2
         for entity in self._splash_candidates:
             if entity is primary or entity is self or entity.life <= 0:
                 continue
@@ -301,22 +222,17 @@ class Ripper(Knight):
     gets more dangerous as it takes losses.
     """
 
-    DEFAULT_MAX_LIFE = 45
-    DEFAULT_ATTACK_DAMAGE = 6
-    DEFAULT_SPEED = 3.0
-    FRENZY = True
+    def __init__(self, x: int, y: int, team: TeamColor = TeamColor.RED) -> None:
+        """Initialize from the Ripper content definition."""
+        super().__init__(x, y, team, CONTENT.get_unit("ripper"))
 
 
 class Spitter(Archer):
     """RUST chem thrower: cheap short-range ranged poke that poisons on hit."""
 
-    DEFAULT_MAX_LIFE = 40
-    DEFAULT_ATTACK_DAMAGE = 6
-    DEFAULT_SPEED = 2.4
-    RANGED_ATTACK_RANGE = 130
-    RANGED_MIN_ATTACK_RANGE = 60
-    POISON_DAMAGE = 2
-    POISON_DURATION = 90
+    def __init__(self, x: int, y: int, team: TeamColor = TeamColor.RED) -> None:
+        """Initialize from the Spitter content definition."""
+        super().__init__(x, y, team, CONTENT.get_unit("spitter"))
 
 
 class Brute(Knight):
@@ -326,11 +242,6 @@ class Brute(Knight):
     Brute a frightening clean-up threat rather than an easy finish.
     """
 
-    DEFAULT_MAX_LIFE = 200
-    DEFAULT_ATTACK_DAMAGE = 14
-    DEFAULT_SHIELD_MODIFIER = 1
-    DEFAULT_ATTACK_SPEED = 1.1
-    DEFAULT_SPEED = 1.8
-    POISON_DAMAGE = 3
-    POISON_DURATION = 120
-    FRENZY = True
+    def __init__(self, x: int, y: int, team: TeamColor = TeamColor.RED) -> None:
+        """Initialize from the Brute content definition."""
+        super().__init__(x, y, team, CONTENT.get_unit("brute"))

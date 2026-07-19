@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, ClassVar
 
+from rts_nano.content import CONSTRUCTION_REFUND_RATIO, CONTENT, ResourceCost
 from rts_nano.game.assets.entities.base_entities import Building, Entity, TeamColor, visual_assets_enabled
 from rts_nano.game.assets.entities.buildings import (
     Arsenal,
@@ -14,10 +15,12 @@ from rts_nano.game.assets.entities.buildings import (
     Spiker,
     Spire,
 )
-from rts_nano.game.data import CONSTRUCTION_REFUND_RATIO, ResourceCost, faction_for_team, get_building_spec
+from rts_nano.game.data import faction_for_team
 from rts_nano.game.rules import distance_between_points
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from rts_nano.game.assets.entities.units import Peasant
     from rts_nano.game.movement import MovementSystem
     from rts_nano.game.state import EntitiesGroup, GameState
@@ -26,7 +29,7 @@ if TYPE_CHECKING:
 class ConstructionSystem:
     """Place unfinished buildings and advance them with workers."""
 
-    _BUILDING_FACTORIES: ClassVar[dict[str, type[Building]]] = {
+    _BUILDING_FACTORIES: ClassVar[dict[str, Callable[[int, int, TeamColor], Building]]] = {
         "house": House,
         # AEGIS (slot into the barracks/mage_tower/tower rosters via subclassing)
         "arsenal": Arsenal,
@@ -60,13 +63,13 @@ class ConstructionSystem:
     def can_team_construct(self, team: TeamColor, building_type: str) -> tuple[bool, str | None]:
         """Return whether a team has builders and resources for a building."""
         try:
-            spec = get_building_spec(building_type)
+            spec = CONTENT.get_building(building_type)
         except ValueError:
             return False, "unsupported_building"
 
         if building_type not in self._BUILDING_FACTORIES:
             return False, "unsupported_building"
-        if spec.faction not in {"any", faction_for_team(team)}:
+        if spec.faction is not None and spec.faction != faction_for_team(team):
             return False, "wrong_faction"
 
         group = self._state.entities.get(team)
@@ -121,7 +124,7 @@ class ConstructionSystem:
         if not can_start:
             return None
 
-        spec = get_building_spec(building_type)
+        spec = CONTENT.get_building(building_type)
         group = self._state.entities[builder.team]
         self._pay(group.resources, spec.cost)
 
@@ -155,7 +158,7 @@ class ConstructionSystem:
 
         building_type = getattr(building, "spec_key", type(building).__name__.lower())
         try:
-            spec = get_building_spec(building_type)
+            spec = CONTENT.get_building(building_type)
         except ValueError:
             return False
 

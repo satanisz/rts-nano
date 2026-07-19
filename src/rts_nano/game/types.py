@@ -16,6 +16,14 @@ FactionId = NewType("FactionId", str)
 """Stable faction identity assigned explicitly to a team."""
 
 
+class AttackKind(StrEnum):
+    """Supported deterministic attack categories."""
+
+    MELEE = "Melee"
+    RANGED = "Ranged"
+    NONE = "None"
+
+
 class EntityCategory(StrEnum):
     """Top-level entity categories used by generic world indexes."""
 

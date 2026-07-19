@@ -18,10 +18,11 @@ from typing import TYPE_CHECKING
 
 import pygame
 
+from rts_nano.content import CONTENT
 from rts_nano.game.assets.entities.base_entities import Building, Unit
 from rts_nano.game.assets.entities.units import Peasant
 from rts_nano.game.constants import BOTTOM_MENU_HEIGHT
-from rts_nano.game.data import UNIT_SPECS, faction_for_team, get_building_spec
+from rts_nano.game.data import faction_for_team
 
 if TYPE_CHECKING:
     from rts_nano.game.manager import GameManager
@@ -141,7 +142,7 @@ class CommandPanel:
             selected_producer = primary_entity
             try:
                 producer_key = getattr(selected_producer, "spec_key", type(selected_producer).__name__.lower())
-                building_spec = get_building_spec(producer_key)
+                building_spec = CONTENT.get_building(producer_key)
             except ValueError:
                 building_spec = None
 
@@ -151,29 +152,29 @@ class CommandPanel:
             elif building_spec is not None and building_spec.produces:
                 queue = manager.production.queue_for(selected_producer)
                 if queue:
-                    active_unit = UNIT_SPECS[queue[0].unit_type].display_name
+                    active_unit = CONTENT.get_unit(queue[0].unit_type).display_name
                     commands.append((f"{active_unit} {queue[0].progress:.0%}", False, None, None))
                     commands.append(("Cancel", True, "cancel", None))
 
                 for unit_type in building_spec.produces:
                     can_build, reason = manager.production.can_enqueue_unit(selected_producer, unit_type)
-                    unit_name = UNIT_SPECS[unit_type].display_name
+                    unit_name = CONTENT.get_unit(unit_type).display_name
                     if can_build:
                         commands.append((f"Train {unit_name}", True, "produce", unit_type))
                     elif reason == "population_cap":
                         commands.append(("Cap Reached", False, None, None))
                     elif reason == "insufficient_resources":
-                        commands.append((f"Need {format_cost(UNIT_SPECS[unit_type].cost)}", False, None, None))
+                        commands.append((f"Need {format_cost(CONTENT.get_unit(unit_type).cost)}", False, None, None))
                     else:
                         commands.append(("Unavailable", False, None, None))
         elif isinstance(primary_entity, Peasant) and primary_entity.team == manager.current_team:
             faction = faction_for_team(manager.current_team)
             for building_type in manager.construction.supported_building_types():
                 try:
-                    building_spec = get_building_spec(building_type)
+                    building_spec = CONTENT.get_building(building_type)
                 except ValueError:
                     continue
-                if building_spec.faction not in {"any", faction}:
+                if building_spec.faction is not None and building_spec.faction != faction:
                     continue
                 can_construct, reason = manager.construction.can_team_construct(manager.current_team, building_type)
                 if can_construct:

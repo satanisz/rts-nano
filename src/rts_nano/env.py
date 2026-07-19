@@ -33,10 +33,10 @@ from rts_nano.actions import (
 from rts_nano.actions import (
     ActionKind as ActionKind,
 )
+from rts_nano.content import CONTENT
 from rts_nano.game.assets.entities import TeamColor
 from rts_nano.game.assets.entities.base_entities import Building, Unit
 from rts_nano.game.assets.entities.units import Peasant
-from rts_nano.game.data import UNIT_SPECS
 from rts_nano.game.fog import FogOfWar
 from rts_nano.game.observations import (
     EntityId,
@@ -270,7 +270,7 @@ class RtsNanoEnv:
                 reason=reason,
                 unit_type=unit_type,
             )
-            for unit_type in UNIT_SPECS
+            for unit_type in CONTENT.units
             for can_build, reason in (self._can_build_unit(team, production_buildings, unit_type),)
         )
         construct_specs = tuple(

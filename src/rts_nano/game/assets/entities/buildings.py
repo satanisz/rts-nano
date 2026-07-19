@@ -1,10 +1,14 @@
 """Building entity implementations."""
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
+from rts_nano.content import CONTENT
 from rts_nano.game.assets.entities.base_entities import Building, Entity, TeamColor, init_shield
-from rts_nano.game.assets.entities.units import AEGIS_SHIELD_REGEN, AEGIS_SHIELD_REGEN_DELAY
-from rts_nano.game.constants import AttackType
+
+if TYPE_CHECKING:
+    from rts_nano.content import BuildingDefinition
+    from rts_nano.game.constants import AttackType
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
 SPRITES_DIR = BASE_DIR / "assets" / "sprites"
@@ -26,8 +30,7 @@ class Base(Building):
 
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
         """Initialize the object."""
-        super().__init__(x, y, team)
-        self.spec_key = "base"
+        super().__init__(x, y, team, CONTENT.get_building("base"))
         self.load_image(
             str(BASE_DIR / "assets" / "sprites" / f"{team.value.lower()}_base.png"),
             str(BASE_DIR / "assets" / "portraits" / "base.png"),
@@ -37,10 +40,9 @@ class Base(Building):
 class Barracks(Building):
     """Represent a basic military production building."""
 
-    def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
+    def __init__(self, x: int, y: int, team: TeamColor, definition: BuildingDefinition) -> None:
         """Initialize the object."""
-        super().__init__(x, y, team)
-        self.spec_key = "barracks"
+        super().__init__(x, y, team, definition)
 
 
 class House(Building):
@@ -48,18 +50,16 @@ class House(Building):
 
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
         """Initialize the object."""
-        super().__init__(x, y, team)
-        self.spec_key = "house"
+        super().__init__(x, y, team, CONTENT.get_building("house"))
         _load_building_sprite(self, "house")
 
 
 class MageTower(Building):
     """Represent an advanced production building that trains mages."""
 
-    def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
+    def __init__(self, x: int, y: int, team: TeamColor, definition: BuildingDefinition) -> None:
         """Initialize the object."""
-        super().__init__(x, y, team)
-        self.spec_key = "mage_tower"
+        super().__init__(x, y, team, definition)
 
 
 class Tower(Building):
@@ -70,31 +70,18 @@ class Tower(Building):
     system can treat it like any other ranged attacker.
     """
 
-    SIZE = 56
-    RADIUS = 18.0
-    MAX_LIFE = 300
-    DEFAULT_ATTACK_DAMAGE = 12
-    DEFAULT_ATTACK_RANGE = 180
-    DEFAULT_ATTACK_SPEED = 1.0
-    DEFAULT_SHIELD_MAX = 0
-    DEFAULT_SHIELD_REGEN = 0
-    DEFAULT_SHIELD_REGEN_DELAY = 0
-    POISON_DAMAGE = 0
-    POISON_DURATION = 0
-
-    def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
+    def __init__(self, x: int, y: int, team: TeamColor, definition: BuildingDefinition) -> None:
         """Initialize the object."""
-        super().__init__(x, y, team)
-        self.spec_key = "tower"
-        self.attack_damage = self.DEFAULT_ATTACK_DAMAGE
-        self.attack_modifier = 0
-        self.attack_range = self.DEFAULT_ATTACK_RANGE
-        self.attack_speed = self.DEFAULT_ATTACK_SPEED
-        self.attack_type = AttackType.RANGED
+        super().__init__(x, y, team, definition)
+        self.attack_damage = definition.attack_damage
+        self.attack_modifier = definition.attack_modifier
+        self.attack_range = definition.attack_range
+        self.attack_speed = definition.attack_speed
+        self.attack_type = definition.attack_kind
         self.attack_cooldown = 0
-        self.poison_damage = self.POISON_DAMAGE
-        self.poison_duration = self.POISON_DURATION
-        init_shield(self, self.DEFAULT_SHIELD_MAX, self.DEFAULT_SHIELD_REGEN, self.DEFAULT_SHIELD_REGEN_DELAY)
+        self.poison_damage = definition.poison_damage
+        self.poison_duration = definition.poison_duration
+        init_shield(self, definition.shield_max, definition.shield_regen, definition.shield_regen_delay)
         self.last_attack_event: tuple[tuple[float, float], tuple[float, float], AttackType, Entity] | None = None
 
 
@@ -107,8 +94,7 @@ class Arsenal(Barracks):
 
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
         """Initialize the object."""
-        super().__init__(x, y, team)
-        self.spec_key = "arsenal"
+        super().__init__(x, y, team, CONTENT.get_building("arsenal"))
         _load_building_sprite(self, "arsenal")
 
 
@@ -117,26 +103,16 @@ class Spire(MageTower):
 
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
         """Initialize the object."""
-        super().__init__(x, y, team)
-        self.spec_key = "spire"
+        super().__init__(x, y, team, CONTENT.get_building("spire"))
         _load_building_sprite(self, "spire")
 
 
 class Bastion(Tower):
     """AEGIS defense: durable, long-range auto-attacking turret with a shield."""
 
-    MAX_LIFE = 350
-    DEFAULT_ATTACK_DAMAGE = 12
-    DEFAULT_ATTACK_RANGE = 200
-    DEFAULT_ATTACK_SPEED = 1.0
-    DEFAULT_SHIELD_MAX = 80
-    DEFAULT_SHIELD_REGEN = AEGIS_SHIELD_REGEN
-    DEFAULT_SHIELD_REGEN_DELAY = AEGIS_SHIELD_REGEN_DELAY
-
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
         """Initialize the object."""
-        super().__init__(x, y, team)
-        self.spec_key = "bastion"
+        super().__init__(x, y, team, CONTENT.get_building("bastion"))
         _load_building_sprite(self, "bastion")
 
 
@@ -148,8 +124,7 @@ class Pit(Barracks):
 
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
         """Initialize the object."""
-        super().__init__(x, y, team)
-        self.spec_key = "pit"
+        super().__init__(x, y, team, CONTENT.get_building("pit"))
         _load_building_sprite(self, "pit")
 
 
@@ -158,23 +133,14 @@ class ChemVat(MageTower):
 
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
         """Initialize the object."""
-        super().__init__(x, y, team)
-        self.spec_key = "chem_vat"
+        super().__init__(x, y, team, CONTENT.get_building("chem_vat"))
         _load_building_sprite(self, "chem_vat")
 
 
 class Spiker(Tower):
     """RUST defense: cheaper, faster-firing, shorter-range turret that poisons."""
 
-    MAX_LIFE = 250
-    DEFAULT_ATTACK_DAMAGE = 8
-    DEFAULT_ATTACK_RANGE = 150
-    DEFAULT_ATTACK_SPEED = 0.625
-    POISON_DAMAGE = 2
-    POISON_DURATION = 90
-
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
         """Initialize the object."""
-        super().__init__(x, y, team)
-        self.spec_key = "spiker"
+        super().__init__(x, y, team, CONTENT.get_building("spiker"))
         _load_building_sprite(self, "spiker")

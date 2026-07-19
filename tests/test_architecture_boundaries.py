@@ -6,6 +6,7 @@ import ast
 from pathlib import Path
 
 CORE_ROOT = Path("src/rts_nano/game")
+CONTENT_ROOT = Path("src/rts_nano/content")
 
 # Sprint S0 records existing debt rather than pretending the core is already pure.
 # Every later sprint must shrink this exact allowlist; Sprint S4 removes it.
@@ -35,3 +36,8 @@ def test_direct_pygame_core_debt_is_explicit_and_cannot_grow() -> None:
     }
 
     assert actual == APPROVED_DIRECT_PYGAME_DEBT
+
+
+def test_content_registry_has_no_pygame_dependency() -> None:
+    """Static definitions and validation stay safe for headless imports."""
+    assert not any(_imports_pygame(path) for path in CONTENT_ROOT.rglob("*.py"))

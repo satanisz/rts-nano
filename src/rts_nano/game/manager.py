@@ -35,6 +35,7 @@ from typing import TYPE_CHECKING, cast
 
 import pygame
 
+from rts_nano.content import CONTENT
 from rts_nano.game.assets.entities import (
     Archer,
     Arclight,
@@ -77,7 +78,6 @@ from rts_nano.game.constants import (
     AttackType,
 )
 from rts_nano.game.construction import ConstructionSystem
-from rts_nano.game.data import get_building_spec
 from rts_nano.game.effects import EffectsSystem
 from rts_nano.game.fog import FogOfWar
 from rts_nano.game.gather import GatherSystem
@@ -598,7 +598,7 @@ class GameManager:
         self.cancel_pending_unit_command()
         self.pending_construction_type = building_type
         self.pending_construction_builder = builder
-        self.menu_status = f"Place {get_building_spec(building_type).display_name}"
+        self.menu_status = f"Place {CONTENT.get_building(building_type).display_name}"
         return True
 
     def cancel_pending_construction_placement(self) -> None:
@@ -1013,7 +1013,7 @@ class GameManager:
 
             if isinstance(entity, Unit):
                 query_radius = self.movement.attack_move_acquire_range(entity) + self.state.spatial_index.max_radius
-                query_radius += float(getattr(entity, "SPLASH_RADIUS", 0))
+                query_radius += float(getattr(entity, "splash_radius", 0))
                 nearby_entities = self.state.spatial_index.query(entity.get_center(), query_radius)
                 self.movement.update_attack_move_target(entity, nearby_entities)
                 entity.update(nearby_entities, self.movement.can_unit_move_to)

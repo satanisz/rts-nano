@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 
 import pygame
 
+from rts_nano.content import CONTENT
 from rts_nano.game.assets.entities import TeamColor, Wood
 from rts_nano.game.assets.entities.base_entities import Building, Resource, Unit, building_glyph
 from rts_nano.game.constants import (
@@ -180,14 +181,15 @@ class GameRenderer:
         can_start, _ = manager.construction.can_start_construction(builder, building_type, world_pos)
         color = (80, 255, 120) if can_start else (255, 80, 80)
         screen_pos = manager._world_to_screen(world_pos)
-        preview_rect = pygame.Rect(0, 0, Building.SIZE, Building.SIZE)
+        definition = CONTENT.get_building(building_type)
+        preview_rect = pygame.Rect(0, 0, definition.size, definition.size)
         preview_rect.center = screen_pos
 
-        preview_surface = pygame.Surface((Building.SIZE, Building.SIZE), pygame.SRCALPHA)
+        preview_surface = pygame.Surface((definition.size, definition.size), pygame.SRCALPHA)
         preview_surface.fill((*color, 55))
         screen.blit(preview_surface, preview_rect)
         pygame.draw.rect(screen, color, preview_rect, width=2)
-        pygame.draw.circle(screen, color, screen_pos, int(Building.RADIUS), width=1)
+        pygame.draw.circle(screen, color, screen_pos, int(definition.radius), width=1)
 
     def _draw_bottom_menu(self, screen: pygame.Surface, manager: GameManager) -> None:
         """Draw the selection details, portrait, and command-panel buttons."""

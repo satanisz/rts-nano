@@ -17,8 +17,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+from rts_nano.content import CONTENT
 from rts_nano.game.assets.entities import TeamColor
-from rts_nano.game.data import get_building_spec
 from rts_nano.game.rules import clamp_point
 from rts_nano.game.spatial import SpatialIndex
 
@@ -134,7 +134,7 @@ class GameState:
             if building.life <= 0 or building.is_under_construction:
                 continue
             try:
-                spec = get_building_spec(getattr(building, "spec_key", type(building).__name__.lower()))
+                spec = CONTENT.get_building(getattr(building, "spec_key", type(building).__name__.lower()))
             except ValueError:
                 continue
             population_cap += spec.provides_population

@@ -7,6 +7,16 @@ This inventory freezes the pre-registry architecture for Executive Plan 05. It i
 checklist, not a target design. Every duplicated source listed below must be removed or reduced
 to an adapter by S2.
 
+## S1 progress
+
+The canonical gameplay values listed in the original inventory now live in `content/` as
+immutable definitions exposed through `ContentRegistry`. `game/data.py` is a temporary legacy
+facade only; its mappings are read-only views of the registry and contain no independent values.
+Concrete entity classes retain behavior but receive all runtime stats from definitions.
+
+The remaining factory-to-class and factory-to-roster mappings are intentionally assigned to S2,
+together with historical rosters and `FACTION_BY_TEAM`.
+
 ## Stable vocabulary
 
 | Term | Meaning | Runtime representation in S0 |

@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Iterator
 
+    from rts_nano.content import BuildingDefinition, ResourceDefinition, UnitDefinition
     from rts_nano.game.order import Order
 from enum import StrEnum
 from pathlib import Path
@@ -326,16 +327,16 @@ class Resource(Entity):
         name: Display name of the resource.
     """
 
-    SIZE = 15
-    RADIUS = 5.0
-    DEFAULT_AMOUNT = 100
-
-    def __init__(self, x: int, y: int, name: str = "Resource") -> None:
+    def __init__(self, x: int, y: int, definition: ResourceDefinition) -> None:
         """Initialize the object."""
         if type(self) is Resource:
             raise TypeError("Resource is an abstract base class and cannot be instantiated directly.")
-        super().__init__(x, y, GRAY, self.SIZE, self.RADIUS, name)
-        self.amount: int = self.DEFAULT_AMOUNT
+        self.definition = definition
+        self.content_id = definition.id
+        self.spec_key = definition.key
+        self.visual_key = definition.visual_key
+        super().__init__(x, y, GRAY, definition.size, definition.radius, definition.display_name)
+        self.amount: int = definition.amount
 
 
 class Building(Entity):
@@ -351,22 +352,27 @@ class Building(Entity):
         team: Owning team.
     """
 
-    SIZE = 80
-    RADIUS = 20.0
-    MAX_LIFE = 500
-    DEFAULT_SHIELD_MODIFIER = 0
-
-    def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
+    def __init__(
+        self,
+        x: int,
+        y: int,
+        team: TeamColor,
+        definition: BuildingDefinition,
+    ) -> None:
         """Initialize the object."""
         if type(self) is Building:
             raise TypeError("Building is an abstract base class and cannot be instantiated directly.")
         color = Entity.get_team_color(team)
-        super().__init__(x, y, color, self.SIZE, self.RADIUS, "Building")
+        self.definition = definition
+        self.content_id = definition.id
+        self.spec_key = definition.key
+        self.visual_key = definition.visual_key
+        super().__init__(x, y, color, definition.size, definition.radius, definition.display_name)
         self.team = team
-        self.max_life = self.MAX_LIFE
-        self.life = self.MAX_LIFE
-        self.shield_modifier = self.DEFAULT_SHIELD_MODIFIER
-        self.vision_range = 400
+        self.max_life = definition.max_life
+        self.life = definition.max_life
+        self.shield_modifier = definition.shield_modifier
+        self.vision_range = definition.vision_range
         self.construction_total_frames = 0
         self.construction_remaining_frames = 0
         self.is_under_construction = False
@@ -454,65 +460,50 @@ class Unit(Entity):
         radius: Interaction radius used for collisions and selection.
     """
 
-    DEFAULT_SPEED: float = 0.0
-    DEFAULT_MAX_CARRY: int = 0
-    DEFAULT_MAX_LIFE: int = 0
-    DEFAULT_ATTACK_DAMAGE: int = 0
-    DEFAULT_ATTACK_MODIFIER: int = 0
-    DEFAULT_ATTACK_RANGE: int = 0
-    DEFAULT_ATTACK_SPEED: float = 0
-    DEFAULT_ATTACK_TYPE: tuple[AttackType, ...] = (AttackType.NONE,)
-    DEFAULT_SHIELD_MODIFIER: int = 0
-    # Shield buffer (AEGIS signature mechanic). ``shield_modifier`` above is flat
-    # armor; these are a separate regenerating absorb buffer drained before life.
-    # Non-AEGIS units leave ``DEFAULT_SHIELD_MAX`` at 0 and are unaffected.
-    DEFAULT_SHIELD_MAX: int = 0
-    DEFAULT_SHIELD_REGEN: int = 0
-    DEFAULT_SHIELD_REGEN_DELAY: int = 0
-    # Poison this unit inflicts on a landed hit (RUST signature). 0 = no poison.
-    POISON_DAMAGE: int = 0
-    POISON_DURATION: int = 0
-    # Frenzy (RUST Ripper/Brute): below ``FRENZY_HEALTH_FRACTION`` of max life the
-    # attack cooldown is scaled by ``FRENZY_COOLDOWN_MULTIPLIER`` (faster attacks).
-    FRENZY: bool = False
-    FRENZY_HEALTH_FRACTION: float = 0.5
-    FRENZY_COOLDOWN_MULTIPLIER: float = 0.66
     HIT_FLASH_DURATION_MS: int = 120
 
-    def __init__(self, x: int, y: int, team: TeamColor, size: int, radius: float) -> None:
+    def __init__(self, x: int, y: int, team: TeamColor, definition: UnitDefinition) -> None:
         """Initialize the object."""
         if type(self) is Unit:
             raise TypeError("Unit is an abstract base class and cannot be instantiated directly.")
         color = Entity.get_team_color(team)
-
-        super().__init__(x, y, color, size, radius, "Unit")
+        self.definition = definition
+        self.content_id = definition.id
+        self.spec_key = definition.key
+        self.visual_key = definition.visual_key
+        super().__init__(x, y, color, definition.size, definition.radius, definition.display_name)
         self.team: TeamColor = team
         self.default_facing: str = "right" if team == TeamColor.BLUE else "left"
         self.facing: str = self.default_facing
         self.prev_x: float = float(x)
         self.target_x: float = float(x)
         self.target_y: float = float(y)
-        self.speed: float = self.DEFAULT_SPEED
+        self.speed: float = definition.speed
         self.target_entity: Entity | None = None
         self.source_resource: Resource | None = None
         self.carry_wood: int = 0
         self.carry_gold: int = 0
-        self.max_carry: int = self.DEFAULT_MAX_CARRY
-        self.max_life: int = self.DEFAULT_MAX_LIFE
-        self.life: int = self.DEFAULT_MAX_LIFE
-        self.attack_damage: int = self.DEFAULT_ATTACK_DAMAGE
-        self.attack_modifier: int = self.DEFAULT_ATTACK_MODIFIER
-        self.attack_range: int = self.DEFAULT_ATTACK_RANGE
-        self.attack_speed: float = self.DEFAULT_ATTACK_SPEED
-        if isinstance(self.DEFAULT_ATTACK_TYPE, tuple):
-            self.attack_types: tuple[AttackType, ...] = self.DEFAULT_ATTACK_TYPE
-        else:
-            self.attack_types = (self.DEFAULT_ATTACK_TYPE,)
+        self.max_carry: int = definition.max_carry
+        self.max_life: int = definition.max_life
+        self.life: int = definition.max_life
+        self.attack_damage: int = definition.attack_damage
+        self.attack_modifier: int = definition.attack_modifier
+        self.attack_range: int = definition.attack_range
+        self.attack_speed: float = definition.attack_speed
+        self.attack_types: tuple[AttackType, ...] = definition.attack_kinds
         self.attack_type: AttackType = self.attack_types[0]
-        self.shield_modifier: int = self.DEFAULT_SHIELD_MODIFIER
-        init_shield(self, self.DEFAULT_SHIELD_MAX, self.DEFAULT_SHIELD_REGEN, self.DEFAULT_SHIELD_REGEN_DELAY)
-        self.poison_damage: int = self.POISON_DAMAGE
-        self.poison_duration: int = self.POISON_DURATION
+        self.shield_modifier: int = definition.shield_modifier
+        init_shield(self, definition.shield_max, definition.shield_regen, definition.shield_regen_delay)
+        self.poison_damage: int = definition.poison_damage
+        self.poison_duration: int = definition.poison_duration
+        self.frenzy = definition.frenzy
+        self.frenzy_health_fraction = definition.frenzy_health_fraction
+        self.frenzy_cooldown_multiplier = definition.frenzy_cooldown_multiplier
+        self.FRENZY_COOLDOWN_MULTIPLIER = definition.frenzy_cooldown_multiplier
+        self.melee_attack_range = definition.melee_attack_range
+        self.ranged_min_attack_range = definition.ranged_min_attack_range
+        self.ranged_attack_range = definition.ranged_attack_range
+        self.splash_radius = definition.splash_radius
         self.attack_cooldown: int = 0
         self.hit_flash_until_ms: int = 0
         self.last_attack_event: tuple[tuple[float, float], tuple[float, float], AttackType, Entity] | None = None
@@ -525,7 +516,7 @@ class Unit(Entity):
         self.progress_anchor_y: float = float(y)
         self.stuck_frames: int = 0
         self.unstuck_cooldown: int = 0
-        self.vision_range: int = 250
+        self.vision_range: int = definition.vision_range
 
     def draw(self, screen: pygame.Surface, offset: tuple[float, float] = (0, 0)) -> None:
         """Draw the unit and flip the sprite to match movement direction.
@@ -715,8 +706,8 @@ class Unit(Entity):
         life rather than life at the start of the fight.
         """
         frames = max(1, int(self.attack_speed * FPS))
-        if self.FRENZY and self.life <= self.FRENZY_HEALTH_FRACTION * self.max_life:
-            frames = max(1, int(frames * self.FRENZY_COOLDOWN_MULTIPLIER))
+        if self.frenzy and self.life <= self.frenzy_health_fraction * self.max_life:
+            frames = max(1, int(frames * self.frenzy_cooldown_multiplier))
         return frames
 
     def consume_attack_event(self) -> tuple[tuple[float, float], tuple[float, float], AttackType, Entity] | None:
