@@ -299,7 +299,17 @@ class OrderSystem:
 
     def construct_building(self, builder: Peasant, building_type: str, position: tuple[float, float]) -> bool:
         """Attempt to place a new building and assign a worker to construct it."""
-        return self._construction.start_construction(builder, building_type, position) is not None
+        building = self._construction.start_construction(builder, building_type, position)
+        if building is None or building.entity_id is None:
+            return False
+        self._tag_order([builder], "build", building.get_center())
+        builder.current_order = Order(
+            "build",
+            building.get_center(),
+            target_entity_id=building.entity_id,
+            target_content_id=building.content_id,
+        )
+        return True
 
     def cancel_construction(self, building: Building) -> bool:
         """Attempt to cancel an unfinished building."""

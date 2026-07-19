@@ -67,6 +67,16 @@ uv run python benchmarks/core_baseline.py
 `rts_nano.headless.HeadlessSimulation` exposes the same simulation used by the windowed game
 without importing Pygame, configuring SDL, loading images, or creating presentation objects.
 
+## Core controls
+
+- Right-click ground to move selected units. Hold Shift while right-clicking to append a move.
+- Right-click wood or gold with selected Peasants to gather it. Shift appends gathering after the
+  current move or construction order.
+- Right-click ground with a selected Base to set its Peasant rally point. Right-click wood or gold
+  to make newly produced Peasants harvest automatically.
+- Place a building with a Peasant, then Shift-right-click a resource to finish construction before
+  harvesting. The selection panel shows the active order and up to three queued orders.
+
 ## Quality gate
 
 ```powershell

@@ -26,6 +26,7 @@ type OrderKind = Literal[
     "attack_move",
     "attack",
     "gather",
+    "build",
     "return_cargo",
     "stop",
     "hold",

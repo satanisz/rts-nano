@@ -25,6 +25,7 @@ from rts_nano.game.constants import (
 )
 from rts_nano.game.fog import FogOfWar
 from rts_nano.game.ui.effects import ArcherShot, MagicMissile
+from rts_nano.game.ui.order_display import unit_order_lines
 from rts_nano.game.ui.pygame_assets import PygameAssets, building_glyph
 from rts_nano.game.ui.selection_panel import PORTRAIT_SIZE, build_selection_panel_layout
 from rts_nano.game.ui.state import PresentationState
@@ -409,6 +410,7 @@ class GameRenderer:
                 stats_texts.append(f"ATTACK: {primary_entity.attack_damage}")
                 stats_texts.append(f"RANGE: {primary_entity.attack_range}")
                 stats_texts.append(f"SHIELD: {primary_entity.shield_modifier}")
+                stats_texts.extend(unit_order_lines(primary_entity))
             elif isinstance(primary_entity, Building):
                 stats_texts.append(f"HP: {primary_entity.life}/{primary_entity.max_life}")
                 if primary_entity.is_under_construction:

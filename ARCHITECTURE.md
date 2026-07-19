@@ -62,11 +62,25 @@ One `SimulationRunner.step()` performs:
 2. capture stable entity creation order and update terrain height levels;
 3. update units, gathering, paths, local collisions, and incremental spatial cells;
 4. advance construction and production;
-5. resolve tower combat and timed effects;
-6. remove dead entities and publish obstacle revisions;
-7. update victory state.
+5. apply producer rally points and advance completed unit-order queues;
+6. resolve tower combat and timed effects;
+7. remove dead entities and publish obstacle revisions;
+8. update victory state.
 
 Presentation consumes the resulting state and attack events after the simulation step.
+
+## Orders and production handoff
+
+`OrderSystem` is the single high-level command boundary for both Pygame and headless callers.
+Units hold one active order and a bounded queue of at most 16 deferred orders. A normal command
+replaces the active intent and clears that queue; a Shift command appends move or gather work.
+Construction is an active `build` order, so queued gathering starts only after the worker finishes
+or the unfinished building is canceled. Only units with non-empty queues are tracked for per-tick
+advancement.
+
+Bases store a simulation-owned move or gather rally order. `ProductionSystem` reports newly spawned
+units to `SimulationRunner`, which asks `OrderSystem` to apply the producing Base's rally. A missing
+or depleted resource target resolves to the nearest live node of the same content type.
 
 ## Coordinates and collision
 

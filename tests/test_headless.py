@@ -200,6 +200,84 @@ def test_shift_right_click_resource_adds_gather_order(monkeypatch: pytest.Monkey
     simulation.close()
 
 
+def test_shift_gather_after_construction_waits_for_building_completion() -> None:
+    """A worker finishes its building before starting a queued harvest order."""
+    settings = _settings()
+    settings["Resources"]["wood"] = [[300, 130]]
+    simulation = HeadlessSimulation.from_settings(settings)
+    manager = simulation.manager
+    group = manager.teams[TeamColor.BLUE]
+    peasant = manager.state.entities_by_content_id("peasant", team=TeamColor.BLUE)[0]
+    wood = manager.state.resources_by_content("wood")[0]
+    peasant.x, peasant.y = 170, 130
+    group.resources.update({"wood": 80, "gold": 0})
+
+    assert manager.construct_building(peasant, "house", (170, 80)) is True
+    assert manager.issue_gather_order(TeamColor.BLUE, wood, [peasant], queue=True) == 1
+    house = manager.state.entities_by_content_id("house", team=TeamColor.BLUE)[0]
+
+    assert peasant.current_order is not None
+    assert peasant.current_order.kind == "build"
+    assert [order.kind for order in peasant.order_queue] == ["gather"]
+
+    simulation.step(420)
+
+    assert house.is_under_construction is False
+    assert peasant.carry_wood > 0 or group.resources["wood"] > 0
+    simulation.close()
+
+
+def test_shift_right_click_queues_gather_after_placed_building(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The windowed input path supports build, then Shift-right-click resource."""
+    settings = _settings()
+    settings["Resources"]["wood"] = [[300, 130]]
+    simulation = HeadlessSimulation.from_settings(settings)
+    manager = simulation.manager
+    group = manager.teams[TeamColor.BLUE]
+    peasant = manager.state.entities_by_content_id("peasant", team=TeamColor.BLUE)[0]
+    peasant.x, peasant.y = 170, 130
+    group.resources.update({"wood": 80, "gold": 0})
+    manager.select_entities_for_team(TeamColor.BLUE, [peasant])
+
+    assert manager.begin_construction_placement("house") is True
+    assert manager.place_pending_construction((170, 80)) is True
+    monkeypatch.setattr(pygame.key, "get_mods", lambda: pygame.KMOD_SHIFT)
+
+    InputController()._handle_right_click(manager, (300, 130))
+
+    assert peasant.current_order is not None
+    assert peasant.current_order.kind == "build"
+    assert [order.kind for order in peasant.order_queue] == ["gather"]
+
+    simulation.step(420)
+    assert peasant.carry_wood > 0 or group.resources["wood"] > 0
+    simulation.close()
+
+
+def test_cancelled_construction_advances_to_queued_gather() -> None:
+    """Canceling a build releases its surviving worker to the next queued order."""
+    settings = _settings()
+    settings["Resources"]["wood"] = [[300, 130]]
+    simulation = HeadlessSimulation.from_settings(settings)
+    manager = simulation.manager
+    group = manager.teams[TeamColor.BLUE]
+    peasant = manager.state.entities_by_content_id("peasant", team=TeamColor.BLUE)[0]
+    wood = manager.state.resources_by_content("wood")[0]
+    peasant.x, peasant.y = 170, 130
+    group.resources.update({"wood": 80, "gold": 0})
+
+    assert manager.construct_building(peasant, "house", (170, 80)) is True
+    assert manager.issue_gather_order(TeamColor.BLUE, wood, [peasant], queue=True) == 1
+    house = manager.state.entities_by_content_id("house", team=TeamColor.BLUE)[0]
+    assert manager.cancel_construction(house) is True
+
+    simulation.step(180)
+
+    assert peasant.carry_wood > 0 or group.resources["wood"] > 60
+    assert not peasant.order_queue
+    simulation.close()
+
+
 def test_base_ground_rally_moves_new_peasant_to_destination() -> None:
     simulation = HeadlessSimulation.from_settings(_settings())
     manager = simulation.manager
