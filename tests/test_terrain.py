@@ -5,6 +5,7 @@ from __future__ import annotations
 import pygame
 
 from rts_nano.game.terrain import TerrainMap
+from rts_nano.game.ui.terrain_renderer import TerrainRenderer
 
 
 def test_grouped_high_ground_loads_as_shapes_and_flat_regions() -> None:
@@ -47,4 +48,4 @@ def test_grouped_terrain_draws_without_crashing() -> None:
         }
     )
 
-    terrain.draw(screen)
+    TerrainRenderer().draw(screen, terrain, (0, 0))

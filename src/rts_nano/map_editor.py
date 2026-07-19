@@ -40,6 +40,7 @@ import pygame
 
 from rts_nano.game.constants import BLACK, BLUE, FPS, RED, SCREEN_HEIGHT, SCREEN_WIDTH, WHITE, YELLOW
 from rts_nano.game.terrain import TerrainMap
+from rts_nano.game.ui.terrain_renderer import TerrainRenderer
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -436,7 +437,11 @@ class MapEditor:
     def draw(self, screen: pygame.Surface) -> None:
         """Render the edited map, overlays, and controls."""
         play_area = screen.subsurface(pygame.Rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT - HUD_HEIGHT))
-        TerrainMap(self.terrain_settings).draw(play_area, (self.camera_x, self.camera_y))
+        TerrainRenderer().draw(
+            play_area,
+            TerrainMap(self.terrain_settings),
+            (self.camera_x, self.camera_y),
+        )
         if self.show_grid:
             self._draw_grid(play_area)
         self._draw_resources(play_area)

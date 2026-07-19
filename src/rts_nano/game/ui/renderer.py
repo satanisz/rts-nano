@@ -28,6 +28,7 @@ from rts_nano.game.constants import (
 from rts_nano.game.fog import FogOfWar
 from rts_nano.game.ui.effects import ArcherShot, MagicMissile
 from rts_nano.game.ui.pygame_assets import PygameAssets, building_glyph
+from rts_nano.game.ui.terrain_renderer import TerrainRenderer
 from rts_nano.simulation.entities import TeamColor, Wood
 from rts_nano.simulation.entities.base import Building, Entity, Resource, Unit
 
@@ -50,6 +51,7 @@ class GameRenderer:
         self._magic_missiles: list[MagicMissile] = []
         self._archer_shots: list[ArcherShot] = []
         self._last_effect_tick = -1
+        self._terrain_renderer = TerrainRenderer()
 
     @staticmethod
     def attach(manager: GameManager) -> None:
@@ -72,7 +74,7 @@ class GameRenderer:
         world_surface = screen.subsurface(pygame.Rect(0, 0, screen_width, play_area_height))
         camera_offset = (manager.camera_x, manager.camera_y)
 
-        manager.terrain.draw(world_surface, camera_offset)
+        self._terrain_renderer.draw(world_surface, manager.terrain, camera_offset)
 
         for entity in manager.all_entities:
             cx, cy = entity.get_center()

@@ -14,7 +14,6 @@ CONTENT_ROOT = Path("src/rts_nano/content")
 # Every later sprint must shrink this exact allowlist; Sprint S4 removes it.
 APPROVED_DIRECT_PYGAME_DEBT = {
     "manager.py",
-    "terrain.py",
 }
 
 SIMULATION_ROOT = Path("src/rts_nano/simulation")
@@ -54,4 +53,10 @@ def test_simulation_entities_have_no_pygame_dependency() -> None:
 def test_simulation_entity_import_does_not_load_pygame() -> None:
     """A fresh process imports the pure entity package without loading Pygame."""
     code = "import sys; import rts_nano.simulation.entities; assert 'pygame' not in sys.modules"
+    subprocess.run([sys.executable, "-c", code], check=True)  # noqa: S603 - fixed interpreter and source
+
+
+def test_terrain_import_does_not_load_pygame() -> None:
+    """Terrain data and collision queries import without presentation dependencies."""
+    code = "import sys; import rts_nano.game.terrain; assert 'pygame' not in sys.modules"
     subprocess.run([sys.executable, "-c", code], check=True)  # noqa: S603 - fixed interpreter and source
