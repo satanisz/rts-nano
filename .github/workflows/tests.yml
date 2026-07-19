@@ -1,0 +1,63 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          enable-cache: true
+          python-version: "3.14"
+      - name: Install locked dependencies
+        run: uv sync --locked --dev
+      - name: Test with coverage and replay gate
+        run: uv run pytest --cov=src/rts_nano --cov-report=term-missing
+      - name: Validate shipped maps
+        run: uv run python -m rts_nano.validate_map src/rts_nano/maps/*.json
+
+  render-smoke:
+    runs-on: ubuntu-latest
+    env:
+      SDL_VIDEODRIVER: dummy
+      SDL_AUDIODRIVER: dummy
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          enable-cache: true
+          python-version: "3.14"
+      - name: Install locked dependencies
+        run: uv sync --locked --dev
+      - name: Render without a display
+        run: >-
+          uv run pytest
+          tests/test_presentation_boundary.py
+          tests/test_asset_completeness.py
+
+  benchmark-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          enable-cache: true
+          python-version: "3.14"
+      - name: Install locked dependencies
+        run: uv sync --locked --dev
+      - name: Report benchmark smoke sample
+        run: >-
+          uv run python benchmarks/core_baseline.py
+          --repeats 1
+          --map-steps 200
+          --stress-steps 20

@@ -16,8 +16,13 @@ files.
 }
 ```
 
-`Blue` and `Red` are team IDs used by the current presentation. Each team declares its
-faction explicitly; color never selects faction. `Resources` holds neutral harvestable entities.
+`schema_version` is required and currently equals `2`. It allows validators and future migrations
+to distinguish incompatible serialized formats.
+
+`Blue` and `Red` are the serialized `team_id` values used by the current presentation. The top-level
+key is the team ID; it is converted to a typed `TeamId` at load time rather than repeated inside the
+section. Each team declares its `faction_id` explicitly; color never selects faction. `Resources`
+holds neutral harvestable entities.
 `Terrain` holds dimensions, terrain regions, and decorations.
 
 ## Teams

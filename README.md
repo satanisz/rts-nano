@@ -1,33 +1,72 @@
-# rts-nano
+# RTS Nano
 
-A simple and easy real-time strategy (RTS) game built with Python and Pygame.
-The main goal of this project is to serve as an environment for learning Reinforcement Learning (RL) using PyTorch.
+RTS Nano is a compact real-time strategy game with a deterministic, presentation-independent
+simulation core. The current milestone is a complete game core for later AI and reinforcement-
+learning work; it is not intended to be a commercial game product.
 
-## Overview
-While the game features basic RTS mechanics (resource gathering, base building, unit production, and combat), it is intentionally designed to include certain unbalanced mechanics. These imbalances create unique challenges and complex scenarios for RL agents to explore and solve.
+## Current game
 
-## Features
-* **2D Game Engine:** A custom event-driven loop built on top of Pygame for rendering, logic, and state coordination.
-* **Entities & Assets:** Includes units (Peasants, Knights, Archers, Mages), buildings (Bases), and resources (Wood, Gold).
-* **RL Sandbox:** The codebase is designed as a playground to apply PyTorch-based Reinforcement Learning algorithms to RTS macro and micro tasks.
+Two factions share the same economy and construction fundamentals but use distinct rosters:
 
-## Getting Started
+| Faction | Units | Production and defense |
+|---|---|---|
+| AEGIS | Peasant, Guardian, Marksman, Arclight | Base, House, Arsenal, Spire, Bastion |
+| RUST | Peasant, Ripper, Spitter, Brute | Base, House, Pit, Chem Vat, Spiker |
 
-### Prerequisites
-* Python 3.14 or newer
-* Dependencies are managed via `uv` or `hatchling`.
-* The runtime uses `pygame-ce`, which is imported as `pygame` by the codebase.
+The game supports gathering wood and gold, population supply, construction, production queues,
+terrain height and ramps, water and rock obstacles, formation movement, attack-move, patrol,
+defensive towers, fog of war, shields, poison, frenzy, splash damage, and deterministic victory.
+Teams select factions explicitly in map data; Blue and Red do not imply a faction.
 
-### Installation
+## Requirements and installation
 
-```bash
-# Install dependencies (e.g., using pip or uv)
-uv pip install -e .
+- Python 3.14 or newer
+- [uv](https://docs.astral.sh/uv/)
+- Pygame CE (installed from the lockfile)
 
-# Optional test suite (if you want to run tests)
-tox run
+```powershell
+uv sync --locked --dev
 ```
 
-## Goals
-* Learn and experiment with PyTorch by giving RL agents control over groups of units.
-* Explore strategies in deliberately unbalanced gameplay.
+## Run
+
+```powershell
+# Play the game
+uv run python -m rts_nano.main
+
+# Open the map editor
+uv run python -m rts_nano.map_editor --map map_settings_01.json
+
+# Validate one or more maps
+uv run python -m rts_nano.validate_map src/rts_nano/maps/map_settings_01.json src/rts_nano/maps/map_settings_02.json src/rts_nano/maps/map_settings_03.json
+
+# Run the pure headless benchmark
+uv run python benchmarks/core_baseline.py
+```
+
+`rts_nano.headless.HeadlessSimulation` exposes the same simulation used by the windowed game
+without importing Pygame, configuring SDL, loading images, or creating presentation objects.
+
+## Quality gate
+
+```powershell
+uv run ruff format --check .
+uv run ruff check .
+uv run ty check src/rts_nano
+uv run pytest --cov=src/rts_nano
+```
+
+The stored replay digest protects deterministic gameplay. CI also validates every shipped map,
+runs rendering with SDL's dummy video driver, and reports a fast benchmark smoke sample.
+
+## Project guides
+
+- [Architecture](ARCHITECTURE.md)
+- [Map schema](MAP_SCHEMA.md)
+- [Adding units, buildings, resources, or factions](docs/ADDING_CONTENT.md)
+- [Determinism contract](docs/DETERMINISM.md)
+- [Sprint S5 performance report](benchmarks/SPRINT_S5_REPORT.md)
+- [Game-core readiness plan](EXECUTIVE_PLAN_05_CORE_READINESS.md)
+
+AI policies, automated balance work, reward design, environment lifecycle changes, and RL training
+adapters intentionally belong to the next stage after this game-core milestone.

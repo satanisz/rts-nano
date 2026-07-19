@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "rts-nano"
 version = "0.1.0"
-description = "Add your description here"
+description = "A deterministic real-time strategy game core with Pygame and headless execution"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
