@@ -1,0 +1,72 @@
+{
+  "checkpoints": {
+    "combat_mechanics": {
+      "guardian_life": 150,
+      "guardian_poison_remaining": 59,
+      "guardian_shield_after": 56,
+      "guardian_shield_before": 60,
+      "ripper_life": 29,
+      "ripper_splash_damage": 16,
+      "spitter_damage": 16,
+      "spitter_life": 24,
+      "tick": 475
+    },
+    "construction": {
+      "bank": {
+        "gold": 300,
+        "wood": 420
+      },
+      "house_complete": true,
+      "house_life": 500,
+      "population_cap": 16,
+      "tick": 322,
+      "worker_state": "IDLE"
+    },
+    "economy": {
+      "bank": {
+        "gold": 0,
+        "wood": 20
+      },
+      "tick": 102,
+      "wood_remaining": 70,
+      "worker_carry": {
+        "gold": 0,
+        "wood": 10
+      },
+      "worker_position": [
+        120.864,
+        107.198
+      ],
+      "worker_state": "MOVING"
+    },
+    "movement": {
+      "guardian_position": [
+        320,
+        300
+      ],
+      "guardian_state": "IDLE",
+      "tick": 12
+    },
+    "production": {
+      "bank": {
+        "gold": 265,
+        "wood": 330
+      },
+      "marksman_life": 70,
+      "marksman_position": [
+        150.0,
+        160.0
+      ],
+      "queued_units": 0,
+      "tick": 443
+    },
+    "victory": {
+      "blue_units": 4,
+      "paused": true,
+      "red_entities": 0,
+      "result": "Team Blue wins",
+      "tick": 476
+    }
+  },
+  "schema_version": 1
+}
