@@ -1,6 +1,6 @@
-"""Typed map-schema helpers shared by the game, editor, and validators.
+"""Typed runtime map-schema helpers shared by the game, editor, and validators.
 
-Map files are JSON objects with four top-level sections:
+The simulation consumes runtime v2 JSON objects with four top-level sections:
 
 * ``Blue`` and ``Red`` contain spawn coordinates for team-owned entities.
 * ``Resources`` contains neutral resource coordinates.
@@ -15,17 +15,20 @@ rectangle and an L-shaped joined region use the same outer structure:
 ``"water": [[[x, y, width, height], [x2, y2, width2, height2]]]``
 
 This module deliberately uses ``TypedDict`` rather than dataclasses because the
-runtime still mutates JSON-like lists directly in the map editor. The helpers
-provide enough typing and validation for future agents to understand the schema
-without forcing a full serialization rewrite.
+runtime still mutates JSON-like lists directly in the map editor. Semantic
+MapSpec v3 sources are validated and compiled once at this module's loading
+boundary, so every caller receives the same v2 ``MapSettings`` shape.
 """
 
 from __future__ import annotations
 
 import json
+from copy import deepcopy
+from functools import lru_cache
 from typing import TYPE_CHECKING, NotRequired, Required, TypedDict, cast
 
 from rts_nano.content import CONTENT
+from rts_nano.map_spec import MapSpecError, compile_map_spec, validate_map_spec
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -40,9 +43,9 @@ class TeamSettings(TypedDict, total=False):
     """Serialized spawn lists for one controllable team.
 
     Entity names are faction-aware: ``peasant``, ``base`` and ``house`` are
-    shared, while military units and tech buildings belong to a faction (AEGIS
-    on Blue, RUST on Red). The validator accepts any name in
-    :data:`TEAM_ENTITY_NAMES`, regardless of which team it appears under.
+    shared, while military units and tech buildings belong to a faction. Team
+    color does not select faction. The validator accepts any name in
+    :data:`TEAM_ENTITY_NAMES` when it belongs to the declared faction.
     """
 
     faction_id: Required[str]
@@ -118,8 +121,22 @@ def load_map_settings(path: Path) -> MapSettings:
         ValueError: If the file does not match the canonical map schema.
         json.JSONDecodeError: If the file is not valid JSON.
     """
+    resolved_path = path.resolve()
+    file_stat = resolved_path.stat()
+    return deepcopy(_load_map_settings_cached(resolved_path, file_stat.st_mtime_ns, file_stat.st_size))
+
+
+@lru_cache(maxsize=32)
+def _load_map_settings_cached(path: Path, _mtime_ns: int, _size: int) -> MapSettings:
+    """Load one immutable cache entry; callers receive deep copies."""
     with path.open(encoding="utf-8") as map_file:
         payload = json.load(map_file)
+
+    if isinstance(payload, dict) and payload.get("schema_version") == 3:
+        try:
+            return compile_map_spec(payload)
+        except MapSpecError as exc:
+            raise ValueError(f"Invalid map settings in {path}:\n{exc}") from exc
 
     errors = validate_map_settings(payload)
     if errors:
@@ -135,8 +152,10 @@ def validate_map_settings(payload: object) -> list[str]:
         return ["Map root must be a JSON object."]
 
     root = cast("dict[object, object]", payload)
+    if root.get("schema_version") == 3:
+        return validate_map_spec(payload)
     if root.get("schema_version") != 2:
-        errors.append("schema_version must be 2.")
+        errors.append("schema_version must be 2 or 3.")
     _validate_team(root, "Blue", errors)
     _validate_team(root, "Red", errors)
     _validate_resources(root, errors)

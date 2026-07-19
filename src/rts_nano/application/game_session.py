@@ -93,8 +93,8 @@ class GameSession:
         """Initialize the object."""
         self.map_settings = map_settings
         terrain = TerrainMap(map_settings.get("Terrain"))
-        map_width = max(terrain.width, SCREEN_WIDTH)
-        map_height = max(terrain.height, PLAY_AREA_HEIGHT)
+        map_width = terrain.width
+        map_height = terrain.height
         self.state = GameState(
             terrain=terrain,
             fog=FogOfWar(map_width, map_height),
@@ -230,19 +230,15 @@ class GameSession:
     def set_viewport_size(self, width: int, height: int) -> None:
         """Update the visible game area to match the current display size.
 
-        The project originally used fixed screen constants. Fullscreen/window
-        work made the viewport dynamic, so this method mutates the module-level
-        ``SCREEN_WIDTH``, ``SCREEN_HEIGHT``, and ``PLAY_AREA_HEIGHT`` imported
-        from constants. This is intentionally centralized; avoid changing those
-        globals elsewhere.
+        Fullscreen/window changes update presentation dimensions only. World
+        bounds remain exactly those declared by the map, so rendering cannot
+        alter simulation movement, fog, pathfinding, or observation space.
         """
         global PLAY_AREA_HEIGHT, SCREEN_HEIGHT, SCREEN_WIDTH
 
         SCREEN_WIDTH = max(1, int(width))
         SCREEN_HEIGHT = max(BOTTOM_MENU_HEIGHT + 1, int(height))
         PLAY_AREA_HEIGHT = SCREEN_HEIGHT - BOTTOM_MENU_HEIGHT
-        self.map_width = max(self.terrain.width, SCREEN_WIDTH)
-        self.map_height = max(self.terrain.height, PLAY_AREA_HEIGHT)
         self._clamp_camera()
 
     @property

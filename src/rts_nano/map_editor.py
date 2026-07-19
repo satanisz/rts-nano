@@ -248,6 +248,12 @@ class MapEditor:
             settings = json.load(map_file)
         if not isinstance(settings, dict):
             raise TypeError("Map settings must be a JSON object.")
+        if settings.get("schema_version") == 3:
+            raise ValueError(
+                "The visual editor currently edits runtime v2 maps only. "
+                "MapSpec v3 is a semantic authoring format; use map_preview and "
+                "map_compile instead of opening its source in the editor."
+            )
         return settings
 
     def load_map(self, map_path: Path) -> None:

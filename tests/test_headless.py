@@ -59,6 +59,23 @@ def test_headless_simulation_steps_and_issues_orders() -> None:
     simulation.close()
 
 
+def test_viewport_size_never_changes_declared_world_bounds() -> None:
+    """Presentation dimensions cannot mutate deterministic simulation bounds."""
+    simulation = HeadlessSimulation.from_settings(_settings())
+    manager = simulation.manager
+    original_viewport = (manager.screen_width, manager.screen_height)
+
+    assert (manager.map_width, manager.map_height) == (400, 300)
+
+    try:
+        manager.set_viewport_size(1920, 1080)
+        assert (manager.map_width, manager.map_height) == (400, 300)
+        assert (manager.terrain.width, manager.terrain.height) == (400, 300)
+    finally:
+        manager.set_viewport_size(*original_viewport)
+        simulation.close()
+
+
 def test_headless_entities_have_no_visual_state() -> None:
     """Pure entities never allocate or retain presentation surfaces."""
     settings = _settings()

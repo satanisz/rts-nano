@@ -74,9 +74,23 @@ Gameplay uses world coordinates. Rendering subtracts camera offset to produce sc
 HUD and menus use screen coordinates. Terrain, building obstacles, spatial cells, paths, targets,
 and orders always use world coordinates.
 
+The map's declared width and height are authoritative simulation bounds. Viewport and window sizes
+are presentation state and never enlarge or otherwise mutate the world.
+
 Water and rocks block movement. Resources intentionally do not. Buildings are dynamic obstacles:
 creation/removal increments an obstacle revision, and active paths recalculate once against the new
 world. Unreachable orders stop deterministically rather than retrying forever.
+
+## Maps
+
+MapSpec v3 is the semantic authoring boundary. `map_spec.py` validates named anchors, patterns,
+mirrors, terrain, and strategic requirements, then deterministically compiles them to runtime v2
+`MapSettings`. `map_schema.py` is the shared v2/v3 loader boundary. Simulation code sees only the
+compiled v2 shape and does not depend on authoring metadata or Pygame.
+
+`map_tools.py` provides pure text inspection and SVG preview generation. Existing runtime v2 maps
+remain supported during incremental migration; the current visual editor is v2-only to prevent a
+v3 source from being destructively flattened on save.
 
 ## Ownership rules
 
@@ -85,7 +99,8 @@ world. Unreachable orders stop deterministically rather than retrying forever.
 - Add cross-entity rules to a focused system in `game/`.
 - Add tick orchestration and pure output events to `simulation/`.
 - Add input, surfaces, sprites, VFX, camera, or HUD behavior to `game/ui/` or `application/`.
-- Add serialized map validation to `map_schema.py` and editor-only behavior to `map_editor.py`.
+- Add runtime schema validation to `map_schema.py`, semantic authoring rules to `map_spec.py`, and
+  editor-only behavior to `map_editor.py`.
 - Never make simulation code conditional on whether a renderer exists.
 
 See [Adding Content](docs/ADDING_CONTENT.md) and [Determinism](docs/DETERMINISM.md) for extension

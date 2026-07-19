@@ -6,6 +6,7 @@ import json
 from typing import TYPE_CHECKING
 
 import pygame
+import pytest
 
 from rts_nano.map_editor import MapEditor
 
@@ -78,3 +79,12 @@ def test_create_new_map_writes_blank_schema(tmp_path: Path) -> None:
     assert payload["Blue"]["house"] == []
     assert payload["Red"]["pit"] == []
     assert payload["Red"]["house"] == []
+
+
+def test_editor_refuses_to_destructively_open_semantic_map(tmp_path: Path) -> None:
+    """The transitional v2 editor must not flatten a v3 source on save."""
+    path = tmp_path / "semantic.json"
+    path.write_text(json.dumps({"schema_version": 3}), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="MapSpec v3 is a semantic authoring format"):
+        MapEditor(path)

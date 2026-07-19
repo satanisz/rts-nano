@@ -1,151 +1,95 @@
-# RTS Nano Map Schema
+# RTS Nano Map Formats
 
-Maps are JSON files stored in `src/rts_nano/maps/`. The game loads
-`map_settings_01.json` by default, but the editor and validator can target other
-files.
+RTS Nano supports two JSON formats with deliberately different jobs:
 
-## Top-Level Shape
+- **MapSpec v3** is the canonical authoring format. It describes intent with named anchors,
+  deterministic patterns, mirrors, and strategic requirements. Humans and LLMs should create and
+  review this format.
+- **Runtime v2** is the expanded coordinate format consumed by the simulation. Existing maps remain
+  compatible, and the current visual editor edits this format only.
+
+`load_map_settings()` accepts either format. It validates and deterministically compiles v3 in
+memory, then always returns the same v2 `MapSettings` shape to the simulation. Pygame is not involved
+in loading or compilation.
+
+## MapSpec v3
+
+A minimal semantic map has world dimensions, anchors, two teams, placements, and terrain:
 
 ```json
 {
-    "schema_version": 2,
-    "Blue": {"faction_id": "AEGIS"},
-    "Red": {"faction_id": "RUST"},
-    "Resources": {},
-    "Terrain": {}
+  "schema_version": 3,
+  "id": "small_crossing",
+  "name": "Small Crossing",
+  "world": {"width": 1600, "height": 1200},
+  "symmetry": {"type": "rotate_180", "center": [800, 600]},
+  "anchors": {
+    "blue_main": [250, 900],
+    "red_main": {"mirror_of": "blue_main"},
+    "center": [800, 600]
+  },
+  "teams": [
+    {
+      "id": "Blue",
+      "faction_id": "AEGIS",
+      "start_anchor": "blue_main",
+      "starting_package": {"base": 1, "peasant": 3}
+    },
+    {
+      "id": "Red",
+      "faction_id": "RUST",
+      "start_anchor": "red_main",
+      "starting_package": {"base": 1, "peasant": 3}
+    }
+  ],
+  "placements": [],
+  "terrain": []
 }
 ```
 
-`schema_version` is required and currently equals `2`. It allows validators and future migrations
-to distinguish incompatible serialized formats.
+See [Map authoring](docs/MAP_AUTHORING.md) for patterns, terrain geometry, requirements, tools, and
+the safe migration workflow. The complete executable example is
+[`map_spec_01.json`](src/rts_nano/maps/map_spec_01.json).
 
-`Blue` and `Red` are the serialized `team_id` values used by the current presentation. The top-level
-key is the team ID; it is converted to a typed `TeamId` at load time rather than repeated inside the
-section. Each team declares its `faction_id` explicitly; color never selects faction. `Resources`
-holds neutral harvestable entities.
-`Terrain` holds dimensions, terrain regions, and decorations.
+## Runtime v2
 
-## Teams
-
-Each team section contains lists of `[x, y]` world coordinates:
+Runtime v2 stores every generated coordinate explicitly:
 
 ```json
-"Blue": {
-    "faction_id": "AEGIS",
-    "peasant": [[300, 350]],
-    "base": [[360, 500]],
-    "guardian": [],
-    "marksman": [],
-    "arclight": []
-}
-```
-
-Known entity keys:
-
-- `peasant`
-- `base`
-- `house`
-- AEGIS: `guardian`, `marksman`, `arclight`, `arsenal`, `spire`, `bastion`
-- RUST: `ripper`, `spitter`, `brute`, `pit`, `chem_vat`, `spiker`
-
-The validator rejects entity IDs outside the team's declared faction roster. Both teams may use
-the same faction, and faction assignments may be swapped without changing code.
-
-## Resources
-
-Resources are also `[x, y]` world coordinates:
-
-```json
-"Resources": {
-    "wood": [[823, 486]],
-    "gold": [[750, 632]]
-}
-```
-
-Known resource keys:
-
-- `wood`
-- `gold`
-
-## Terrain
-
-```json
-"Terrain": {
-    "width": 3200,
-    "height": 2200,
+{
+  "schema_version": 2,
+  "Blue": {"faction_id": "AEGIS", "base": [[250, 900]], "peasant": []},
+  "Red": {"faction_id": "RUST", "base": [[1350, 300]], "peasant": []},
+  "Resources": {"wood": [], "gold": []},
+  "Terrain": {
+    "width": 1600,
+    "height": 1200,
     "high_ground": [],
     "ramps": [],
     "water": [],
     "rocks": [],
     "grass": []
+  }
 }
 ```
 
-All terrain coordinates are world coordinates.
+Team entity and neutral resource positions are `[x, y]`. `high_ground` and `water` are grouped
+rectangle shapes: each shape is a list of `[x, y, width, height]` rectangles. Ramps are independent
+rectangles. Rocks and decorative grass are `[x, y, radius]` circles.
 
-## Grouped High Ground And Water
+Content IDs and faction rosters come exclusively from `src/rts_nano/content/`. The validator rejects
+unknown IDs and entities unavailable to a team's faction.
 
-`high_ground` and `water` use grouped rectangle shapes. Each outer list entry is
-one visual shape. Each shape contains one or more `[x, y, width, height]`
-rectangles.
+## Validation contract
 
-Single-rectangle shape:
-
-```json
-"high_ground": [
-    [
-        [145, 205, 565, 590]
-    ]
-]
-```
-
-Multi-rectangle joined shape:
-
-```json
-"water": [
-    [
-        [100, 100, 200, 80],
-        [250, 140, 100, 160]
-    ]
-]
-```
-
-The game flattens these rectangles for collision and height queries but keeps
-the groups for rendering. This avoids turning L-shaped or stepped terrain into a
-large filled bounding box.
-
-## Ramps
-
-Ramps are independent flat rectangles:
-
-```json
-"ramps": [
-    [640, 415, 95, 70]
-]
-```
-
-Ramps connect low ground and high ground. A unit can change height only when the
-current or next movement point is on a ramp.
-
-## Rocks And Grass
-
-Rocks and grass are `[x, y, radius]` payloads:
-
-```json
-"rocks": [[835, 575, 24]],
-"grass": [[530, 205, 9]]
-```
-
-Rocks block movement. Grass is decorative only.
-
-## Validation
-
-Run:
+The shared validator checks both versions:
 
 ```powershell
-uv run python -m rts_nano.validate_map src/rts_nano/maps/map_settings_01.json
+uv run python -m rts_nano.validate_map src/rts_nano/maps/map_spec_01.json
 ```
 
-The canonical schema requires grouped `high_ground` and `water`. The runtime
-loader is permissive for older hand-written maps, but the editor saves the
-canonical grouped format.
+For v3 it also rejects broken references, non-deterministic patterns, generated objects outside the
+world (including their radius), duplicate positions, objects on blocking terrain, insufficient
+starting resources, and unreachable declared routes. A valid v3 source must compile to valid v2.
+
+World dimensions are simulation state. Window or viewport resizing never changes map bounds.
