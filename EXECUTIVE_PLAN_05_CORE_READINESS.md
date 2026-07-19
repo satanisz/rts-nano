@@ -2,14 +2,15 @@
 
 Last updated: 2026-07-19
 
-## STATUS: IN PROGRESS — S5 COMPLETE
+## STATUS: COMPLETE — GAME CORE READY
 
-Sprints S0 through S5 completed on 2026-07-19. Gameplay definitions have one validated source of
+Sprints S0 through S6 completed on 2026-07-19. Gameplay definitions have one validated source of
 truth, runtime state uses one stable generic entity store, and `SimulationRunner` now advances the
 complete game without importing Pygame or owning application state. `GameSession` and Pygame
 presentation adapters compose the playable game. Spatial mutation, safe spawn, dynamic repathing,
 unreachable orders, boundary behavior, and scaling now have explicit contracts and benchmarks.
-Sprint S6 is next.
+Current documentation describes these boundaries and CI protects quality, tests, rendering, maps,
+replay determinism, and benchmark smoke. The game core is ready for a separate AI/RL plan.
 
 Goal: bring the current game to a **game-core-complete state suitable for later AI and RL work**.
 “Complete” does not mean a commercial product, campaign, or polished HUD. It means:
@@ -29,6 +30,18 @@ This plan starts after commit `cc100d6`, which delivered:
 - buildings as dynamic pathfinding obstacles,
 - a direct-path fast path,
 - 122 passing tests and measured simulation speedups.
+
+### Completion commits
+
+| Sprint | Commit(s) |
+|---|---|
+| S0 — baseline and guardrails | `b42e86b` |
+| S1 — content registry | `8472f06` |
+| S2 — generic world model | `30e2d52` |
+| S3 — pure entities | `1a57318` |
+| S4 — pure simulation/application split | `2512f64`, `189f05f`, `f9cfcec` |
+| S5 — correctness and performance | `dcda373` |
+| S6 — documentation and CI | `95005b4` |
 
 ---
 
@@ -390,6 +403,8 @@ compatibility-layer removal. Run the complete gate after every commit.
 
 ## 10. Sprint S6 — Documentation, CI, and stage closure
 
+**Status: COMPLETE (2026-07-19).** Review: `docs/reviews/SPRINT_S6_REVIEW.md`.
+
 **Size:** M
 **Goal:** make the repository describe and protect the completed game core.
 
@@ -422,7 +437,7 @@ compatibility-layer removal. Run the complete gate after every commit.
 - a clean checkout passes CI without manual setup,
 - documentation no longer describes legacy Knight/Archer/Mage as the current roster,
 - adding a unit does not require edits to several factories,
-- no document points to a nonexistent `EXECUTIVE_PLAN.md`,
+- no document points to an ambiguous or nonexistent plan path,
 - the completion report confirms readiness for a separate AI/RL plan.
 
 ---
