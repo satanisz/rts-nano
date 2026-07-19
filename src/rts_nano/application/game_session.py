@@ -130,6 +130,7 @@ class GameSession:
         self.victory = VictorySystem(self.state)
         self.gather = GatherSystem(self.state, self.movement)
         self.construction = ConstructionSystem(self.state, self.movement)
+        self.orders = OrderSystem(self.state, self.movement, self.production, self.construction)
         self.simulation = SimulationRunner(
             self.state,
             self.movement,
@@ -139,8 +140,8 @@ class GameSession:
             self.victory,
             self.gather,
             self.construction,
+            self.orders,
         )
-        self.orders = OrderSystem(self.state, self.movement, self.production, self.construction)
         self.menu_status: str | None = None
         self.mouse_pos: tuple[int, int] = (0, 0)
         self.camera_x: float = 0
@@ -278,9 +279,11 @@ class GameSession:
         team: TeamColor,
         destination: tuple[float, float],
         units: Iterable[Unit] | None = None,
+        *,
+        queue: bool = False,
     ) -> int:
         """Assign a move order to team units and return the affected count."""
-        return self.orders.issue_move_order(team, destination, units)
+        return self.orders.issue_move_order(team, destination, units, queue=queue)
 
     def issue_attack_move_order(
         self,
@@ -314,9 +317,11 @@ class GameSession:
         team: TeamColor,
         resource: Resource,
         units: Iterable[Unit] | None = None,
+        *,
+        queue: bool = False,
     ) -> int:
         """Order team peasants to gather from a resource node."""
-        return self.orders.issue_gather_order(team, resource, units)
+        return self.orders.issue_gather_order(team, resource, units, queue=queue)
 
     def issue_stop_order(self, team: TeamColor, units: Iterable[Unit] | None = None) -> int:
         """Stop team units and clear their active targets."""

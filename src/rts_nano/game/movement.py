@@ -161,17 +161,26 @@ class MovementSystem:
         else:
             unit.path_obstacle_revision = self._state.obstacle_revision
 
-    def assign_group_move_order(self, units: list[Unit], destination: tuple[int, int]) -> None:
-        """Assign a ground move order, spreading units across formation slots."""
+    def group_move_assignments(
+        self, units: list[Unit], destination: tuple[int, int]
+    ) -> list[tuple[Unit, tuple[int, int]]]:
+        """Pair units with deterministic formation slots without issuing orders."""
         if not units:
-            return
+            return []
         slots = self.formation_destinations(destination, len(units))
         remaining_slots = slots.copy()
+        assignments: list[tuple[Unit, tuple[int, int]]] = []
         for unit in sorted(
             units, key=lambda selected_unit: distance_between_points(selected_unit.get_center(), destination)
         ):
             slot = min(remaining_slots, key=lambda candidate: distance_between_points(unit.get_center(), candidate))
             remaining_slots.remove(slot)
+            assignments.append((unit, slot))
+        return assignments
+
+    def assign_group_move_order(self, units: list[Unit], destination: tuple[int, int]) -> None:
+        """Assign a ground move order, spreading units across formation slots."""
+        for unit, slot in self.group_move_assignments(units, destination):
             self.assign_unit_target(unit, slot)
 
     def formation_destinations(self, center: tuple[int, int], count: int) -> list[tuple[int, int]]:

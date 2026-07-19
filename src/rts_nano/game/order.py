@@ -14,7 +14,12 @@ with simulation entities and order systems.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
+
+if TYPE_CHECKING:
+    from rts_nano.game.types import EntityId
+
+MAX_QUEUED_ORDERS = 16
 
 type OrderKind = Literal[
     "move",
@@ -35,7 +40,9 @@ class Order:
     Args:
         kind: The order family that produced the unit's current behavior.
         destination: Optional world-space goal associated with the order.
+        target_entity_id: Stable simulation target for deferred entity orders.
     """
 
     kind: OrderKind
     destination: tuple[float, float] | None = None
+    target_entity_id: EntityId | None = None

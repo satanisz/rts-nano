@@ -7,11 +7,14 @@ from typing import TYPE_CHECKING
 
 import pygame
 
+from rts_nano.game.order import MAX_QUEUED_ORDERS
 from rts_nano.game.ui.input_controller import InputController
 from rts_nano.headless import HeadlessSimulation
 from rts_nano.simulation.entities.base import TeamColor
 
 if TYPE_CHECKING:
+    import pytest
+
     from rts_nano.map_schema import MapSettings
 
 
@@ -115,6 +118,85 @@ def test_manager_public_move_order_helper_assigns_units() -> None:
 
     assert affected == 1
     assert simulation.manager.units_for_team(TeamColor.BLUE)[0].state == "MOVING"
+    simulation.close()
+
+
+def test_shift_queue_executes_move_orders_in_sequence() -> None:
+    simulation = HeadlessSimulation.from_settings(_settings())
+    manager = simulation.manager
+    peasant = manager.state.entities_by_content_id("peasant", team=TeamColor.BLUE)[0]
+
+    assert manager.issue_move_order(TeamColor.BLUE, (20, 120), [peasant]) == 1
+    assert manager.issue_move_order(TeamColor.BLUE, (200, 120), [peasant], queue=True) == 1
+    assert len(peasant.order_queue) == 1
+
+    simulation.step(250)
+
+    assert peasant.get_center() == (200, 120)
+    assert not peasant.order_queue
+    simulation.close()
+
+
+def test_normal_move_replaces_the_active_order_and_clears_queue() -> None:
+    simulation = HeadlessSimulation.from_settings(_settings())
+    manager = simulation.manager
+    peasant = manager.state.entities_by_content_id("peasant", team=TeamColor.BLUE)[0]
+
+    manager.issue_move_order(TeamColor.BLUE, (20, 120), [peasant])
+    manager.issue_move_order(TeamColor.BLUE, (200, 120), [peasant], queue=True)
+    manager.issue_move_order(TeamColor.BLUE, (300, 20), [peasant])
+
+    assert not peasant.order_queue
+    simulation.step(200)
+    assert peasant.get_center() == (300, 20)
+    simulation.close()
+
+
+def test_shift_gather_waits_for_active_move_then_harvests() -> None:
+    settings = _settings()
+    settings["Resources"]["wood"] = [[200, 20]]
+    simulation = HeadlessSimulation.from_settings(settings)
+    manager = simulation.manager
+    peasant = manager.state.entities_by_content_id("peasant", team=TeamColor.BLUE)[0]
+    wood = manager.state.resources_by_content("wood")[0]
+
+    manager.issue_move_order(TeamColor.BLUE, (100, 20), [peasant])
+    manager.issue_gather_order(TeamColor.BLUE, wood, [peasant], queue=True)
+    simulation.step(220)
+
+    assert peasant.carry_wood > 0 or manager.teams[TeamColor.BLUE].resources["wood"] > 0
+    simulation.close()
+
+
+def test_unit_order_queue_has_a_hard_limit() -> None:
+    simulation = HeadlessSimulation.from_settings(_settings())
+    manager = simulation.manager
+    peasant = manager.state.entities_by_content_id("peasant", team=TeamColor.BLUE)[0]
+    manager.issue_move_order(TeamColor.BLUE, (20, 120), [peasant])
+
+    accepted = sum(
+        manager.issue_move_order(TeamColor.BLUE, (100 + index, 120), [peasant], queue=True)
+        for index in range(MAX_QUEUED_ORDERS + 4)
+    )
+
+    assert accepted == MAX_QUEUED_ORDERS
+    assert len(peasant.order_queue) == MAX_QUEUED_ORDERS
+    simulation.close()
+
+
+def test_shift_right_click_resource_adds_gather_order(monkeypatch: pytest.MonkeyPatch) -> None:
+    settings = _settings()
+    settings["Resources"]["wood"] = [[200, 20]]
+    simulation = HeadlessSimulation.from_settings(settings)
+    manager = simulation.manager
+    peasant = manager.state.entities_by_content_id("peasant", team=TeamColor.BLUE)[0]
+    manager.select_entities_for_team(TeamColor.BLUE, [peasant])
+    manager.issue_move_order(TeamColor.BLUE, (100, 20), [peasant])
+    monkeypatch.setattr(pygame.key, "get_mods", lambda: pygame.KMOD_SHIFT)
+
+    InputController()._handle_right_click(manager, (200, 20))
+
+    assert [order.kind for order in peasant.order_queue] == ["gather"]
     simulation.close()
 
 

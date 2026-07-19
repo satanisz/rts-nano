@@ -327,6 +327,7 @@ class Unit(Entity):
         self.attack_move_destination: tuple[float, float] | None = None
         self.patrol_points: tuple[tuple[float, float], tuple[float, float]] | None = None
         self.current_order: Order | None = None
+        self.order_queue: list[Order] = []
         self.state = "IDLE"
         self.progress_anchor_x: float = float(x)
         self.progress_anchor_y: float = float(y)

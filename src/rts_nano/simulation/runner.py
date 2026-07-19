@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from rts_nano.game.effects import EffectsSystem
     from rts_nano.game.gather import GatherSystem
     from rts_nano.game.movement import MovementSystem
+    from rts_nano.game.orders import OrderSystem
     from rts_nano.game.production import ProductionSystem
     from rts_nano.game.state import GameState
     from rts_nano.game.victory import VictorySystem
@@ -33,6 +34,7 @@ class SimulationRunner:
         victory: VictorySystem,
         gather: GatherSystem,
         construction: ConstructionSystem,
+        orders: OrderSystem,
     ) -> None:
         """Bind one state to its deterministic gameplay systems."""
         self.state = state
@@ -43,6 +45,7 @@ class SimulationRunner:
         self.victory = victory
         self.gather = gather
         self.construction = construction
+        self.orders = orders
         self.events: list[AttackLanded] = []
 
     def step(self) -> set[Entity]:
@@ -62,6 +65,7 @@ class SimulationRunner:
 
         self.construction.update()
         self.production.update()
+        self.orders.update_queues()
         self.events.extend(self.combat.update())
         self.effects.update()
         removed = self._remove_dead_entities(all_entities)
