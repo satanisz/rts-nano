@@ -15,19 +15,18 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from rts_nano.game.assets.entities.base_entities import Building, Unit
-from rts_nano.game.assets.entities.buildings import Tower
 from rts_nano.game.constants import FPS
 from rts_nano.game.rules import apply_damage, apply_poison, calculate_damage, distance_between, nearest_entity
 from rts_nano.game.types import EntityCategory
+from rts_nano.simulation.entities.base import Building, Unit
+from rts_nano.simulation.entities.buildings import Tower
+from rts_nano.simulation.events import AttackLanded
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-    from rts_nano.game.assets.entities.base_entities import Entity
     from rts_nano.game.state import GameState
-
-type ShotEvent = tuple[tuple[float, float], tuple[float, float], "Entity"]
+    from rts_nano.simulation.entities.base import Entity
 
 
 class CombatSystem:
@@ -37,9 +36,9 @@ class CombatSystem:
         """Initialize the combat system for one game state."""
         self._state = state
 
-    def update(self) -> list[ShotEvent]:
+    def update(self) -> list[AttackLanded]:
         """Advance tower cooldowns, fire at targets, and return shot visuals."""
-        shots: list[ShotEvent] = []
+        shots: list[AttackLanded] = []
         for attacker in self._attacking_buildings():
             if attacker.attack_cooldown > 0:
                 attacker.attack_cooldown -= 1
@@ -76,7 +75,7 @@ class CombatSystem:
         ]
         return nearest_entity(attacker, candidates)
 
-    def _fire(self, attacker: Tower, target: Entity) -> ShotEvent:
+    def _fire(self, attacker: Tower, target: Entity) -> AttackLanded:
         """Apply deterministic damage and return a projectile description."""
         damage = calculate_damage(
             attacker.attack_damage,
@@ -86,4 +85,12 @@ class CombatSystem:
         apply_damage(target, damage)
         apply_poison(target, attacker.poison_damage, attacker.poison_duration)
         attacker.attack_cooldown = max(1, int(attacker.attack_speed * FPS))
-        return (attacker.get_center(), target.get_center(), target)
+        if attacker.entity_id is None:
+            raise RuntimeError("Tower must be registered before combat")
+        return AttackLanded(
+            attacker.entity_id,
+            attacker.content_id,
+            attacker.get_center(),
+            target.get_center(),
+            target,
+        )

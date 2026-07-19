@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, ClassVar
 
 from rts_nano.content import CONTENT
-from rts_nano.game.assets.entities import (
+from rts_nano.simulation.entities import (
     Arclight,
     Arsenal,
     Base,
@@ -27,7 +27,7 @@ from rts_nano.game.assets.entities import (
 )
 
 if TYPE_CHECKING:
-    from rts_nano.game.assets.entities.base_entities import Entity
+    from rts_nano.simulation.entities.base import Entity
 
 
 class EntityFactory:

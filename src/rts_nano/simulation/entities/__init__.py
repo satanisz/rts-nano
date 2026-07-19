@@ -1,5 +1,5 @@
-from rts_nano.game.assets.entities.base_entities import TeamColor
-from rts_nano.game.assets.entities.buildings import (
+from rts_nano.simulation.entities.base import TeamColor
+from rts_nano.simulation.entities.buildings import (
     Arsenal,
     Barracks,
     Base,
@@ -12,8 +12,8 @@ from rts_nano.game.assets.entities.buildings import (
     Spire,
     Tower,
 )
-from rts_nano.game.assets.entities.resources import Gold, Wood
-from rts_nano.game.assets.entities.units import (
+from rts_nano.simulation.entities.resources import Gold, Wood
+from rts_nano.simulation.entities.units import (
     Archer,
     Arclight,
     Brute,

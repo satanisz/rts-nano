@@ -6,16 +6,16 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, cast
 
 from rts_nano.content import CONTENT
-from rts_nano.game.assets.entities import TeamColor
 from rts_nano.game.entity_store import EntityStore
 from rts_nano.game.rules import clamp_point
 from rts_nano.game.spatial import SpatialIndex
 from rts_nano.game.types import EntityCategory, FactionId, TeamId
+from rts_nano.simulation.entities import TeamColor
 
 if TYPE_CHECKING:
-    from rts_nano.game.assets.entities.base_entities import Building, Entity, Resource, Unit
     from rts_nano.game.fog import FogOfWar
     from rts_nano.game.terrain import TerrainMap
+    from rts_nano.simulation.entities.base import Building, Entity, Resource, Unit
 
 
 @dataclass(slots=True)
@@ -41,7 +41,7 @@ class GameState:
     selected_entities: list[Entity] = field(default_factory=list)
     game_over_message: str | None = None
     paused: bool = False
-    load_visuals: bool = True
+    tick_count: int = 0
     spatial_index: SpatialIndex = field(default_factory=SpatialIndex)
 
     @property

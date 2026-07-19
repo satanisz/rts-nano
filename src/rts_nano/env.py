@@ -34,9 +34,6 @@ from rts_nano.actions import (
     ActionKind as ActionKind,
 )
 from rts_nano.content import CONTENT
-from rts_nano.game.assets.entities import TeamColor
-from rts_nano.game.assets.entities.base_entities import Building, Unit
-from rts_nano.game.assets.entities.units import Peasant
 from rts_nano.game.fog import FogOfWar
 from rts_nano.game.observations import (
     EntityId,
@@ -48,6 +45,9 @@ from rts_nano.game.observations import (
     build_observation,
 )
 from rts_nano.headless import HeadlessSimulation
+from rts_nano.simulation.entities import TeamColor
+from rts_nano.simulation.entities.base import Building, Unit
+from rts_nano.simulation.entities.units import Peasant
 
 if TYPE_CHECKING:
     from rts_nano.map_schema import MapSettings

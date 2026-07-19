@@ -15,8 +15,8 @@ from rts_nano.game.constants import FPS, POISON_INTERVAL
 from rts_nano.game.rules import apply_damage
 
 if TYPE_CHECKING:
-    from rts_nano.game.assets.entities.base_entities import Entity
     from rts_nano.game.state import GameState
+    from rts_nano.simulation.entities.base import Entity
 
 
 class EffectsSystem:

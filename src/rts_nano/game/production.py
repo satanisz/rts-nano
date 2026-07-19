@@ -6,12 +6,11 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
 
 from rts_nano.content import CONTENT, PRODUCTION_REFUND_RATIO, ResourceCost, UnitDefinition
-from rts_nano.game.assets.entities.base_entities import visual_assets_enabled
 from rts_nano.game.entity_factory import EntityFactory
 
 if TYPE_CHECKING:
-    from rts_nano.game.assets.entities.base_entities import Building, TeamColor, Unit
     from rts_nano.game.state import GameState
+    from rts_nano.simulation.entities.base import Building, TeamColor, Unit
 
 
 @dataclass(slots=True)
@@ -165,8 +164,7 @@ class ProductionSystem:
             return
 
         spawn_x, spawn_y = self._state.clamp_to_world((producer.x, producer.y + producer.size))
-        with visual_assets_enabled(self._state.load_visuals):
-            unit = cast("Unit", EntityFactory.create(spec.key, int(spawn_x), int(spawn_y), producer.team))
+        unit = cast("Unit", EntityFactory.create(spec.key, int(spawn_x), int(spawn_y), producer.team))
         self._state.store.add(unit)
 
     @staticmethod

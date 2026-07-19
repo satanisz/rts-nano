@@ -18,7 +18,7 @@ from rts_nano.game.constants import AttackType
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
 
-    from rts_nano.game.assets.entities.base_entities import Entity, Resource
+    from rts_nano.simulation.entities.base import Entity, Resource
 
 HIGH_GROUND_RANGED_DAMAGE_BONUS = 2
 LOW_GROUND_RANGED_DAMAGE_PENALTY = 1

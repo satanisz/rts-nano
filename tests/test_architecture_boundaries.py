@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import ast
+import subprocess
+import sys
 from pathlib import Path
 
 CORE_ROOT = Path("src/rts_nano/game")
@@ -11,10 +13,11 @@ CONTENT_ROOT = Path("src/rts_nano/content")
 # Sprint S0 records existing debt rather than pretending the core is already pure.
 # Every later sprint must shrink this exact allowlist; Sprint S4 removes it.
 APPROVED_DIRECT_PYGAME_DEBT = {
-    "assets/entities/base_entities.py",
     "manager.py",
     "terrain.py",
 }
+
+SIMULATION_ROOT = Path("src/rts_nano/simulation")
 
 
 def _imports_pygame(path: Path) -> bool:
@@ -41,3 +44,14 @@ def test_direct_pygame_core_debt_is_explicit_and_cannot_grow() -> None:
 def test_content_registry_has_no_pygame_dependency() -> None:
     """Static definitions and validation stay safe for headless imports."""
     assert not any(_imports_pygame(path) for path in CONTENT_ROOT.rglob("*.py"))
+
+
+def test_simulation_entities_have_no_pygame_dependency() -> None:
+    """Entity modules remain importable without the presentation library."""
+    assert not any(_imports_pygame(path) for path in SIMULATION_ROOT.rglob("*.py"))
+
+
+def test_simulation_entity_import_does_not_load_pygame() -> None:
+    """A fresh process imports the pure entity package without loading Pygame."""
+    code = "import sys; import rts_nano.simulation.entities; assert 'pygame' not in sys.modules"
+    subprocess.run([sys.executable, "-c", code], check=True)  # noqa: S603 - fixed interpreter and source

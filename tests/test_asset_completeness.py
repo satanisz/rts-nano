@@ -6,13 +6,15 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from rts_nano.game.assets.entities import (
+from rts_nano.game.ui.pygame_assets import PygameAssets
+from rts_nano.simulation.entities import (
     Arclight,
     Arsenal,
     Base,
     Bastion,
     Brute,
     ChemVat,
+    Gold,
     Guardian,
     House,
     Marksman,
@@ -22,10 +24,11 @@ from rts_nano.game.assets.entities import (
     Spire,
     Spitter,
     TeamColor,
+    Wood,
 )
 
 if TYPE_CHECKING:
-    from rts_nano.game.assets.entities.base_entities import Building, Unit
+    from rts_nano.simulation.entities.base import Building, Unit
 
 
 @pytest.mark.parametrize(
@@ -40,13 +43,16 @@ if TYPE_CHECKING:
     ],
 )
 def test_faction_units_ship_runtime_art(unit_type: type[Unit], team: TeamColor) -> None:
-    """Every faction unit loads a square sprite and a command-panel portrait."""
+    """Presentation resolves a square sprite and portrait for every faction unit."""
     unit = unit_type(0, 0, team)
+    assets = PygameAssets()
+    sprite = assets.sprite(unit)
+    portrait = assets.portrait(unit)
 
-    assert unit.image is not None
-    assert unit.image.get_size() == (unit.size, unit.size)
-    assert unit.avatar_image is not None
-    assert unit.avatar_image.get_size() == (120, 120)
+    assert sprite is not None
+    assert sprite.get_size() == (unit.size, unit.size)
+    assert portrait is not None
+    assert portrait.get_size() == (120, 120)
 
 
 @pytest.mark.parametrize(
@@ -64,19 +70,34 @@ def test_faction_units_ship_runtime_art(unit_type: type[Unit], team: TeamColor) 
     ],
 )
 def test_buildings_ship_runtime_art(building_type: type[Building], team: TeamColor) -> None:
-    """Every playable building loads a square sprite and HUD portrait."""
+    """Presentation resolves a square sprite and portrait for every building."""
     building = building_type(0, 0, team)
+    assets = PygameAssets()
+    sprite = assets.sprite(building)
+    portrait = assets.portrait(building)
 
-    assert building.image is not None
-    assert building.image.get_size() == (building.size, building.size)
-    assert building.avatar_image is not None
-    assert building.avatar_image.get_size() == (120, 120)
+    assert sprite is not None
+    assert sprite.get_size() == (building.size, building.size)
+    assert portrait is not None
+    assert portrait.get_size() == (120, 120)
 
 
 def test_repeated_entities_share_cached_visual_surfaces() -> None:
-    """Identical runtime art is decoded and scaled once, then safely shared."""
+    """The presentation cache shares both normal and flipped variants."""
     first = Marksman(0, 0, TeamColor.BLUE)
     second = Marksman(100, 100, TeamColor.BLUE)
+    assets = PygameAssets()
 
-    assert first.original_image is second.original_image
-    assert first.avatar_image is second.avatar_image
+    assert assets.sprite(first) is assets.sprite(second)
+    assert assets.sprite(first, flipped=True) is assets.sprite(second, flipped=True)
+    assert assets.portrait(first) is assets.portrait(second)
+
+
+@pytest.mark.parametrize("resource_type", [Wood, Gold])
+def test_resources_ship_runtime_art(resource_type: type) -> None:
+    """Presentation resolves world and portrait art for neutral resources."""
+    resource = resource_type(0, 0)
+    assets = PygameAssets()
+
+    assert assets.sprite(resource) is not None
+    assert assets.portrait(resource) is not None

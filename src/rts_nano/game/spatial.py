@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from rts_nano.game.assets.entities.base_entities import Entity
+    from rts_nano.simulation.entities.base import Entity
 
 
 class SpatialIndex:

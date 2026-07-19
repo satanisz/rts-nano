@@ -16,8 +16,6 @@ from typing import TYPE_CHECKING
 import pygame
 
 from rts_nano.content import CONTENT
-from rts_nano.game.assets.entities import Base, TeamColor
-from rts_nano.game.assets.entities.base_entities import Unit
 from rts_nano.game.manager import (
     CAMERA_SPEED,
     DOUBLE_CLICK_MS,
@@ -26,6 +24,8 @@ from rts_nano.game.manager import (
     ClickMarker,
 )
 from rts_nano.game.rules import distance_between_points
+from rts_nano.simulation.entities import Base, TeamColor
+from rts_nano.simulation.entities.base import Unit
 
 if TYPE_CHECKING:
     from rts_nano.game.manager import GameManager

@@ -19,9 +19,9 @@ from typing import TYPE_CHECKING
 import pygame
 
 from rts_nano.content import CONTENT
-from rts_nano.game.assets.entities.base_entities import Building, Unit
-from rts_nano.game.assets.entities.units import Peasant
 from rts_nano.game.constants import BOTTOM_MENU_HEIGHT
+from rts_nano.simulation.entities.base import Building, Unit
+from rts_nano.simulation.entities.units import Peasant
 
 if TYPE_CHECKING:
     from rts_nano.game.manager import GameManager

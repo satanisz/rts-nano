@@ -5,8 +5,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from rts_nano.benchmark import measure_steps_per_second, run_batch
-from rts_nano.game.assets.entities.base_entities import TeamColor
 from rts_nano.rewards import win_loss_reward
+from rts_nano.simulation.entities.base import TeamColor
 
 if TYPE_CHECKING:
     from rts_nano.map_schema import MapSettings

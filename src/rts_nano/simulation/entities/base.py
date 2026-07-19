@@ -1,41 +1,32 @@
-"""Base entity types shared across units, buildings, and resources.
+"""Pure simulation entity types shared across units, buildings, and resources.
 
-The entity layer is intentionally lightweight and pygame-oriented. Entities know
-how to draw themselves, test point selection, move/attack if they are units, and
-resolve local collisions. Cross-entity systems such as resource bank updates,
-dead-list pruning, path creation, and projectile spawning live in
+Entities own deterministic state and behavior only. Sprite loading, drawing,
+animation direction, placeholders, and transient visual feedback belong to the
+presentation layer. Cross-entity systems such as resource bank updates,
+dead-list pruning, path creation, and attack-event consumption live in
 ``GameManager``.
 
 All entity coordinates are world coordinates representing the center point.
-Rendering accepts a camera offset and converts to screen coordinates at draw
-time. Avoid storing screen-space positions on entities.
+No constructor performs file I/O or imports Pygame.
 """
 
 from __future__ import annotations
 
-import logging
-from contextlib import contextmanager
-from contextvars import ContextVar
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable, Iterator
+    from collections.abc import Callable, Iterable
 
     from rts_nano.content import BuildingDefinition, ResourceDefinition, UnitDefinition
     from rts_nano.game.order import Order
     from rts_nano.game.types import ContentId, EntityId
 from enum import StrEnum
-from pathlib import Path
-
-import pygame
 
 from rts_nano.game.constants import (
     BLUE,
     FPS,
     GRAY,
     RED,
-    WHITE,
-    YELLOW,
     AttackType,
 )
 from rts_nano.game.rules import (
@@ -46,59 +37,6 @@ from rts_nano.game.rules import (
     calculate_height_range_bonus,
     distance_between,
 )
-
-BASE_DIR = Path(__file__).resolve().parent.parent
-
-# Placeholder glyphs for buildings that have no sprite art yet: a type initial
-# and an accent "roof" color so each building reads as a distinct structure
-# rather than a flat team-colored square.
-_BUILDING_GLYPHS: dict[str, tuple[str, tuple[int, int, int]]] = {
-    "house": ("H", (95, 140, 90)),
-    # AEGIS (cool blues/purples)
-    "arsenal": ("A", (80, 120, 190)),
-    "spire": ("S", (120, 110, 200)),
-    "bastion": ("D", (90, 130, 170)),
-    # RUST (warm reds/toxic greens)
-    "pit": ("P", (150, 80, 70)),
-    "chem_vat": ("C", (110, 160, 70)),
-    "spiker": ("X", (150, 90, 70)),
-}
-_glyph_font_cache: dict[int, pygame.font.Font] = {}
-_visual_assets_enabled: ContextVar[bool] = ContextVar("visual_assets_enabled", default=True)
-_raw_image_cache: dict[Path, pygame.Surface] = {}
-_fitted_image_cache: dict[tuple[Path, int], pygame.Surface] = {}
-
-
-@contextmanager
-def visual_assets_enabled(enabled: bool) -> Iterator[None]:
-    """Temporarily control whether newly created entities load visual assets."""
-    token = _visual_assets_enabled.set(enabled)
-    try:
-        yield
-    finally:
-        _visual_assets_enabled.reset(token)
-
-
-def _load_fitted_image(path: str | Path, size: int) -> pygame.Surface:
-    """Load and fit an image once, sharing immutable source surfaces by key."""
-    resolved_path = Path(path).resolve()
-    fitted_key = (resolved_path, size)
-    fitted = _fitted_image_cache.get(fitted_key)
-    if fitted is not None:
-        return fitted
-
-    raw = _raw_image_cache.get(resolved_path)
-    if raw is None:
-        raw = pygame.image.load(resolved_path)
-        _raw_image_cache[resolved_path] = raw
-    fitted = _fit_surface_to_square(raw, size)
-    _fitted_image_cache[fitted_key] = fitted
-    return fitted
-
-
-def building_glyph(spec_key: str) -> tuple[str, tuple[int, int, int]]:
-    """Return the placeholder (label, accent color) for a building type."""
-    return _BUILDING_GLYPHS.get(spec_key, ("?", (110, 110, 120)))
 
 
 def init_shield(entity: Entity, shield_max: int, shield_regen: int, shield_regen_delay: int) -> None:
@@ -117,32 +55,6 @@ def init_shield(entity: Entity, shield_max: int, shield_regen: int, shield_regen
     entity.shield_regen_accumulator = 0.0
 
 
-def _building_glyph_font(size: int) -> pygame.font.Font:
-    """Return a cached font for building placeholder labels at a given size."""
-    font = _glyph_font_cache.get(size)
-    if font is None:
-        font = pygame.font.SysFont(None, size)
-        _glyph_font_cache[size] = font
-    return font
-
-
-def _fit_surface_to_square(surface: pygame.Surface, size: int) -> pygame.Surface:
-    """Scale ``surface`` proportionally onto a transparent square canvas."""
-    source_width, source_height = surface.get_size()
-    if source_width <= 0 or source_height <= 0:
-        return pygame.Surface((size, size), pygame.SRCALPHA)
-
-    scale = min(size / source_width, size / source_height)
-    scaled_size = (
-        max(1, round(source_width * scale)),
-        max(1, round(source_height * scale)),
-    )
-    scaled = pygame.transform.smoothscale(surface, scaled_size)
-    canvas = pygame.Surface((size, size), pygame.SRCALPHA)
-    canvas.blit(scaled, scaled.get_rect(center=(size // 2, size // 2)))
-    return canvas
-
-
 class TeamColor(StrEnum):
     """Available ownership groups for game entities.
 
@@ -157,16 +69,16 @@ class TeamColor(StrEnum):
 
 
 class Entity:
-    """Represent a drawable selectable object on the map.
+    """Represent a selectable simulation object on the map.
 
     ``Entity`` is the common API consumed by selection, collision, targeting,
-    minimap drawing, and terrain-height refresh. Concrete subclasses should set
+    minimap projection, and terrain-height refresh. Concrete subclasses should set
     gameplay fields such as ``life`` and ``team`` where applicable.
 
     Args:
         x: Horizontal center position.
         y: Vertical center position.
-        color: Display color used for primitive rendering.
+        color: Stable team color metadata consumed by presentation adapters.
         size: Sprite or rectangle size in pixels.
         radius: Interaction radius used for collisions and selection.
         class_name: Human-readable entity label.
@@ -174,6 +86,8 @@ class Entity:
 
     definition: UnitDefinition | BuildingDefinition | ResourceDefinition
     content_id: ContentId
+    spec_key: str
+    visual_key: str
 
     # Shield buffer defaults shared by every entity. Only combat entities that
     # call ``init_shield`` (AEGIS units/towers) get a nonzero buffer; everything
@@ -208,10 +122,6 @@ class Entity:
         self.selected: bool = False
         self.life: int = 0
         self.class_name: str = class_name
-        self.image: pygame.Surface | None = None
-        self.original_image: pygame.Surface | None = None
-        self.avatar_image: pygame.Surface | None = None
-        self.visuals_enabled = _visual_assets_enabled.get()
         self.height_level: int = 0
         self.vision_range: int = 0
 
@@ -235,68 +145,6 @@ class Entity:
         if team == TeamColor.GREY or team == TeamColor.RESOURCES:
             return GRAY
         raise ValueError(f"Unknown team color: {team}")
-
-    def load_image(self, image_path: str | Path | None, avatar_path: str | Path | None = None) -> None:
-        """Load and scale an entity sprite from disk.
-
-        Args:
-            image_path: Path to the sprite file.
-            avatar_path: Optional path to the portrait/avatar file.
-        """
-        if image_path and self.visuals_enabled:
-            try:
-                if avatar_path:
-                    try:
-                        self.avatar_image = _load_fitted_image(avatar_path, 120)
-                    except Exception as exc:
-                        logging.warning(f"Could not load avatar {avatar_path}: {exc}")
-                        self.avatar_image = _load_fitted_image(image_path, 120)
-                else:
-                    self.avatar_image = _load_fitted_image(image_path, 120)
-
-                self.image = _load_fitted_image(image_path, int(self.size))
-                self.original_image = self.image
-            except Exception as exc:
-                logging.warning(f"Could not load image {image_path}: {exc}")
-                self.image = None
-                self.original_image = None
-                self.avatar_image = None
-
-    def draw(self, screen: pygame.Surface, offset: tuple[float, float] = (0, 0)) -> None:
-        """Draw the entity, its collision radius, and selection outline.
-
-        Args:
-            screen: Pygame surface used for rendering.
-            offset: Camera offset subtracted from world coordinates.
-        """
-        offset_x, offset_y = offset
-        draw_x = self.x - offset_x
-        draw_y = self.y - offset_y
-        pygame.draw.circle(
-            screen,
-            self._get_hitbox_color(),
-            (int(draw_x), int(draw_y)),
-            int(self.radius + 2),
-            self._get_hitbox_width(),
-        )
-
-        top_left_x = int(draw_x - self.size / 2)
-        top_left_y = int(draw_y - self.size / 2)
-        if self.image:
-            screen.blit(self.image, (top_left_x, top_left_y))
-        else:
-            pygame.draw.rect(screen, self.color, (top_left_x, top_left_y, self.size, self.size))
-
-        if self.selected:
-            pygame.draw.rect(screen, WHITE, (top_left_x, top_left_y, self.size, self.size), 1)
-
-    def _get_hitbox_width(self) -> int:
-        """Return the stroke width used for the entity hitbox."""
-        return 1
-
-    def _get_hitbox_color(self) -> tuple[int, int, int]:
-        """Return the color used for the entity hitbox."""
-        return self.color
 
     def contains_point(self, pos: tuple[int, int]) -> bool:
         """Check whether a world position overlaps the entity bounds.
@@ -413,42 +261,6 @@ class Building(Entity):
             return True
         return False
 
-    def draw(self, screen: pygame.Surface, offset: tuple[float, float] = (0, 0)) -> None:
-        """Draw the building sprite, or a typed placeholder glyph when art is absent.
-
-        Structures without art render as a stone body with a type-colored roof,
-        a team-colored border, and a type initial so they remain distinguishable.
-        """
-        if self.image is not None:
-            super().draw(screen, offset)
-            return
-
-        offset_x, offset_y = offset
-        draw_x = int(self.x - offset_x)
-        draw_y = int(self.y - offset_y)
-        size = int(self.size)
-        top_left = (draw_x - size // 2, draw_y - size // 2)
-        body_rect = pygame.Rect(top_left[0], top_left[1], size, size)
-        label, accent = building_glyph(getattr(self, "spec_key", ""))
-
-        pygame.draw.rect(screen, (66, 68, 78), body_rect)
-        pygame.draw.rect(screen, accent, pygame.Rect(top_left[0], top_left[1], size, max(6, size // 4)))
-        pygame.draw.rect(screen, self.color, body_rect, 3)
-
-        glyph = _building_glyph_font(max(12, int(size * 0.5))).render(label, True, (235, 235, 235))
-        screen.blit(glyph, glyph.get_rect(center=(draw_x, draw_y + size // 8)))
-
-        if self.is_under_construction:
-            scaffold = pygame.Surface((size, size), pygame.SRCALPHA)
-            scaffold.fill((20, 20, 20, 110))
-            screen.blit(scaffold, top_left)
-            pygame.draw.rect(
-                screen, (80, 220, 120), (top_left[0], top_left[1] + size - 5, int(size * self.construction_progress), 4)
-            )
-
-        if self.selected:
-            pygame.draw.rect(screen, WHITE, body_rect, 1)
-
 
 class Unit(Entity):
     """Represent a moving controllable entity.
@@ -470,7 +282,6 @@ class Unit(Entity):
     """
 
     definition: UnitDefinition
-    HIT_FLASH_DURATION_MS: int = 120
 
     def __init__(self, x: int, y: int, team: TeamColor, definition: UnitDefinition) -> None:
         """Initialize the object."""
@@ -483,9 +294,6 @@ class Unit(Entity):
         self.visual_key = definition.visual_key
         super().__init__(x, y, color, definition.size, definition.radius, definition.display_name)
         self.team: TeamColor = team
-        self.default_facing: str = "right" if team == TeamColor.BLUE else "left"
-        self.facing: str = self.default_facing
-        self.prev_x: float = float(x)
         self.target_x: float = float(x)
         self.target_y: float = float(y)
         self.speed: float = definition.speed
@@ -515,7 +323,6 @@ class Unit(Entity):
         self.ranged_attack_range = definition.ranged_attack_range
         self.splash_radius = definition.splash_radius
         self.attack_cooldown: int = 0
-        self.hit_flash_until_ms: int = 0
         self.last_attack_event: tuple[tuple[float, float], tuple[float, float], AttackType, Entity] | None = None
         self.path: list[tuple[float, float]] = []
         self.attack_move_destination: tuple[float, float] | None = None
@@ -527,48 +334,6 @@ class Unit(Entity):
         self.stuck_frames: int = 0
         self.unstuck_cooldown: int = 0
         self.vision_range: int = definition.vision_range
-
-    def draw(self, screen: pygame.Surface, offset: tuple[float, float] = (0, 0)) -> None:
-        """Draw the unit and flip the sprite to match movement direction.
-
-        Args:
-            screen: Pygame surface used for rendering.
-            offset: Camera offset subtracted from world coordinates.
-        """
-        dx = self.x - self.prev_x
-        if dx > 0.1:
-            self.facing = "right"
-        elif dx < -0.1:
-            self.facing = "left"
-
-        if self.original_image is not None:
-            if self.facing != self.default_facing:
-                self.image = pygame.transform.flip(self.original_image, True, False)
-            else:
-                self.image = self.original_image
-
-        self.prev_x = self.x
-
-        super().draw(screen, offset)
-
-    def _get_hitbox_width(self) -> int:
-        """Return the hitbox width for units."""
-        return 1
-
-    def _get_hitbox_color(self) -> tuple[int, int, int]:
-        """Return a one-shot flash color after a successful hit."""
-        if self._is_hit_flash_active():
-            return YELLOW
-        return self.color
-
-    def _trigger_hit_flash(self) -> None:
-        """Start a short visual flash to indicate a landed hit."""
-        if self.visuals_enabled:
-            self.hit_flash_until_ms = pygame.time.get_ticks() + self.HIT_FLASH_DURATION_MS
-
-    def _is_hit_flash_active(self) -> bool:
-        """Return whether the hit flash is currently visible."""
-        return pygame.time.get_ticks() < self.hit_flash_until_ms
 
     def set_target(self, pos: tuple[float, float], target_entity: Entity | None = None) -> None:
         """Assign a movement or interaction target.
@@ -703,7 +468,6 @@ class Unit(Entity):
         apply_damage(target, damage)
         apply_poison(target, self.poison_damage, self.poison_duration)
         self.attack_cooldown = self._attack_cooldown_frames()
-        self._trigger_hit_flash()
         self.last_attack_event = ((self.x, self.y), target.get_center(), self.attack_type, target)
         self.state = "ATTACKING"
         return damage

@@ -18,9 +18,9 @@ from rts_nano.actions import (
     StopAction,
 )
 from rts_nano.env import MoveAction, NoOpAction, RtsNanoEnv
-from rts_nano.game.assets.entities import TeamColor
 from rts_nano.game.observations import EntityIdRegistry, build_observation
 from rts_nano.headless import HeadlessSimulation
+from rts_nano.simulation.entities import TeamColor
 
 if TYPE_CHECKING:
     from rts_nano.map_schema import MapSettings

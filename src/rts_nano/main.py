@@ -19,12 +19,12 @@ from pathlib import Path
 import pygame
 
 from rts_nano.ai import ScriptedAI
-from rts_nano.game.assets.entities import TeamColor
 from rts_nano.game.constants import FPS, GRAY, SCREEN_HEIGHT, SCREEN_WIDTH
 from rts_nano.game.manager import FULLSCREEN_TOGGLE_EVENT, GameManager
 from rts_nano.game.ui.input_controller import InputController
 from rts_nano.game.ui.renderer import GameRenderer
 from rts_nano.map_schema import load_map_settings
+from rts_nano.simulation.entities import TeamColor
 
 BASE_DIR = Path(__file__).resolve().parent
 WINDOWED_BASE_HEIGHT = SCREEN_HEIGHT
@@ -119,6 +119,7 @@ def main() -> None:
     game_manager = GameManager(map_settings)
     game_manager.set_viewport_size(*display_screen.get_size())
     renderer = GameRenderer()
+    renderer.attach(game_manager)
     input_controller = InputController()
     opponent_ai = ScriptedAI(game_manager, TeamColor.RED)
 

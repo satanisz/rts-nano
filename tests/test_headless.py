@@ -7,9 +7,9 @@ from typing import TYPE_CHECKING
 
 import pygame
 
-from rts_nano.game.assets.entities.base_entities import TeamColor
 from rts_nano.game.ui.input_controller import InputController
 from rts_nano.headless import HeadlessSimulation
+from rts_nano.simulation.entities.base import TeamColor
 
 if TYPE_CHECKING:
     from rts_nano.map_schema import MapSettings
@@ -59,15 +59,14 @@ def test_headless_simulation_steps_and_issues_orders() -> None:
     simulation.close()
 
 
-def test_headless_entities_skip_visual_asset_loading() -> None:
-    """No-render simulations do not allocate sprites or portraits per entity."""
+def test_headless_entities_have_no_visual_state() -> None:
+    """Pure entities never allocate or retain presentation surfaces."""
     settings = _settings()
     settings["Resources"]["wood"] = [[100, 100]]
     simulation = HeadlessSimulation.from_settings(settings)
 
-    assert simulation.manager.state.load_visuals is False
-    assert all(entity.image is None for entity in simulation.manager.all_entities)
-    assert all(entity.avatar_image is None for entity in simulation.manager.all_entities)
+    assert all(not hasattr(entity, "image") for entity in simulation.manager.all_entities)
+    assert all(not hasattr(entity, "avatar_image") for entity in simulation.manager.all_entities)
     simulation.close()
 
 

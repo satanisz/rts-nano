@@ -7,7 +7,7 @@ This inventory freezes the pre-registry architecture for Executive Plan 05. It i
 checklist, not a target design. Every duplicated source listed below must be removed or reduced
 to an adapter by S2.
 
-## S2 progress
+## S3 progress
 
 The canonical gameplay values listed in the original inventory live in `content/` as immutable
 definitions exposed through `ContentRegistry`. Concrete entity classes retain behavior but
@@ -18,7 +18,14 @@ class-to-roster routing, and the temporary `game/data.py` facade mappings. `Enti
 the sole runtime collection and indexes stable entity IDs by team, category, and content ID.
 `EntityFactory` is the single definition-to-runtime-class boundary used by map loading,
 production, and construction. Every shipped map uses schema version 2 and declares each team's
-faction explicitly. The remaining inventory is Pygame boundary debt assigned to S3 and S4.
+faction explicitly.
+
+S3 moved entity models to `simulation/entities/` and removed image surfaces, portraits, drawing,
+asset paths, file I/O, sprite facing, and Pygame time from them. `PygameAssets` now resolves and
+caches sprites, portraits, and flipped variants through `visual_key`. Projectile effects and hit
+flash timing are presentation-owned and driven by bounded `AttackLanded` output events. Headless
+entity construction no longer uses a `load_visuals` flag. The remaining Pygame boundary debt is
+manager/application state and terrain geometry assigned to S4.
 
 ## Stable vocabulary
 
@@ -67,12 +74,12 @@ creation order.
 Direct Pygame imports in non-UI game modules are locked by
 `tests/test_architecture_boundaries.py`:
 
-- `game/assets/entities/base_entities.py`,
 - `game/manager.py`,
 - `game/terrain.py`.
 
-The allowlist may only shrink. S3 removes entity dependencies; S4 removes manager and terrain
-dependencies. UI, `main.py`, and the map editor remain presentation/application code.
+The allowlist may only shrink. S4 removes manager and terrain dependencies. The complete
+`simulation/` package is statically and fresh-process tested to remain Pygame-free. UI,
+`main.py`, and the map editor remain presentation/application code.
 
 ## Migration ownership
 

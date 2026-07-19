@@ -13,19 +13,23 @@ from typing import TYPE_CHECKING
 import pygame
 
 from rts_nano.content import CONTENT
-from rts_nano.game.assets.entities import TeamColor, Wood
-from rts_nano.game.assets.entities.base_entities import Building, Resource, Unit, building_glyph
 from rts_nano.game.constants import (
     BLUE,
     BOTTOM_MENU_HEIGHT,
     FOG_CELL_SIZE,
+    FPS,
     GREEN,
     MINIMAP_PADDING,
     MINIMAP_WIDTH,
     RED,
     WHITE,
+    YELLOW,
 )
 from rts_nano.game.fog import FogOfWar
+from rts_nano.game.ui.effects import ArcherShot, MagicMissile
+from rts_nano.game.ui.pygame_assets import PygameAssets, building_glyph
+from rts_nano.simulation.entities import TeamColor, Wood
+from rts_nano.simulation.entities.base import Building, Entity, Resource, Unit
 
 if TYPE_CHECKING:
     from rts_nano.game.manager import GameManager
@@ -37,11 +41,32 @@ GOLD_ICON = "\U0001fa99"
 class GameRenderer:
     """Draws the current state of a ``GameManager`` to a display surface."""
 
+    def __init__(self, assets: PygameAssets | None = None) -> None:
+        """Create presentation-owned asset and facing caches."""
+        self.assets = assets or PygameAssets()
+        self._unit_facing: dict[int, tuple[float, str]] = {}
+        self._hit_flash_until_tick: dict[int, int] = {}
+        self._magic_missiles: list[MagicMissile] = []
+        self._archer_shots: list[ArcherShot] = []
+        self._last_effect_tick = -1
+
+    @staticmethod
+    def attach(manager: GameManager) -> None:
+        """Attach this presentation path before the first simulation tick."""
+        manager.attach_presentation()
+
     def draw(self, screen: pygame.Surface, manager: GameManager) -> None:
         """Draw world entities, selection state, HUD, minimap, and overlays."""
+        self.attach(manager)
         screen_width = manager.screen_width
         play_area_height = manager.play_area_height
         screen_height = manager.screen_height
+
+        if manager.current_team in manager.teams:
+            manager.fog.update(manager.state.entities_for_team(manager.current_team))
+        else:
+            manager.fog.update([])
+        self._update_effects(manager)
 
         world_surface = screen.subsurface(pygame.Rect(0, 0, screen_width, play_area_height))
         camera_offset = (manager.camera_x, manager.camera_y)
@@ -57,18 +82,18 @@ class GameRenderer:
             is_resource = isinstance(entity, Resource)
 
             if is_allied:
-                entity.draw(world_surface, camera_offset)
+                self._draw_entity(world_surface, entity, camera_offset, manager.state.tick_count)
             elif is_resource:
                 if is_explored or is_visible:
-                    entity.draw(world_surface, camera_offset)
+                    self._draw_entity(world_surface, entity, camera_offset, manager.state.tick_count)
             else:
                 if is_visible:
-                    entity.draw(world_surface, camera_offset)
+                    self._draw_entity(world_surface, entity, camera_offset, manager.state.tick_count)
 
-        for missile in manager.magic_missiles:
+        for missile in self._magic_missiles:
             if manager.fog.is_visible(missile.x, missile.y):
                 missile.draw(world_surface, camera_offset)
-        for shot in manager.archer_shots:
+        for shot in self._archer_shots:
             if manager.fog.is_visible(shot.x, shot.y):
                 shot.draw(world_surface, camera_offset)
         for marker in manager.click_markers:
@@ -157,6 +182,102 @@ class GameRenderer:
         if manager.menu_active:
             self._draw_main_menu(screen, manager)
 
+    def _update_effects(self, manager: GameManager) -> None:
+        """Consume each simulation tick's attack outputs exactly once."""
+        tick = manager.state.tick_count
+        if tick == self._last_effect_tick:
+            return
+        self._last_effect_tick = tick
+        flash_duration = max(1, round(0.12 * FPS))
+        for event in manager.recent_attacks:
+            self._hit_flash_until_tick[int(event.attacker_id)] = tick + flash_duration
+            effect_type = MagicMissile if str(event.attacker_content_id) == "arclight" else ArcherShot
+            effect = effect_type(
+                event.source[0],
+                event.source[1],
+                event.target[0],
+                event.target[1],
+                target_entity=event.target_entity,
+            )
+            if isinstance(effect, MagicMissile):
+                self._magic_missiles.append(effect)
+            else:
+                self._archer_shots.append(effect)
+        self._magic_missiles = [effect for effect in self._magic_missiles if effect.update()]
+        self._archer_shots = [effect for effect in self._archer_shots if effect.update()]
+
+    def _draw_entity(
+        self,
+        screen: pygame.Surface,
+        entity: Entity,
+        offset: tuple[float, float],
+        tick: int,
+    ) -> None:
+        """Render a pure entity through presentation-owned state and assets."""
+        offset_x, offset_y = offset
+        draw_x = int(entity.x - offset_x)
+        draw_y = int(entity.y - offset_y)
+        size = int(entity.size)
+        top_left = (draw_x - size // 2, draw_y - size // 2)
+
+        key = int(entity.entity_id) if entity.entity_id is not None else id(entity)
+        hitbox_color = YELLOW if tick < self._hit_flash_until_tick.get(key, 0) else entity.color
+        pygame.draw.circle(screen, hitbox_color, (draw_x, draw_y), int(entity.radius + 2), 1)
+
+        flipped = self._is_unit_flipped(entity)
+        sprite = self.assets.sprite(entity, flipped=flipped)
+        if sprite is not None:
+            screen.blit(sprite, top_left)
+        elif isinstance(entity, Building):
+            self._draw_building_fallback(screen, entity, top_left, (draw_x, draw_y))
+        else:
+            pygame.draw.rect(screen, entity.color, (*top_left, size, size))
+
+        if isinstance(entity, Building) and entity.is_under_construction:
+            scaffold = pygame.Surface((size, size), pygame.SRCALPHA)
+            scaffold.fill((20, 20, 20, 110))
+            screen.blit(scaffold, top_left)
+            pygame.draw.rect(
+                screen,
+                (80, 220, 120),
+                (top_left[0], top_left[1] + size - 5, int(size * entity.construction_progress), 4),
+            )
+
+        if entity.selected:
+            pygame.draw.rect(screen, WHITE, (*top_left, size, size), 1)
+
+    def _is_unit_flipped(self, entity: Entity) -> bool:
+        """Track facing outside simulation and select the cached sprite variant."""
+        if not isinstance(entity, Unit):
+            return False
+        key = int(entity.entity_id) if entity.entity_id is not None else id(entity)
+        default_facing = "right" if entity.team == TeamColor.BLUE else "left"
+        previous_x, facing = self._unit_facing.get(key, (entity.x, default_facing))
+        dx = entity.x - previous_x
+        if dx > 0.1:
+            facing = "right"
+        elif dx < -0.1:
+            facing = "left"
+        self._unit_facing[key] = (entity.x, facing)
+        return facing != default_facing
+
+    @staticmethod
+    def _draw_building_fallback(
+        screen: pygame.Surface,
+        entity: Building,
+        top_left: tuple[int, int],
+        center: tuple[int, int],
+    ) -> None:
+        """Draw a typed placeholder when building art is unavailable."""
+        size = int(entity.size)
+        body_rect = pygame.Rect(*top_left, size, size)
+        label, accent = building_glyph(str(entity.content_id))
+        pygame.draw.rect(screen, (66, 68, 78), body_rect)
+        pygame.draw.rect(screen, accent, pygame.Rect(top_left[0], top_left[1], size, max(6, size // 4)))
+        pygame.draw.rect(screen, entity.color, body_rect, 3)
+        glyph = pygame.font.SysFont(None, max(12, int(size * 0.5))).render(label, True, (235, 235, 235))
+        screen.blit(glyph, glyph.get_rect(center=(center[0], center[1] + size // 8)))
+
     def _draw_pending_construction(
         self,
         screen: pygame.Surface,
@@ -229,8 +350,9 @@ class GameRenderer:
 
                 icon_rect = pygame.Rect(pos_x, pos_y, icon_size, icon_size)
 
-                if entity.image:
-                    small_img = pygame.transform.scale(entity.image, (icon_size, icon_size))
+                sprite = self.assets.sprite(entity)
+                if sprite is not None:
+                    small_img = pygame.transform.scale(sprite, (icon_size, icon_size))
                     screen.blit(small_img, (pos_x, pos_y))
                 else:
                     pygame.draw.rect(screen, entity.color, icon_rect)
@@ -280,10 +402,11 @@ class GameRenderer:
         avatar_y = screen_height - BOTTOM_MENU_HEIGHT + (BOTTOM_MENU_HEIGHT - portrait_size) // 2
         frame_rect = pygame.Rect(portrait_x - 2, avatar_y - 2, portrait_size + 4, portrait_size + 4)
 
-        if hasattr(primary_entity, "avatar_image") and primary_entity.avatar_image:
+        portrait = self.assets.portrait(primary_entity, portrait_size)
+        if portrait is not None:
             pygame.draw.rect(screen, (80, 80, 80), frame_rect)
             pygame.draw.rect(screen, WHITE, frame_rect, 2)
-            screen.blit(primary_entity.avatar_image, (portrait_x, avatar_y))
+            screen.blit(portrait, (portrait_x, avatar_y))
         else:
             pygame.draw.rect(screen, (40, 42, 50), frame_rect)
             if isinstance(primary_entity, Building):

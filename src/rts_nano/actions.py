@@ -6,8 +6,8 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
-    from rts_nano.game.assets.entities import TeamColor
     from rts_nano.game.observations import EntityId
+    from rts_nano.simulation.entities import TeamColor
 
 type WorldPoint = tuple[float, float]
 type UnitType = Literal[

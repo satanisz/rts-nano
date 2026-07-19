@@ -5,10 +5,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, cast
 
 from rts_nano.content import CONSTRUCTION_REFUND_RATIO, CONTENT, ResourceCost
-from rts_nano.game.assets.entities.base_entities import Building, Entity, TeamColor, visual_assets_enabled
-from rts_nano.game.assets.entities.units import Peasant
 from rts_nano.game.entity_factory import EntityFactory
 from rts_nano.game.rules import distance_between_points
+from rts_nano.simulation.entities.base import Building, Entity, TeamColor
+from rts_nano.simulation.entities.units import Peasant
 
 if TYPE_CHECKING:
     from rts_nano.game.movement import MovementSystem
@@ -77,10 +77,9 @@ class ConstructionSystem:
         if not can_construct:
             return False, reason
 
-        with visual_assets_enabled(self._state.load_visuals):
-            preview = cast(
-                "Building", EntityFactory.create(building_type, int(position[0]), int(position[1]), builder.team)
-            )
+        preview = cast(
+            "Building", EntityFactory.create(building_type, int(position[0]), int(position[1]), builder.team)
+        )
         if not self._is_valid_placement(preview, ignore=builder):
             return False, "invalid_placement"
         return True, None
@@ -100,10 +99,9 @@ class ConstructionSystem:
         team_state = self._state.teams[builder.team]
         self._pay(team_state.resources, spec.cost)
 
-        with visual_assets_enabled(self._state.load_visuals):
-            building = cast(
-                "Building", EntityFactory.create(building_type, int(position[0]), int(position[1]), builder.team)
-            )
+        building = cast(
+            "Building", EntityFactory.create(building_type, int(position[0]), int(position[1]), builder.team)
+        )
         building.start_construction(spec.build_frames)
         self._state.store.add(building)
         self._movement.assign_unit_target(builder, building.get_center(), building)

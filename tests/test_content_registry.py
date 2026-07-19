@@ -19,7 +19,8 @@ from rts_nano.content import (
     ResourceDefinition,
     UnitDefinition,
 )
-from rts_nano.game.assets.entities import (
+from rts_nano.game.types import ContentId
+from rts_nano.simulation.entities import (
     Arclight,
     Arsenal,
     Base,
@@ -39,8 +40,6 @@ from rts_nano.game.assets.entities import (
     TeamColor,
     Wood,
 )
-from rts_nano.game.assets.entities.base_entities import visual_assets_enabled
-from rts_nano.game.types import ContentId
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
@@ -71,8 +70,7 @@ def _registry(
 def test_runtime_units_get_all_stats_from_registry(content_id: str, factory: type) -> None:
     """Every concrete unit instance mirrors its immutable definition."""
     definition = CONTENT.get_unit(content_id)
-    with visual_assets_enabled(False):
-        unit = factory(100, 100, TeamColor.BLUE)
+    unit = factory(100, 100, TeamColor.BLUE)
 
     assert unit.definition is definition
     assert (unit.size, unit.radius, unit.speed) == (definition.size, definition.radius, definition.speed)
@@ -104,8 +102,7 @@ def test_runtime_units_get_all_stats_from_registry(content_id: str, factory: typ
 def test_runtime_buildings_get_all_stats_from_registry(content_id: str, factory: type) -> None:
     """Every concrete building instance mirrors its immutable definition."""
     definition = CONTENT.get_building(content_id)
-    with visual_assets_enabled(False):
-        building = factory(100, 100, TeamColor.BLUE)
+    building = factory(100, 100, TeamColor.BLUE)
 
     assert building.definition is definition
     assert (building.size, building.radius, building.max_life) == (
@@ -121,8 +118,7 @@ def test_runtime_buildings_get_all_stats_from_registry(content_id: str, factory:
 def test_runtime_resources_get_all_stats_from_registry(content_id: str, factory: type) -> None:
     """Resource nodes use registry amount and geometry."""
     definition = CONTENT.get_resource(content_id)
-    with visual_assets_enabled(False):
-        resource = factory(100, 100)
+    resource = factory(100, 100)
     assert resource.definition is definition
     assert (resource.amount, resource.size, resource.radius) == (
         definition.amount,

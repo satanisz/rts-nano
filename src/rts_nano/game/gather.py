@@ -11,15 +11,15 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from rts_nano.game.assets.entities import Gold, Wood
 from rts_nano.game.constants import HARVEST_SEARCH_RADIUS
 from rts_nano.game.rules import find_replacement_resource, nearest_entity
+from rts_nano.simulation.entities import Gold, Wood
 
 if TYPE_CHECKING:
-    from rts_nano.game.assets.entities.base_entities import Entity
-    from rts_nano.game.assets.entities.units import Peasant
     from rts_nano.game.movement import MovementSystem
     from rts_nano.game.state import GameState
+    from rts_nano.simulation.entities.base import Entity
+    from rts_nano.simulation.entities.units import Peasant
 
 
 class GatherSystem:

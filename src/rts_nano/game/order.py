@@ -8,7 +8,7 @@ instead of inferring it from scattered flags.
 
 The low-level fields remain the execution mechanism; ``Order`` does not replace
 them. Keeping this module free of entity imports avoids a circular dependency
-with ``base_entities`` and ``orders``.
+with simulation entities and order systems.
 """
 
 from __future__ import annotations

@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from rts_nano.game.constants import FOG_CELL_SIZE
 
 if TYPE_CHECKING:
-    from rts_nano.game.assets.entities.base_entities import Entity
+    from rts_nano.simulation.entities.base import Entity
 
 
 class FogOfWar:

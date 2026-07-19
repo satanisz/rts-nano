@@ -13,7 +13,6 @@ from __future__ import annotations
 import math
 from typing import TYPE_CHECKING
 
-from rts_nano.game.assets.entities.base_entities import Building, Unit
 from rts_nano.game.constants import (
     ATTACK_MOVE_MIN_ACQUIRE_RANGE,
     FORMATION_SPACING,
@@ -24,10 +23,11 @@ from rts_nano.game.constants import (
 from rts_nano.game.pathfinding import find_path
 from rts_nano.game.rules import distance_between_points, nearest_entity
 from rts_nano.game.types import EntityCategory
+from rts_nano.simulation.entities.base import Building, Unit
 
 if TYPE_CHECKING:
-    from rts_nano.game.assets.entities.base_entities import Entity
     from rts_nano.game.state import GameState
+    from rts_nano.simulation.entities.base import Entity
 
 
 class MovementSystem:

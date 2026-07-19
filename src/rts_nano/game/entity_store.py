@@ -10,7 +10,7 @@ from rts_nano.game.types import ContentId, EntityCategory, EntityId, TeamId
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-    from rts_nano.game.assets.entities.base_entities import Entity
+    from rts_nano.simulation.entities.base import Entity
 
 
 class EntityStore:

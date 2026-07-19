@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from rts_nano.game.assets.entities import TeamColor
 from rts_nano.game.types import EntityCategory
 from rts_nano.headless import HeadlessSimulation
 from rts_nano.map_schema import validate_map_settings
+from rts_nano.simulation.entities import TeamColor
 
 if TYPE_CHECKING:
     from rts_nano.map_schema import MapSettings

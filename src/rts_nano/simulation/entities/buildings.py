@@ -1,22 +1,13 @@
 """Building entity implementations."""
 
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from rts_nano.content import CONTENT
-from rts_nano.game.assets.entities.base_entities import Building, Entity, TeamColor, init_shield
+from rts_nano.simulation.entities.base import Building, Entity, TeamColor, init_shield
 
 if TYPE_CHECKING:
     from rts_nano.content import BuildingDefinition
     from rts_nano.game.constants import AttackType
-
-BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
-SPRITES_DIR = BASE_DIR / "assets" / "sprites"
-
-
-def _load_building_sprite(building: Building, sprite_name: str) -> None:
-    """Load a building sprite and reuse it as the command-panel portrait."""
-    building.load_image(str(SPRITES_DIR / f"{sprite_name}.png"))
 
 
 class Base(Building):
@@ -31,10 +22,6 @@ class Base(Building):
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
         """Initialize the object."""
         super().__init__(x, y, team, CONTENT.get_building("base"))
-        self.load_image(
-            str(BASE_DIR / "assets" / "sprites" / f"{team.value.lower()}_base.png"),
-            str(BASE_DIR / "assets" / "portraits" / "base.png"),
-        )
 
 
 class Barracks(Building):
@@ -51,7 +38,6 @@ class House(Building):
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
         """Initialize the object."""
         super().__init__(x, y, team, CONTENT.get_building("house"))
-        _load_building_sprite(self, "house")
 
 
 class MageTower(Building):
@@ -95,7 +81,6 @@ class Arsenal(Barracks):
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
         """Initialize the object."""
         super().__init__(x, y, team, CONTENT.get_building("arsenal"))
-        _load_building_sprite(self, "arsenal")
 
 
 class Spire(MageTower):
@@ -104,7 +89,6 @@ class Spire(MageTower):
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
         """Initialize the object."""
         super().__init__(x, y, team, CONTENT.get_building("spire"))
-        _load_building_sprite(self, "spire")
 
 
 class Bastion(Tower):
@@ -113,7 +97,6 @@ class Bastion(Tower):
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
         """Initialize the object."""
         super().__init__(x, y, team, CONTENT.get_building("bastion"))
-        _load_building_sprite(self, "bastion")
 
 
 # --- RUST (Red) military structures. ---
@@ -125,7 +108,6 @@ class Pit(Barracks):
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
         """Initialize the object."""
         super().__init__(x, y, team, CONTENT.get_building("pit"))
-        _load_building_sprite(self, "pit")
 
 
 class ChemVat(MageTower):
@@ -134,7 +116,6 @@ class ChemVat(MageTower):
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
         """Initialize the object."""
         super().__init__(x, y, team, CONTENT.get_building("chem_vat"))
-        _load_building_sprite(self, "chem_vat")
 
 
 class Spiker(Tower):
@@ -143,4 +124,3 @@ class Spiker(Tower):
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
         """Initialize the object."""
         super().__init__(x, y, team, CONTENT.get_building("spiker"))
-        _load_building_sprite(self, "spiker")

@@ -5,13 +5,13 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING
 
-from rts_nano.game.assets.entities import TeamColor
-from rts_nano.game.assets.entities.base_entities import Building
+from rts_nano.simulation.entities import TeamColor
+from rts_nano.simulation.entities.base import Building
 
 if TYPE_CHECKING:
-    from rts_nano.game.assets.entities.base_entities import Entity
     from rts_nano.game.manager import GameManager
     from rts_nano.game.state import TeamState
+    from rts_nano.simulation.entities.base import Entity
 
 type EntityId = str
 

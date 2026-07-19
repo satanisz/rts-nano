@@ -4,15 +4,15 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from rts_nano.game.assets.entities.base_entities import Building, Resource
-from rts_nano.game.assets.entities.units import Peasant
 from rts_nano.game.rules import nearest_entity
+from rts_nano.simulation.entities.base import Building, Resource
+from rts_nano.simulation.entities.units import Peasant
 
 if TYPE_CHECKING:
-    from rts_nano.game.assets.entities import TeamColor
-    from rts_nano.game.assets.entities.base_entities import Unit
-    from rts_nano.game.assets.entities.buildings import Base
     from rts_nano.game.manager import GameManager
+    from rts_nano.simulation.entities import TeamColor
+    from rts_nano.simulation.entities.base import Unit
+    from rts_nano.simulation.entities.buildings import Base
 
 _FACTION_PLAN: dict[str, tuple[str, tuple[str, ...]]] = {
     "AEGIS": ("arsenal", ("guardian", "marksman")),

@@ -18,8 +18,8 @@ from rts_nano.map_schema import load_map_settings
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from rts_nano.game.assets.entities.base_entities import TeamColor, Unit
     from rts_nano.map_schema import MapSettings
+    from rts_nano.simulation.entities.base import TeamColor, Unit
 
 
 def initialize_headless_pygame() -> None:
@@ -45,13 +45,13 @@ class HeadlessSimulation:
     def from_map_file(cls, path: Path) -> HeadlessSimulation:
         """Create a headless simulation from a map JSON file."""
         initialize_headless_pygame()
-        return cls(GameManager(load_map_settings(path), load_visuals=False))
+        return cls(GameManager(load_map_settings(path)))
 
     @classmethod
     def from_settings(cls, settings: MapSettings) -> HeadlessSimulation:
         """Create a headless simulation from already parsed map settings."""
         initialize_headless_pygame()
-        return cls(GameManager(settings, load_visuals=False))
+        return cls(GameManager(settings))
 
     def step(self, frames: int = 1) -> None:
         """Advance the simulation by a number of frames."""

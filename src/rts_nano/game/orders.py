@@ -4,21 +4,21 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from rts_nano.game.assets.entities.base_entities import Building, Entity, Unit
-from rts_nano.game.assets.entities.buildings import Base
-from rts_nano.game.assets.entities.units import Peasant
 from rts_nano.game.order import Order, OrderKind
 from rts_nano.game.rules import distance_between_points, nearest_entity
+from rts_nano.simulation.entities.base import Building, Entity, Unit
+from rts_nano.simulation.entities.buildings import Base
+from rts_nano.simulation.entities.units import Peasant
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from rts_nano.game.assets.entities import TeamColor
-    from rts_nano.game.assets.entities.base_entities import Resource
     from rts_nano.game.construction import ConstructionSystem
     from rts_nano.game.movement import MovementSystem
     from rts_nano.game.production import ProductionSystem
     from rts_nano.game.state import GameState
+    from rts_nano.simulation.entities import TeamColor
+    from rts_nano.simulation.entities.base import Resource
 
 
 class OrderSystem:

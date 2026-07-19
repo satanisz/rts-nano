@@ -20,8 +20,8 @@ import tracemalloc
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from rts_nano.game.assets.entities import TeamColor
 from rts_nano.headless import HeadlessSimulation
+from rts_nano.simulation.entities import TeamColor
 
 if TYPE_CHECKING:
     from rts_nano.map_schema import MapSettings

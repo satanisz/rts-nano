@@ -1,7 +1,7 @@
 """Concrete unit classes and their special combat/interaction rules.
 
 All units inherit the movement and base combat state machine from ``Unit``.
-Concrete classes mainly provide balance constants, sprites, and small behavior
+Concrete classes mainly select definitions and provide small behavior
 overrides. When adding a new unit type, register its behavior in
 ``entity_factory.EntityFactory`` and consider whether the map editor should expose a
 placement tool.
@@ -9,18 +9,15 @@ placement tool.
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from rts_nano.content import CONTENT, UnitDefinition
-from rts_nano.game.assets.entities.base_entities import Building, Entity, Resource, TeamColor, Unit
 from rts_nano.game.constants import AttackType
 from rts_nano.game.rules import apply_damage, calculate_height_range_bonus, distance_between
+from rts_nano.simulation.entities.base import Building, Entity, Resource, TeamColor, Unit
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
-
-BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
 
 
 class Peasant(Unit):
@@ -34,11 +31,6 @@ class Peasant(Unit):
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
         """Initialize the object."""
         super().__init__(x, y, team, CONTENT.get_unit("peasant"))
-        unit_name = self.visual_key
-        self.load_image(
-            str(BASE_DIR / "assets" / "sprites" / f"{team.value.lower()}_{unit_name}.png"),
-            str(BASE_DIR / "assets" / "portraits" / f"{unit_name}.png"),
-        )
 
     def _handle_target_reached(self) -> None:
         """Transition the peasant to gathering or depositing when appropriate."""
@@ -65,11 +57,6 @@ class Knight(Unit):
     def __init__(self, x: int, y: int, team: TeamColor, definition: UnitDefinition) -> None:
         """Initialize the object."""
         super().__init__(x, y, team, definition)
-        unit_name = self.visual_key
-        self.load_image(
-            str(BASE_DIR / "assets" / "sprites" / f"{team.value.lower()}_{unit_name}.png"),
-            str(BASE_DIR / "assets" / "portraits" / f"{unit_name}.png"),
-        )
 
     def _attack(self, target: Entity) -> int:
         """Perform a melee attack."""
@@ -90,11 +77,6 @@ class Archer(Unit):
     def __init__(self, x: int, y: int, team: TeamColor, definition: UnitDefinition) -> None:
         """Initialize the object."""
         super().__init__(x, y, team, definition)
-        unit_name = self.visual_key
-        self.load_image(
-            str(BASE_DIR / "assets" / "sprites" / f"{team.value.lower()}_{unit_name}.png"),
-            str(BASE_DIR / "assets" / "portraits" / f"{unit_name}.png"),
-        )
 
     def _get_attack_distance(self, target: Entity) -> float:
         """Pick interaction distance based on archer dead-zone rules."""
@@ -136,11 +118,6 @@ class Mage(Unit):
     def __init__(self, x: int, y: int, team: TeamColor, definition: UnitDefinition) -> None:
         """Initialize the object."""
         super().__init__(x, y, team, definition)
-        unit_name = self.visual_key
-        self.load_image(
-            str(BASE_DIR / "assets" / "sprites" / f"{team.value.lower()}_{unit_name}.png"),
-            str(BASE_DIR / "assets" / "portraits" / f"{unit_name}.png"),
-        )
 
 
 # --- AEGIS (Blue): precision / armored / ranged elite. Signature mechanics

@@ -1,8 +1,8 @@
 """Game state coordination and simulation tick.
 
 ``GameManager`` is the central runtime object for the playable game. It owns the
-loaded map, all entities, camera state, selected units, transient VFX, resource
-collection, combat projectiles, and the menu/selection state. Rendering lives in
+loaded map, all entities, camera state, selected units, resource collection,
+simulation output events, and the menu/selection state. Rendering lives in
 ``GameRenderer``, event/input handling in ``InputController``, and the command
 panel layout in ``CommandPanel``; ``main.py`` wires those adapters to the manager.
 
@@ -19,7 +19,7 @@ Simulation model:
 * units update themselves, but the manager supplies terrain movement validation,
 * peasants use manager-level harvesting/deposit logic because it touches team
   resources and neutral resource lists,
-* ranged unit attacks emit events consumed here to spawn projectile VFX,
+* attacks emit bounded per-tick events consumed only by an attached presentation,
 * dead entities are pruned after all entity updates for the frame.
 
 When adding features, keep the split clear: entity classes own per-entity state
@@ -29,34 +29,21 @@ cross-entity systems.
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
 
 import pygame
 
 from rts_nano.content import CONTENT
-from rts_nano.game.assets.entities import (
-    Archer,
-    Base,
-    Mage,
-    Peasant,
-    TeamColor,
-)
-from rts_nano.game.assets.entities.base_entities import Building, Entity, Resource, Unit, visual_assets_enabled
 from rts_nano.game.combat import CombatSystem
 from rts_nano.game.constants import (
-    BLACK,
     BOTTOM_MENU_HEIGHT,
-    CYAN,
     MAX_SELECTION_SIZE,
     MINIMAP_HEIGHT,
     MINIMAP_PADDING,
     MINIMAP_WIDTH,
     SCREEN_HEIGHT,
     SCREEN_WIDTH,
-    WHITE,
-    AttackType,
 )
 from rts_nano.game.construction import ConstructionSystem
 from rts_nano.game.effects import EffectsSystem
@@ -72,6 +59,13 @@ from rts_nano.game.terrain import TerrainMap
 from rts_nano.game.types import FactionId, TeamId
 from rts_nano.game.ui.command_panel import CommandPanel
 from rts_nano.game.victory import VictorySystem
+from rts_nano.simulation.entities import (
+    Base,
+    Peasant,
+    TeamColor,
+)
+from rts_nano.simulation.entities.base import Building, Entity, Resource, Unit
+from rts_nano.simulation.events import AttackLanded
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -83,92 +77,6 @@ PLAY_AREA_HEIGHT = SCREEN_HEIGHT - BOTTOM_MENU_HEIGHT
 CAMERA_SPEED = 12
 EDGE_SCROLL_MARGIN = 24
 DOUBLE_CLICK_MS = 350
-
-
-@dataclass
-class MagicMissile:
-    """Visual projectile effect used for mage ranged attacks.
-
-    The projectile is cosmetic. Damage is applied by ``Unit._attack`` before the
-    event reaches the manager. If ``target_entity`` is still alive, the missile
-    homes toward its current center so moving targets look natural.
-    """
-
-    x: float
-    y: float
-    target_x: float
-    target_y: float
-    target_entity: Entity | None = None
-    speed: float = 8.0
-    radius: int = 5
-
-    def update(self) -> bool:
-        """Move the projectile and return False when it reaches the target."""
-        if self.target_entity is not None and getattr(self.target_entity, "life", 1) > 0:
-            self.target_x, self.target_y = self.target_entity.get_center()
-
-        dx = self.target_x - self.x
-        dy = self.target_y - self.y
-        dist = math.sqrt(dx**2 + dy**2)
-
-        if dist <= self.speed or dist == 0:
-            self.x = self.target_x
-            self.y = self.target_y
-            return False
-
-        self.x += (dx / dist) * self.speed
-        self.y += (dy / dist) * self.speed
-        return True
-
-    def draw(self, screen: pygame.Surface, offset: tuple[float, float] = (0, 0)) -> None:
-        """Render a bright core with a soft glow for readability."""
-        offset_x, offset_y = offset
-        draw_pos = (int(self.x - offset_x), int(self.y - offset_y))
-        pygame.draw.circle(screen, (120, 235, 255), draw_pos, self.radius + 3)
-        pygame.draw.circle(screen, CYAN, draw_pos, self.radius)
-        pygame.draw.circle(screen, WHITE, draw_pos, 2)
-
-
-@dataclass
-class ArcherShot:
-    """Visual projectile effect used for archer ranged attacks.
-
-    Like ``MagicMissile``, this object does not apply damage. It exists only to
-    make an already-resolved ranged attack visible to the player.
-    """
-
-    x: float
-    y: float
-    target_x: float
-    target_y: float
-    target_entity: Entity | None = None
-    speed: float = 10.0
-    radius: int = 3
-
-    def update(self) -> bool:
-        """Move the projectile and return False when it reaches the target."""
-        if self.target_entity is not None and getattr(self.target_entity, "life", 1) > 0:
-            self.target_x, self.target_y = self.target_entity.get_center()
-
-        dx = self.target_x - self.x
-        dy = self.target_y - self.y
-        dist = math.sqrt(dx**2 + dy**2)
-
-        if dist <= self.speed or dist == 0:
-            self.x = self.target_x
-            self.y = self.target_y
-            return False
-
-        self.x += (dx / dist) * self.speed
-        self.y += (dy / dist) * self.speed
-        return True
-
-    def draw(self, screen: pygame.Surface, offset: tuple[float, float] = (0, 0)) -> None:
-        """Render a dark arrow-like bolt with a subtle trail."""
-        offset_x, offset_y = offset
-        draw_pos = (int(self.x - offset_x), int(self.y - offset_y))
-        pygame.draw.circle(screen, (70, 70, 70), draw_pos, self.radius + 2)
-        pygame.draw.circle(screen, BLACK, draw_pos, self.radius)
 
 
 @dataclass
@@ -225,7 +133,7 @@ class GameManager:
         ``_clamp_to_world`` instead of reading camera fields directly.
     """
 
-    def __init__(self, map_settings: MapSettings, *, load_visuals: bool = True) -> None:
+    def __init__(self, map_settings: MapSettings) -> None:
         """Initialize the object."""
         self.map_settings = map_settings
         terrain = TerrainMap(map_settings.get("Terrain"))
@@ -236,7 +144,6 @@ class GameManager:
             fog=FogOfWar(map_width, map_height),
             map_width=map_width,
             map_height=map_height,
-            load_visuals=load_visuals,
         )
         self.control_groups: dict[int, list[Unit]] = {}
         self.dragging: bool = False
@@ -254,9 +161,9 @@ class GameManager:
             "FULLSCREEN: OFF",
             "EXIT",
         ]
-        self.magic_missiles: list[MagicMissile] = []
-        self.archer_shots: list[ArcherShot] = []
         self.click_markers: list[ClickMarker] = []
+        self.recent_attacks: list[AttackLanded] = []
+        self.presentation_attached = False
         self.command_panel = CommandPanel()
         self.pending_construction_type: str | None = None
         self.pending_construction_builder: Peasant | None = None
@@ -280,6 +187,10 @@ class GameManager:
         self.set_viewport_size(SCREEN_WIDTH, SCREEN_HEIGHT)
 
     # --- GameState-backed data (single source of truth lives in self.state) ---
+
+    def attach_presentation(self) -> None:
+        """Enable optional simulation output events for a presentation adapter."""
+        self.presentation_attached = True
 
     @property
     def teams(self) -> dict[TeamColor, TeamState]:
@@ -786,8 +697,7 @@ class GameManager:
                     continue
                 normalized_coords = self._normalize_coords(coords)
                 for x, y in normalized_coords:
-                    with visual_assets_enabled(self.state.load_visuals):
-                        entity = EntityFactory.create(cast("str", asset_type), x, y, team_color)
+                    entity = EntityFactory.create(cast("str", asset_type), x, y, team_color)
                     self.state.store.add(entity)
 
     def _normalize_coords(self, coords: object) -> list[tuple[int, int]]:
@@ -883,12 +793,8 @@ class GameManager:
         if self.paused:
             return
 
-        if self.state.load_visuals:
-            if self.current_team in self.teams:
-                visible_entities = self.state.entities_for_team(self.current_team)
-                self.fog.update(visible_entities)
-            else:
-                self.fog.update([])
+        self.state.tick_count += 1
+        self.recent_attacks.clear()
 
         self._update_mobile_height_levels()
         all_ents = self.all_entities
@@ -907,29 +813,11 @@ class GameManager:
                 self._clamp_unit_to_world(entity)
                 self.movement.update_unit_stuck_recovery(entity)
                 attack_event = entity.consume_attack_event()
-                if attack_event and attack_event[2] == AttackType.RANGED:
+                if attack_event and entity.entity_id is not None and self.presentation_attached:
                     source_pos, target_pos, _, target_entity = attack_event
-                    if self.state.load_visuals and isinstance(entity, Mage):
-                        self.magic_missiles.append(
-                            MagicMissile(
-                                source_pos[0],
-                                source_pos[1],
-                                target_pos[0],
-                                target_pos[1],
-                                target_entity=target_entity,
-                            )
-                        )
-                    elif self.state.load_visuals and isinstance(entity, Archer):
-                        source_pos, target_pos, _, target_entity = attack_event
-                        self.archer_shots.append(
-                            ArcherShot(
-                                source_pos[0],
-                                source_pos[1],
-                                target_pos[0],
-                                target_pos[1],
-                                target_entity=target_entity,
-                            )
-                        )
+                    self.recent_attacks.append(
+                        AttackLanded(entity.entity_id, entity.content_id, source_pos, target_pos, target_entity)
+                    )
                 self.movement.resume_or_finish_attack_move(entity)
                 self.movement.update_patrol(entity)
 
@@ -938,17 +826,13 @@ class GameManager:
 
         self.construction.update()
         self.production.update()
-        for source_pos, target_pos, target in self.combat.update():
-            if self.state.load_visuals:
-                self.archer_shots.append(
-                    ArcherShot(source_pos[0], source_pos[1], target_pos[0], target_pos[1], target_entity=target)
-                )
+        tower_attacks = self.combat.update()
+        if self.presentation_attached:
+            self.recent_attacks.extend(tower_attacks)
         self.effects.update()
         self._remove_dead_entities()
         self.victory.update()
-        if self.state.load_visuals:
-            self.magic_missiles = [missile for missile in self.magic_missiles if missile.update()]
-            self.archer_shots = [shot for shot in self.archer_shots if shot.update()]
+        if self.click_markers:
             now_ms = pygame.time.get_ticks()
             self.click_markers = [marker for marker in self.click_markers if marker.is_alive(now_ms)]
 

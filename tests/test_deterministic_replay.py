@@ -7,13 +7,13 @@ import json
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from rts_nano.game.assets.entities import Arclight, Guardian, Marksman, Spitter, TeamColor
 from rts_nano.headless import HeadlessSimulation
+from rts_nano.simulation.entities import Arclight, Guardian, Marksman, Spitter, TeamColor
 
 if TYPE_CHECKING:
-    from rts_nano.game.assets.entities.base_entities import Entity
     from rts_nano.game.manager import GameManager
     from rts_nano.map_schema import MapSettings
+    from rts_nano.simulation.entities.base import Entity
 
 GOLDEN_PATH = Path(__file__).with_name("golden") / "core_replay_v1.json"
 EXPECTED_SHA256 = "239c2b1b85c30a2d07526157f622dc297f844b04ed5ce2b63b692e02138f5c90"
