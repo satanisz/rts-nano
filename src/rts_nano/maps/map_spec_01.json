@@ -1,31 +1,39 @@
 {
     "schema_version": 3,
-    "id": "mirror_basin",
-    "name": "Mirror Basin",
-    "description": "A compact symmetric authoring example with named starts and resource clusters.",
-    "world": {
-        "width": 1600,
-        "height": 1200
-    },
-    "symmetry": {
-        "type": "rotate_180",
-        "center": [800, 600]
-    },
+    "id": "crown_divide",
+    "name": "Crown Divide",
+    "description": "A standard competitive map with protected main plateaus, safe starting resources, two outposts per side, and a contested central lane.",
+    "world": {"width": 2000, "height": 1400},
+    "symmetry": {"type": "rotate_180", "center": [1000, 700]},
     "anchors": {
-        "blue_main": [250, 900],
+        "blue_main": [300, 1050],
         "red_main": {"mirror_of": "blue_main"},
-        "blue_natural": [470, 730],
-        "red_natural": {"mirror_of": "blue_natural"},
-        "center": [800, 600]
+        "blue_main_wood": [300, 1160],
+        "red_main_wood": {"mirror_of": "blue_main_wood"},
+        "blue_main_gold": [300, 870],
+        "red_main_gold": {"mirror_of": "blue_main_gold"},
+        "blue_natural_wood": [675, 930],
+        "red_natural_wood": {"mirror_of": "blue_natural_wood"},
+        "blue_natural_gold": [650, 810],
+        "red_natural_gold": {"mirror_of": "blue_natural_gold"},
+        "blue_flank_wood": [520, 430],
+        "red_flank_wood": {"mirror_of": "blue_flank_wood"},
+        "blue_flank_gold": [630, 500],
+        "red_flank_gold": {"mirror_of": "blue_flank_gold"},
+        "center": [1000, 700]
     },
     "requirements": {
         "start_resources": {
-            "wood": {"min_nodes": 8, "max_distance": 350},
-            "gold": {"min_nodes": 5, "max_distance": 350}
+            "wood": {"min_nodes": 10, "max_distance": 280},
+            "gold": {"min_nodes": 5, "max_distance": 280}
         },
         "routes": [
-            {"id": "blue_to_center", "from": "blue_main", "to": "center", "unit_radius": 8},
-            {"id": "red_to_center", "from": "red_main", "to": "center", "unit_radius": 8}
+            {"id": "blue_to_center", "from": "blue_main", "to": "center", "unit_radius": 10},
+            {"id": "red_to_center", "from": "red_main", "to": "center", "unit_radius": 10},
+            {"id": "blue_to_natural", "from": "blue_main", "to": "blue_natural_gold", "unit_radius": 10},
+            {"id": "red_to_natural", "from": "red_main", "to": "red_natural_gold", "unit_radius": 10},
+            {"id": "blue_to_flank", "from": "blue_main", "to": "blue_flank_gold", "unit_radius": 10},
+            {"id": "red_to_flank", "from": "red_main", "to": "red_flank_gold", "unit_radius": 10}
         ]
     },
     "teams": [
@@ -33,106 +41,110 @@
             "id": "Blue",
             "faction_id": "AEGIS",
             "start_anchor": "blue_main",
-            "starting_package": {
-                "base": 1,
-                "peasant": 3
-            }
+            "starting_package": {"base": 1},
+            "entities": [
+                {"content": "peasant", "offset": [55, 0]},
+                {"content": "peasant", "offset": [0, -55]},
+                {"content": "peasant", "offset": [-55, 0]}
+            ]
         },
         {
             "id": "Red",
             "faction_id": "RUST",
             "start_anchor": "red_main",
-            "starting_package": {
-                "base": 1,
-                "peasant": 3
-            }
+            "starting_package": {"base": 1},
+            "entities": [
+                {"content": "peasant", "offset": [-55, 0]},
+                {"content": "peasant", "offset": [0, 55]},
+                {"content": "peasant", "offset": [55, 0]}
+            ]
         }
     ],
     "placements": [
         {
+            "id": "blue_main_wood",
+            "kind": "resource_cluster",
+            "resource": "wood",
+            "anchor": "blue_main_wood",
+            "pattern": {"type": "arc", "count": 10, "radius": 65, "start_angle": 10, "end_angle": 170}
+        },
+        {"id": "red_main_wood", "mirror_of": "blue_main_wood"},
+        {
+            "id": "blue_main_gold",
+            "kind": "resource_cluster",
+            "resource": "gold",
+            "anchor": "blue_main_gold",
+            "pattern": {"type": "arc", "count": 5, "radius": 38, "start_angle": 10, "end_angle": 170}
+        },
+        {"id": "red_main_gold", "mirror_of": "blue_main_gold"},
+        {
             "id": "blue_natural_wood",
             "kind": "resource_cluster",
             "resource": "wood",
-            "anchor": "blue_natural",
-            "pattern": {
-                "type": "ring",
-                "count": 10,
-                "radius": 75,
-                "start_angle": 18
-            }
+            "anchor": "blue_natural_wood",
+            "pattern": {"type": "ring", "count": 8, "radius": 58, "start_angle": 22}
         },
-        {
-            "id": "red_natural_wood",
-            "mirror_of": "blue_natural_wood"
-        },
+        {"id": "red_natural_wood", "mirror_of": "blue_natural_wood"},
         {
             "id": "blue_natural_gold",
             "kind": "resource_cluster",
             "resource": "gold",
-            "anchor": [390, 650],
-            "pattern": {
-                "type": "arc",
-                "count": 5,
-                "radius": 42,
-                "start_angle": 20,
-                "end_angle": 160
-            }
+            "anchor": "blue_natural_gold",
+            "pattern": {"type": "arc", "count": 5, "radius": 36, "start_angle": 15, "end_angle": 165}
         },
+        {"id": "red_natural_gold", "mirror_of": "blue_natural_gold"},
         {
-            "id": "red_natural_gold",
-            "mirror_of": "blue_natural_gold"
-        }
+            "id": "blue_flank_wood",
+            "kind": "resource_cluster",
+            "resource": "wood",
+            "anchor": "blue_flank_wood",
+            "pattern": {"type": "ring", "count": 8, "radius": 58}
+        },
+        {"id": "red_flank_wood", "mirror_of": "blue_flank_wood"},
+        {
+            "id": "blue_flank_gold",
+            "kind": "resource_cluster",
+            "resource": "gold",
+            "anchor": "blue_flank_gold",
+            "pattern": {"type": "arc", "count": 5, "radius": 36, "start_angle": 200, "end_angle": 340}
+        },
+        {"id": "red_flank_gold", "mirror_of": "blue_flank_gold"}
     ],
     "terrain": [
         {
-            "id": "blue_plateau",
+            "id": "blue_main_plateau",
             "kind": "high_ground",
-            "geometry": {
-                "type": "rect",
-                "position": [100, 780],
-                "size": [450, 320]
-            }
+            "geometry": {"type": "rect", "position": [80, 800], "size": [540, 480]}
         },
+        {"id": "red_main_plateau", "mirror_of": "blue_main_plateau"},
         {
-            "id": "red_plateau",
-            "mirror_of": "blue_plateau"
-        },
-        {
-            "id": "blue_ramp",
+            "id": "blue_main_ramp",
             "kind": "ramp",
-            "geometry": {
-                "type": "rect",
-                "position": [500, 700],
-                "size": [80, 90]
-            }
+            "geometry": {"type": "rect", "position": [560, 750], "size": [100, 110]}
         },
+        {"id": "red_main_ramp", "mirror_of": "blue_main_ramp"},
         {
-            "id": "red_ramp",
-            "mirror_of": "blue_ramp"
-        },
-        {
-            "id": "center_basin",
+            "id": "north_moat",
             "kind": "water",
-            "geometry": {
-                "type": "rect_group",
-                "rects": [
-                    {"position": [700, 380], "size": [200, 130]},
-                    {"position": [700, 690], "size": [200, 130]}
-                ]
-            }
+            "geometry": {"type": "rect", "position": [930, 0], "size": [140, 360]}
         },
+        {"id": "south_moat", "mirror_of": "north_moat"},
         {
-            "id": "blue_center_rock",
+            "id": "west_center_rocks",
             "kind": "rock",
-            "geometry": {
-                "type": "circle",
-                "center": [600, 430],
-                "radius": 18
-            }
+            "geometry": {"type": "circle", "center": [820, 670], "radius": 28}
         },
+        {"id": "east_center_rocks", "mirror_of": "west_center_rocks"},
         {
-            "id": "red_center_rock",
-            "mirror_of": "blue_center_rock"
+            "id": "blue_natural_rock",
+            "kind": "rock",
+            "geometry": {"type": "circle", "center": [760, 970], "radius": 22}
+        },
+        {"id": "red_natural_rock", "mirror_of": "blue_natural_rock"},
+        {
+            "id": "center_grass",
+            "kind": "grass",
+            "geometry": {"type": "circle", "center": [1000, 700], "radius": 24}
         }
     ]
 }

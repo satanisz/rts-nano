@@ -1,0 +1,155 @@
+{
+    "schema_version": 3,
+    "id": "ashen_circuit",
+    "name": "Ashen Circuit",
+    "description": "A compact aggressive map with short reinforcement paths, defended mains, a raised central arena, and risky side resources.",
+    "world": {"width": 1600, "height": 1100},
+    "symmetry": {"type": "rotate_180", "center": [800, 550]},
+    "anchors": {
+        "blue_main": [240, 850],
+        "red_main": {"mirror_of": "blue_main"},
+        "blue_main_wood": [240, 950],
+        "red_main_wood": {"mirror_of": "blue_main_wood"},
+        "blue_main_gold": [240, 690],
+        "red_main_gold": {"mirror_of": "blue_main_gold"},
+        "blue_forward_wood": [560, 650],
+        "red_forward_wood": {"mirror_of": "blue_forward_wood"},
+        "blue_forward_gold": [625, 545],
+        "red_forward_gold": {"mirror_of": "blue_forward_gold"},
+        "blue_side_wood": [300, 330],
+        "red_side_wood": {"mirror_of": "blue_side_wood"},
+        "blue_side_gold": [410, 410],
+        "red_side_gold": {"mirror_of": "blue_side_gold"},
+        "center": [800, 550]
+    },
+    "requirements": {
+        "start_resources": {
+            "wood": {"min_nodes": 10, "max_distance": 260},
+            "gold": {"min_nodes": 5, "max_distance": 260}
+        },
+        "routes": [
+            {"id": "blue_to_center", "from": "blue_main", "to": "center", "unit_radius": 10},
+            {"id": "red_to_center", "from": "red_main", "to": "center", "unit_radius": 10},
+            {"id": "blue_to_forward", "from": "blue_main", "to": "blue_forward_gold", "unit_radius": 10},
+            {"id": "red_to_forward", "from": "red_main", "to": "red_forward_gold", "unit_radius": 10},
+            {"id": "blue_to_side", "from": "blue_main", "to": "blue_side_gold", "unit_radius": 10},
+            {"id": "red_to_side", "from": "red_main", "to": "red_side_gold", "unit_radius": 10}
+        ]
+    },
+    "teams": [
+        {
+            "id": "Blue",
+            "faction_id": "AEGIS",
+            "start_anchor": "blue_main",
+            "starting_package": {"base": 1},
+            "entities": [
+                {"content": "peasant", "offset": [55, 0]},
+                {"content": "peasant", "offset": [0, -55]},
+                {"content": "peasant", "offset": [-55, 0]}
+            ]
+        },
+        {
+            "id": "Red",
+            "faction_id": "RUST",
+            "start_anchor": "red_main",
+            "starting_package": {"base": 1},
+            "entities": [
+                {"content": "peasant", "offset": [-55, 0]},
+                {"content": "peasant", "offset": [0, 55]},
+                {"content": "peasant", "offset": [55, 0]}
+            ]
+        }
+    ],
+    "placements": [
+        {
+            "id": "blue_main_wood",
+            "kind": "resource_cluster",
+            "resource": "wood",
+            "anchor": "blue_main_wood",
+            "pattern": {"type": "arc", "count": 10, "radius": 62, "start_angle": 10, "end_angle": 170}
+        },
+        {"id": "red_main_wood", "mirror_of": "blue_main_wood"},
+        {
+            "id": "blue_main_gold",
+            "kind": "resource_cluster",
+            "resource": "gold",
+            "anchor": "blue_main_gold",
+            "pattern": {"type": "arc", "count": 5, "radius": 36, "start_angle": 10, "end_angle": 170}
+        },
+        {"id": "red_main_gold", "mirror_of": "blue_main_gold"},
+        {
+            "id": "blue_forward_wood",
+            "kind": "resource_cluster",
+            "resource": "wood",
+            "anchor": "blue_forward_wood",
+            "pattern": {"type": "ring", "count": 8, "radius": 54}
+        },
+        {"id": "red_forward_wood", "mirror_of": "blue_forward_wood"},
+        {
+            "id": "blue_forward_gold",
+            "kind": "resource_cluster",
+            "resource": "gold",
+            "anchor": "blue_forward_gold",
+            "pattern": {"type": "arc", "count": 5, "radius": 34, "start_angle": 110, "end_angle": 250}
+        },
+        {"id": "red_forward_gold", "mirror_of": "blue_forward_gold"},
+        {
+            "id": "blue_side_wood",
+            "kind": "resource_cluster",
+            "resource": "wood",
+            "anchor": "blue_side_wood",
+            "pattern": {"type": "ring", "count": 8, "radius": 54}
+        },
+        {"id": "red_side_wood", "mirror_of": "blue_side_wood"},
+        {
+            "id": "blue_side_gold",
+            "kind": "resource_cluster",
+            "resource": "gold",
+            "anchor": "blue_side_gold",
+            "pattern": {"type": "arc", "count": 5, "radius": 34, "start_angle": 200, "end_angle": 340}
+        },
+        {"id": "red_side_gold", "mirror_of": "blue_side_gold"}
+    ],
+    "terrain": [
+        {
+            "id": "blue_main_plateau",
+            "kind": "high_ground",
+            "geometry": {"type": "rect", "position": [60, 650], "size": [430, 370]}
+        },
+        {"id": "red_main_plateau", "mirror_of": "blue_main_plateau"},
+        {
+            "id": "blue_main_ramp",
+            "kind": "ramp",
+            "geometry": {"type": "rect", "position": [430, 590], "size": [90, 110]}
+        },
+        {"id": "red_main_ramp", "mirror_of": "blue_main_ramp"},
+        {
+            "id": "center_arena",
+            "kind": "high_ground",
+            "geometry": {"type": "rect", "position": [680, 430], "size": [240, 240]}
+        },
+        {
+            "id": "west_arena_ramp",
+            "kind": "ramp",
+            "geometry": {"type": "rect", "position": [630, 500], "size": [80, 100]}
+        },
+        {"id": "east_arena_ramp", "mirror_of": "west_arena_ramp"},
+        {
+            "id": "north_basin",
+            "kind": "water",
+            "geometry": {"type": "rect", "position": [620, 80], "size": [360, 120]}
+        },
+        {"id": "south_basin", "mirror_of": "north_basin"},
+        {
+            "id": "west_choke_rock",
+            "kind": "rock",
+            "geometry": {"type": "circle", "center": [570, 520], "radius": 22}
+        },
+        {"id": "east_choke_rock", "mirror_of": "west_choke_rock"},
+        {
+            "id": "center_grass",
+            "kind": "grass",
+            "geometry": {"type": "circle", "center": [800, 550], "radius": 26}
+        }
+    ]
+}

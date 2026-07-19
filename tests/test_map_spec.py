@@ -3,16 +3,20 @@
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 
 import pytest
 
+from rts_nano.ai import ScriptedAI
 from rts_nano.headless import HeadlessSimulation
 from rts_nano.map_schema import load_map_settings, validate_map_settings
 from rts_nano.map_spec import MapSpecError, compile_map_spec
 from rts_nano.map_tools import inspect_map_file, render_map_svg
+from rts_nano.simulation.entities import TeamColor
 
-SAMPLE_MAP = Path("src/rts_nano/maps/map_spec_01.json")
+COMPETITIVE_MAPS = tuple(Path("src/rts_nano/maps") / f"map_spec_0{index}.json" for index in range(1, 4))
+SAMPLE_MAP = COMPETITIVE_MAPS[0]
 
 
 def _spec() -> dict[str, object]:
@@ -241,19 +245,74 @@ def test_grid_pattern_derives_count_from_rows_and_columns() -> None:
     ]
 
 
-def test_repository_v3_example_loads_into_the_headless_runtime() -> None:
-    """The shipped semantic example is a real playable runtime map."""
-    settings = load_map_settings(SAMPLE_MAP)
+@pytest.mark.parametrize(
+    ("path", "expected_size"),
+    zip(COMPETITIVE_MAPS, ((2000, 1400), (2200, 1400), (1600, 1100)), strict=True),
+)
+def test_repository_v3_maps_load_into_the_headless_runtime(path: Path, expected_size: tuple[int, int]) -> None:
+    """Every competitive semantic map is a real playable runtime map."""
+    settings = load_map_settings(path)
 
     assert settings["schema_version"] == 2
-    assert settings["Terrain"]["width"] == 1600
-    assert len(settings["Resources"]["wood"]) == 20
-    assert len(settings["Resources"]["gold"]) == 10
+    assert (settings["Terrain"]["width"], settings["Terrain"]["height"]) == expected_size
+    assert len(settings["Resources"]["wood"]) == 52
+    assert len(settings["Resources"]["gold"]) == 30
 
-    simulation = HeadlessSimulation.from_map_file(SAMPLE_MAP)
+    simulation = HeadlessSimulation.from_map_file(path)
     simulation.step(2)
     assert simulation.manager.state.tick_count == 2
-    assert (simulation.manager.map_width, simulation.manager.map_height) == (1600, 1200)
+    assert (simulation.manager.map_width, simulation.manager.map_height) == expected_size
+
+
+@pytest.mark.parametrize("path", COMPETITIVE_MAPS)
+def test_competitive_map_main_route_and_starting_economy_are_playable(path: Path) -> None:
+    """A worker can reach center and complete a harvest cycle on every map."""
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    center = tuple(payload["anchors"]["center"])
+    simulation = HeadlessSimulation.from_map_file(path)
+    manager = simulation.manager
+    peasant = manager.state.entities_by_content_id("peasant", team=TeamColor.BLUE)[0]
+    wood = min(
+        manager.state.resources_by_content("wood"),
+        key=lambda resource: math.dist(peasant.get_center(), resource.get_center()),
+    )
+    starting_wood = manager.teams[TeamColor.BLUE].resources["wood"]
+    manager.issue_gather_order(TeamColor.BLUE, wood, [peasant])
+    simulation.step(700)
+    assert manager.teams[TeamColor.BLUE].resources["wood"] > starting_wood
+
+    manager.issue_move_order(TeamColor.BLUE, center, [peasant])
+    simulation.step(1000)
+    assert peasant.get_center() == center
+
+
+@pytest.mark.parametrize("path", COMPETITIVE_MAPS)
+def test_competitive_maps_have_exact_rotational_start_symmetry(path: Path) -> None:
+    settings = load_map_settings(path)
+    width = settings["Terrain"]["width"]
+    height = settings["Terrain"]["height"]
+
+    for content_id in ("base", "peasant"):
+        blue = {tuple(point) for point in settings["Blue"].get(content_id, [])}
+        red = {tuple(point) for point in settings["Red"].get(content_id, [])}
+        assert {(width - x, height - y) for x, y in blue} == red
+    for resource_id in ("wood", "gold"):
+        points = {tuple(point) for point in settings["Resources"].get(resource_id, [])}
+        assert {(width - x, height - y) for x, y in points} == points
+
+
+@pytest.mark.parametrize("path", COMPETITIVE_MAPS)
+def test_scripted_opponent_can_complete_a_match_on_each_map(path: Path) -> None:
+    """Existing game AI can gather, build, cross the map, and destroy the rival base."""
+    simulation = HeadlessSimulation.from_map_file(path)
+    manager = simulation.manager
+    opponent = ScriptedAI(manager, TeamColor.RED)
+
+    for _ in range(8000):
+        opponent.step()
+        manager.update()
+
+    assert manager.game_over_message == "Team Red wins"
 
 
 def test_requirements_reject_insufficient_starting_resources() -> None:
@@ -289,7 +348,7 @@ def test_requirements_reject_unreachable_named_route() -> None:
 def test_map_inspection_exposes_strategy_and_ascii_layout() -> None:
     report = inspect_map_file(SAMPLE_MAP)
 
-    assert "Map: Mirror Basin" in report
+    assert "Map: Crown Divide" in report
     assert "Symmetry: rotate_180" in report
     assert "Nearest wood:" in report
     assert "Route to center:" in report
@@ -300,10 +359,10 @@ def test_map_inspection_exposes_strategy_and_ascii_layout() -> None:
 def test_svg_preview_contains_terrain_resources_and_teams() -> None:
     settings = load_map_settings(SAMPLE_MAP)
 
-    svg = render_map_svg(settings, title="Mirror Basin")
+    svg = render_map_svg(settings, title="Crown Divide")
 
-    assert '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1200"' in svg
-    assert "Mirror Basin" in svg
+    assert '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2000 1400"' in svg
+    assert "Crown Divide" in svg
     assert "#3977a8" in svg  # water
     assert "#e3bd2d" in svg  # gold
     assert "#3c74db" in svg  # Blue

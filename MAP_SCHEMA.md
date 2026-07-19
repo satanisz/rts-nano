@@ -48,8 +48,8 @@ A minimal semantic map has world dimensions, anchors, two teams, placements, and
 ```
 
 See [Map authoring](docs/MAP_AUTHORING.md) for patterns, terrain geometry, requirements, tools, and
-the safe migration workflow. The complete executable example is
-[`map_spec_01.json`](src/rts_nano/maps/map_spec_01.json).
+the safe migration workflow. The complete competitive examples are `map_spec_01.json` through
+`map_spec_03.json` in [`src/rts_nano/maps`](src/rts_nano/maps/).
 
 ## Runtime v2
 

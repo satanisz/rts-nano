@@ -1,0 +1,155 @@
+{
+    "schema_version": 3,
+    "id": "twin_rivers",
+    "name": "Twin Rivers",
+    "description": "A three-lane control map with river crossings, an elevated center, and valuable northern and southern resource outposts.",
+    "world": {"width": 2200, "height": 1400},
+    "symmetry": {"type": "rotate_180", "center": [1100, 700]},
+    "anchors": {
+        "blue_main": [260, 700],
+        "red_main": {"mirror_of": "blue_main"},
+        "blue_main_wood": [430, 590],
+        "red_main_wood": {"mirror_of": "blue_main_wood"},
+        "blue_main_gold": [430, 810],
+        "red_main_gold": {"mirror_of": "blue_main_gold"},
+        "blue_north_wood": [690, 270],
+        "red_south_wood": {"mirror_of": "blue_north_wood"},
+        "blue_north_gold": [750, 390],
+        "red_south_gold": {"mirror_of": "blue_north_gold"},
+        "blue_south_wood": [690, 1130],
+        "red_north_wood": {"mirror_of": "blue_south_wood"},
+        "blue_south_gold": [750, 1010],
+        "red_north_gold": {"mirror_of": "blue_south_gold"},
+        "center": [1100, 700],
+        "north_crossing": [900, 340],
+        "south_crossing": [900, 1060],
+        "red_north_crossing": {"mirror_of": "south_crossing"},
+        "red_south_crossing": {"mirror_of": "north_crossing"}
+    },
+    "requirements": {
+        "start_resources": {
+            "wood": {"min_nodes": 10, "max_distance": 280},
+            "gold": {"min_nodes": 5, "max_distance": 280}
+        },
+        "routes": [
+            {"id": "blue_center_lane", "from": "blue_main", "to": "center", "unit_radius": 10},
+            {"id": "red_center_lane", "from": "red_main", "to": "center", "unit_radius": 10},
+            {"id": "blue_north_lane", "from": "blue_main", "to": "north_crossing", "unit_radius": 10},
+            {"id": "blue_south_lane", "from": "blue_main", "to": "south_crossing", "unit_radius": 10},
+            {"id": "red_north_lane", "from": "red_main", "to": "red_north_crossing", "unit_radius": 10},
+            {"id": "red_south_lane", "from": "red_main", "to": "red_south_crossing", "unit_radius": 10}
+        ]
+    },
+    "teams": [
+        {
+            "id": "Blue",
+            "faction_id": "AEGIS",
+            "start_anchor": "blue_main",
+            "starting_package": {"base": 1},
+            "entities": [
+                {"content": "peasant", "offset": [55, 0]},
+                {"content": "peasant", "offset": [0, -55]},
+                {"content": "peasant", "offset": [-55, 0]}
+            ]
+        },
+        {
+            "id": "Red",
+            "faction_id": "RUST",
+            "start_anchor": "red_main",
+            "starting_package": {"base": 1},
+            "entities": [
+                {"content": "peasant", "offset": [-55, 0]},
+                {"content": "peasant", "offset": [0, 55]},
+                {"content": "peasant", "offset": [55, 0]}
+            ]
+        }
+    ],
+    "placements": [
+        {
+            "id": "blue_main_wood",
+            "kind": "resource_cluster",
+            "resource": "wood",
+            "anchor": "blue_main_wood",
+            "pattern": {"type": "arc", "count": 10, "radius": 65, "start_angle": 90, "end_angle": 270}
+        },
+        {"id": "red_main_wood", "mirror_of": "blue_main_wood"},
+        {
+            "id": "blue_main_gold",
+            "kind": "resource_cluster",
+            "resource": "gold",
+            "anchor": "blue_main_gold",
+            "pattern": {"type": "arc", "count": 5, "radius": 38, "start_angle": 90, "end_angle": 270}
+        },
+        {"id": "red_main_gold", "mirror_of": "blue_main_gold"},
+        {
+            "id": "blue_north_wood",
+            "kind": "resource_cluster",
+            "resource": "wood",
+            "anchor": "blue_north_wood",
+            "pattern": {"type": "ring", "count": 8, "radius": 58}
+        },
+        {"id": "red_south_wood", "mirror_of": "blue_north_wood"},
+        {
+            "id": "blue_north_gold",
+            "kind": "resource_cluster",
+            "resource": "gold",
+            "anchor": "blue_north_gold",
+            "pattern": {"type": "arc", "count": 5, "radius": 36, "start_angle": 190, "end_angle": 350}
+        },
+        {"id": "red_south_gold", "mirror_of": "blue_north_gold"},
+        {
+            "id": "blue_south_wood",
+            "kind": "resource_cluster",
+            "resource": "wood",
+            "anchor": "blue_south_wood",
+            "pattern": {"type": "ring", "count": 8, "radius": 58}
+        },
+        {"id": "red_north_wood", "mirror_of": "blue_south_wood"},
+        {
+            "id": "blue_south_gold",
+            "kind": "resource_cluster",
+            "resource": "gold",
+            "anchor": "blue_south_gold",
+            "pattern": {"type": "arc", "count": 5, "radius": 36, "start_angle": 10, "end_angle": 170}
+        },
+        {"id": "red_north_gold", "mirror_of": "blue_south_gold"}
+    ],
+    "terrain": [
+        {
+            "id": "west_river",
+            "kind": "water",
+            "geometry": {
+                "type": "rect_group",
+                "rects": [
+                    {"position": [850, 0], "size": [100, 250]},
+                    {"position": [850, 430], "size": [100, 190]},
+                    {"position": [850, 780], "size": [100, 190]},
+                    {"position": [850, 1150], "size": [100, 250]}
+                ]
+            }
+        },
+        {"id": "east_river", "mirror_of": "west_river"},
+        {
+            "id": "center_plateau",
+            "kind": "high_ground",
+            "geometry": {"type": "rect", "position": [980, 520], "size": [240, 360]}
+        },
+        {
+            "id": "west_center_ramp",
+            "kind": "ramp",
+            "geometry": {"type": "rect", "position": [920, 650], "size": [90, 100]}
+        },
+        {"id": "east_center_ramp", "mirror_of": "west_center_ramp"},
+        {
+            "id": "north_center_rock",
+            "kind": "rock",
+            "geometry": {"type": "circle", "center": [1100, 450], "radius": 24}
+        },
+        {"id": "south_center_rock", "mirror_of": "north_center_rock"},
+        {
+            "id": "center_grass",
+            "kind": "grass",
+            "geometry": {"type": "circle", "center": [1100, 700], "radius": 28}
+        }
+    ]
+}

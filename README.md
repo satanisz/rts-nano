@@ -18,6 +18,19 @@ terrain height and ramps, water and rock obstacles, formation movement, attack-m
 defensive towers, fog of war, shields, poison, frenzy, splash damage, and deterministic victory.
 Teams select factions explicitly in map data; Blue and Red do not imply a faction.
 
+## Competitive maps
+
+The playable game defaults to the semantic MapSpec v3 map set:
+
+| Map | Style | Strategic shape |
+|---|---|---|
+| Crown Divide | Standard | Protected main plateaus, safe starting economy, contested central lane |
+| Twin Rivers | Control | Three river crossings, elevated center, northern and southern outposts |
+| Ashen Circuit | Aggressive | Short routes, compact defended mains, raised central arena |
+
+Every map uses exact 180-degree spawn/resource symmetry and executable checks for starting economy
+and critical routes. Legacy v2 maps remain available for compatibility and regression tests.
+
 ## Requirements and installation
 
 - Python 3.14 or newer
@@ -33,6 +46,9 @@ uv sync --locked --dev
 ```powershell
 # Play the game
 uv run python -m rts_nano.main
+
+# Play another competitive map
+uv run python -m rts_nano.main --map map_spec_02.json
 
 # Open the map editor
 uv run python -m rts_nano.map_editor --map map_settings_01.json
@@ -68,6 +84,7 @@ runs rendering with SDL's dummy video driver, and reports a fast benchmark smoke
 - [Architecture](ARCHITECTURE.md)
 - [Map schema](MAP_SCHEMA.md)
 - [MapSpec v3 authoring](docs/MAP_AUTHORING.md)
+- [Competitive map review](docs/reviews/COMPETITIVE_MAPS_REVIEW.md)
 - [Adding units, buildings, resources, or factions](docs/ADDING_CONTENT.md)
 - [Determinism contract](docs/DETERMINISM.md)
 - [Sprint S5 performance report](benchmarks/SPRINT_S5_REPORT.md)

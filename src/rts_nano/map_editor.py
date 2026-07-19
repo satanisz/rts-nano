@@ -356,8 +356,8 @@ class MapEditor:
             self.status = f"Snap: {'ON' if self.snap_to_grid else 'OFF'}"
 
     def load_next_map(self) -> None:
-        """Cycle through JSON maps in the maps directory."""
-        map_paths = sorted(MAPS_DIR.glob("*.json"))
+        """Cycle through editable runtime v2 maps in the maps directory."""
+        map_paths = sorted(MAPS_DIR.glob("map_settings_*.json"))
         if not map_paths:
             self.status = "No maps found"
             return

@@ -60,6 +60,10 @@ rings. Use `entities` when exact offsets or absolute positions matter:
 
 Only content registered for the selected faction is accepted.
 
+`starting_package` uses stable offsets, but it does not infer one team's orientation from another
+team. For exact rotational spawn symmetry, place the shared base through `starting_package` and list
+worker offsets explicitly as mirrored `entities`, as demonstrated by the competitive maps.
+
 ## Placements and patterns
 
 Placements support `resource_cluster`, `entity_cluster`, and a single `entity`. Clusters combine an

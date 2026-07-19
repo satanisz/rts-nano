@@ -14,6 +14,7 @@ stretching.
 """
 
 import sys
+from argparse import ArgumentParser
 from pathlib import Path
 
 import pygame
@@ -28,7 +29,24 @@ from rts_nano.map_schema import load_map_settings
 from rts_nano.simulation.entities import TeamColor
 
 BASE_DIR = Path(__file__).resolve().parent
+MAPS_DIR = BASE_DIR / "maps"
+DEFAULT_GAME_MAP = Path("map_spec_01.json")
 WINDOWED_BASE_HEIGHT = SCREEN_HEIGHT
+
+
+def _resolve_game_map_path(path: Path) -> Path:
+    """Resolve a CLI map name against the packaged maps directory."""
+    if path.exists() or path.is_absolute():
+        return path
+    candidate = path if path.suffix == ".json" else path.with_suffix(".json")
+    return MAPS_DIR / candidate.name
+
+
+def _parse_args() -> Path:
+    """Return the requested playable map path."""
+    parser = ArgumentParser(description="Play RTS Nano")
+    parser.add_argument("--map", type=Path, default=DEFAULT_GAME_MAP, help="Map JSON path or packaged map name")
+    return _resolve_game_map_path(parser.parse_args().map)
 
 
 def _desktop_size() -> tuple[int, int]:
@@ -111,12 +129,13 @@ def main() -> None:
     Keeping the display surface as the render target is important: it means
     fullscreen shows more map instead of stretching a fixed-resolution image.
     """
+    map_path = _parse_args()
     pygame.init()
     display_screen, _ = _create_display(fullscreen=False)
     pygame.display.set_caption("Simple RTS")
     clock = pygame.time.Clock()
 
-    map_settings = load_map_settings(BASE_DIR / "maps" / "map_settings_01.json")
+    map_settings = load_map_settings(map_path)
     game_manager = GameSession(map_settings)
     game_manager.set_viewport_size(*display_screen.get_size())
     presentation = PresentationState()
