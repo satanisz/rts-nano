@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 import pygame
 
-from rts_nano.game.manager import GameManager
+from rts_nano.application import GameSession
 from rts_nano.game.observations import EntityIdRegistry, build_observation
 from rts_nano.game.ui.renderer import GameRenderer
 from rts_nano.simulation.entities import TeamColor
@@ -53,14 +53,14 @@ def _settings() -> MapSettings:
     }
 
 
-def _snapshot(manager: GameManager) -> dict[str, object]:
+def _snapshot(manager: GameSession) -> dict[str, object]:
     return build_observation(manager, tick=20, registry=EntityIdRegistry()).to_dict()
 
 
 def test_rendering_does_not_change_simulation_results() -> None:
     """The same commands produce identical state with or without presentation."""
-    rendered = GameManager(_settings())
-    headless = GameManager(_settings())
+    rendered = GameSession(_settings())
+    headless = GameSession(_settings())
     renderer = GameRenderer()
     screen = pygame.Surface((rendered.screen_width, rendered.screen_height))
 
@@ -76,7 +76,7 @@ def test_rendering_does_not_change_simulation_results() -> None:
 
 def test_render_smoke_covers_every_current_content_definition() -> None:
     """Every current content type can pass through the Pygame presentation adapter."""
-    manager = GameManager(_settings())
+    manager = GameSession(_settings())
     screen = pygame.Surface((manager.screen_width, manager.screen_height))
 
     GameRenderer().draw(screen, manager)

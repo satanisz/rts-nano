@@ -2,7 +2,7 @@
 
 A team stays active while it owns at least one living entity. When only one team
 remains it wins; when none remain the match is a draw. The result is written to
-``GameState`` (``game_over_message`` and ``paused``) so observation, HUD, and env
+``GameState`` (``game_over_message``) so observation, HUD, and env
 terminal checks keep reading the same fields.
 """
 
@@ -28,7 +28,5 @@ class VictorySystem:
         ]
         if len(active_teams) == 1:
             self._state.game_over_message = f"Team {active_teams[0].value} wins"
-            self._state.paused = True
         elif not active_teams:
             self._state.game_over_message = "Draw"
-            self._state.paused = True

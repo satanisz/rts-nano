@@ -2,12 +2,12 @@
 
 Last updated: 2026-07-19
 
-## STATUS: IN PROGRESS — S3 COMPLETE
+## STATUS: IN PROGRESS — S4 COMPLETE
 
-Sprints S0 through S3 completed on 2026-07-19. Gameplay definitions have one validated source of
-truth, runtime state uses one stable generic entity store with explicit team factions, and entity
-models are now pure simulation objects with presentation-owned Pygame assets and effects. Runtime
-behavior remains identical to the S0 golden replay. See `docs/reviews/`. Sprint S4 is next.
+Sprints S0 through S4 completed on 2026-07-19. Gameplay definitions have one validated source of
+truth, runtime state uses one stable generic entity store, and `SimulationRunner` now advances the
+complete game without importing Pygame or owning application state. `GameSession` and Pygame
+presentation adapters compose the playable game. Behavior matches the S0 replay. Sprint S5 is next.
 
 Goal: bring the current game to a **game-core-complete state suitable for later AI and RL work**.
 “Complete” does not mean a commercial product, campaign, or polished HUD. It means:

@@ -1,6 +1,6 @@
 """Presentation layer: draws the game world, HUD, minimap, and menus.
 
-The renderer reads a ``GameManager`` (and its ``CommandPanel``) but never mutates
+The renderer reads a ``GameSession`` (and its ``CommandPanel``) but never mutates
 simulation state. Keeping it separate means the core can run headless without any
 draw/font calls. World↔screen transforms still live on the manager because input
 shares them; the renderer calls them read-only.
@@ -28,12 +28,13 @@ from rts_nano.game.constants import (
 from rts_nano.game.fog import FogOfWar
 from rts_nano.game.ui.effects import ArcherShot, MagicMissile
 from rts_nano.game.ui.pygame_assets import PygameAssets, building_glyph
+from rts_nano.game.ui.state import PresentationState
 from rts_nano.game.ui.terrain_renderer import TerrainRenderer
 from rts_nano.simulation.entities import TeamColor, Wood
 from rts_nano.simulation.entities.base import Building, Entity, Resource, Unit
 
 if TYPE_CHECKING:
-    from rts_nano.game.manager import GameManager
+    from rts_nano.application import GameSession
     from rts_nano.simulation.geometry import Rect
 
 WOOD_ICON = "\U0001fab5"
@@ -41,11 +42,16 @@ GOLD_ICON = "\U0001fa99"
 
 
 class GameRenderer:
-    """Draws the current state of a ``GameManager`` to a display surface."""
+    """Draws the current state of a ``GameSession`` to a display surface."""
 
-    def __init__(self, assets: PygameAssets | None = None) -> None:
+    def __init__(
+        self,
+        assets: PygameAssets | None = None,
+        presentation: PresentationState | None = None,
+    ) -> None:
         """Create presentation-owned asset and facing caches."""
         self.assets = assets or PygameAssets()
+        self.presentation = presentation or PresentationState()
         self._unit_facing: dict[int, tuple[float, str]] = {}
         self._hit_flash_until_tick: dict[int, int] = {}
         self._magic_missiles: list[MagicMissile] = []
@@ -53,14 +59,8 @@ class GameRenderer:
         self._last_effect_tick = -1
         self._terrain_renderer = TerrainRenderer()
 
-    @staticmethod
-    def attach(manager: GameManager) -> None:
-        """Attach this presentation path before the first simulation tick."""
-        manager.attach_presentation()
-
-    def draw(self, screen: pygame.Surface, manager: GameManager) -> None:
+    def draw(self, screen: pygame.Surface, manager: GameSession) -> None:
         """Draw world entities, selection state, HUD, minimap, and overlays."""
-        self.attach(manager)
         screen_width = manager.screen_width
         play_area_height = manager.play_area_height
         screen_height = manager.screen_height
@@ -85,13 +85,31 @@ class GameRenderer:
             is_resource = isinstance(entity, Resource)
 
             if is_allied:
-                self._draw_entity(world_surface, entity, camera_offset, manager.state.tick_count)
+                self._draw_entity(
+                    world_surface,
+                    entity,
+                    camera_offset,
+                    manager.state.tick_count,
+                    entity in manager.selected_entities,
+                )
             elif is_resource:
                 if is_explored or is_visible:
-                    self._draw_entity(world_surface, entity, camera_offset, manager.state.tick_count)
+                    self._draw_entity(
+                        world_surface,
+                        entity,
+                        camera_offset,
+                        manager.state.tick_count,
+                        entity in manager.selected_entities,
+                    )
             else:
                 if is_visible:
-                    self._draw_entity(world_surface, entity, camera_offset, manager.state.tick_count)
+                    self._draw_entity(
+                        world_surface,
+                        entity,
+                        camera_offset,
+                        manager.state.tick_count,
+                        entity in manager.selected_entities,
+                    )
 
         for missile in self._magic_missiles:
             if manager.fog.is_visible(missile.x, missile.y):
@@ -99,7 +117,11 @@ class GameRenderer:
         for shot in self._archer_shots:
             if manager.fog.is_visible(shot.x, shot.y):
                 shot.draw(world_surface, camera_offset)
-        for marker in manager.click_markers:
+        now_ms = pygame.time.get_ticks()
+        self.presentation.click_markers = [
+            marker for marker in self.presentation.click_markers if marker.is_alive(now_ms)
+        ]
+        for marker in self.presentation.click_markers:
             marker.draw(world_surface, camera_offset)
 
         self._draw_pending_construction(world_surface, camera_offset, manager)
@@ -185,7 +207,7 @@ class GameRenderer:
         if manager.menu_active:
             self._draw_main_menu(screen, manager)
 
-    def _update_effects(self, manager: GameManager) -> None:
+    def _update_effects(self, manager: GameSession) -> None:
         """Consume each simulation tick's attack outputs exactly once."""
         tick = manager.state.tick_count
         if tick == self._last_effect_tick:
@@ -215,6 +237,7 @@ class GameRenderer:
         entity: Entity,
         offset: tuple[float, float],
         tick: int,
+        selected: bool,
     ) -> None:
         """Render a pure entity through presentation-owned state and assets."""
         offset_x, offset_y = offset
@@ -246,7 +269,7 @@ class GameRenderer:
                 (top_left[0], top_left[1] + size - 5, int(size * entity.construction_progress), 4),
             )
 
-        if entity.selected:
+        if selected:
             pygame.draw.rect(screen, WHITE, (*top_left, size, size), 1)
 
     def _is_unit_flipped(self, entity: Entity) -> bool:
@@ -285,7 +308,7 @@ class GameRenderer:
         self,
         screen: pygame.Surface,
         offset: tuple[float, float],
-        manager: GameManager,
+        manager: GameSession,
     ) -> None:
         """Draw a simple placement preview for the pending construction command."""
         building_type = manager.pending_construction_type
@@ -307,7 +330,7 @@ class GameRenderer:
         pygame.draw.rect(screen, color, preview_rect, width=2)
         pygame.draw.circle(screen, color, screen_pos, int(definition.radius), width=1)
 
-    def _draw_bottom_menu(self, screen: pygame.Surface, manager: GameManager) -> None:
+    def _draw_bottom_menu(self, screen: pygame.Surface, manager: GameSession) -> None:
         """Draw the selection details, portrait, and command-panel buttons."""
         screen_width = manager.screen_width
         screen_height = manager.screen_height
@@ -422,8 +445,8 @@ class GameRenderer:
             pygame.draw.rect(screen, WHITE, frame_rect, 2)
 
         font_tiny = pygame.font.SysFont(None, 16)
-        buttons = manager.command_panel.build(manager, screen_width, screen_height)
-        for index, slot_rect in enumerate(manager.command_panel.slot_rects(screen_width, screen_height)):
+        buttons = self.presentation.command_panel.build(manager, screen_width, screen_height)
+        for index, slot_rect in enumerate(self.presentation.command_panel.slot_rects(screen_width, screen_height)):
             if index >= len(buttons):
                 pygame.draw.rect(screen, (30, 30, 30), slot_rect)
                 pygame.draw.rect(screen, (50, 50, 50), slot_rect, 1)
@@ -442,9 +465,15 @@ class GameRenderer:
                 )
                 screen.blit(text_surf, text_rect)
 
-    def _draw_minimap(self, screen: pygame.Surface, manager: GameManager) -> None:
+    def _draw_minimap(self, screen: pygame.Surface, manager: GameSession) -> None:
         """Draw a compact world overview and the current camera rectangle."""
-        rect = manager._minimap_rect()
+        minimap_bounds = manager._minimap_rect()
+        rect = pygame.Rect(
+            minimap_bounds.x,
+            minimap_bounds.y,
+            minimap_bounds.width,
+            minimap_bounds.height,
+        )
         pygame.draw.rect(screen, (23, 32, 25), rect)
         pygame.draw.rect(screen, WHITE, rect, 2)
 
@@ -516,7 +545,7 @@ class GameRenderer:
         )
         pygame.draw.rect(screen, WHITE, camera_rect, 1)
 
-    def _draw_main_menu(self, screen: pygame.Surface, manager: GameManager) -> None:
+    def _draw_main_menu(self, screen: pygame.Surface, manager: GameSession) -> None:
         """Draw the F10 pause menu."""
         screen_width = manager.screen_width
         screen_height = manager.screen_height

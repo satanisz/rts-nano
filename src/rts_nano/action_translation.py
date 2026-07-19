@@ -27,7 +27,7 @@ from rts_nano.simulation.entities.buildings import Base
 from rts_nano.simulation.entities.units import Peasant
 
 if TYPE_CHECKING:
-    from rts_nano.game.manager import GameManager
+    from rts_nano.application import GameSession
     from rts_nano.game.observations import EntityId, EntityIdRegistry
     from rts_nano.simulation.entities import TeamColor
     from rts_nano.simulation.entities.base import Entity
@@ -36,7 +36,7 @@ if TYPE_CHECKING:
 class ActionTranslator:
     """Apply public action DTOs through the manager's order system."""
 
-    def __init__(self, manager: GameManager, entity_ids: EntityIdRegistry) -> None:
+    def __init__(self, manager: GameSession, entity_ids: EntityIdRegistry) -> None:
         """Initialize the translator for one manager and entity ID registry."""
         self._manager = manager
         self._entity_ids = entity_ids
@@ -147,7 +147,7 @@ class ActionTranslator:
 
     def _apply_select(self, action: SelectAction) -> int:
         selected = tuple(self._entity_by_id(entity_id) for entity_id in action.entity_ids)
-        return self._manager.orders.select_entities_for_team(action.team, selected)
+        return self._manager.select_entities_for_team(action.team, selected)
 
     def _units_for_action(self, team: TeamColor, unit_ids: tuple[EntityId, ...]) -> list[Unit]:
         if unit_ids:

@@ -119,7 +119,6 @@ class Entity:
         self.color: tuple[int, int, int] = color
         self.size: int = size
         self.radius: float = radius
-        self.selected: bool = False
         self.life: int = 0
         self.class_name: str = class_name
         self.height_level: int = 0

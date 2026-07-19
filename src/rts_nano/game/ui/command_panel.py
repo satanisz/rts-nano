@@ -24,7 +24,7 @@ from rts_nano.simulation.entities.base import Building, Unit
 from rts_nano.simulation.entities.units import Peasant
 
 if TYPE_CHECKING:
-    from rts_nano.game.manager import GameManager
+    from rts_nano.application import GameSession
 
 COMMAND_CARD_WIDTH = 180
 CMD_COLS = 3
@@ -88,7 +88,7 @@ class CommandPanel:
             )
         return rects
 
-    def build(self, manager: GameManager, screen_width: int, screen_height: int) -> list[CommandButton]:
+    def build(self, manager: GameSession, screen_width: int, screen_height: int) -> list[CommandButton]:
         """Return the laid-out command buttons for the manager's current selection."""
         commands, producer = self._commands(manager)
         rects = self.slot_rects(screen_width, screen_height)
@@ -114,7 +114,7 @@ class CommandPanel:
             return CommandButton(rect, label, enabled, action, producer=producer)
         return CommandButton(rect, label, enabled, action)
 
-    def _commands(self, manager: GameManager) -> tuple[list[_RawCommand], Building | None]:
+    def _commands(self, manager: GameSession) -> tuple[list[_RawCommand], Building | None]:
         commands: list[_RawCommand] = []
         if not manager.selected_entities:
             return commands, None

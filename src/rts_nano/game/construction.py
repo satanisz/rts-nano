@@ -139,8 +139,6 @@ class ConstructionSystem:
         building.is_under_construction = False
         building.life = 0
         self._detach_builders(building.team, building)
-        self._state.selected_entities = [entity for entity in self._state.selected_entities if entity is not building]
-        building.selected = False
         return True
 
     def update(self) -> None:

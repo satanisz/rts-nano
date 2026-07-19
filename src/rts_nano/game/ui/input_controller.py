@@ -1,9 +1,9 @@
-"""Input layer: translates pygame events into GameManager interactions.
+"""Input layer: translates pygame events into GameSession interactions.
 
 The controller owns event/key/click dispatch and camera scrolling. It holds no
 game state — it reads and mutates the manager through the manager's interaction
 API (selection, placement/targeting modes, orders, camera helpers). Keeping this
-out of ``GameManager`` means the core has no pygame event handling.
+out of ``GameSession`` means the core has no pygame event handling.
 
 Only the double-click timing lives here, as it is input-internal and read
 nowhere else.
@@ -16,31 +16,32 @@ from typing import TYPE_CHECKING
 import pygame
 
 from rts_nano.content import CONTENT
-from rts_nano.game.manager import (
-    CAMERA_SPEED,
-    DOUBLE_CLICK_MS,
-    EDGE_SCROLL_MARGIN,
-    FULLSCREEN_TOGGLE_EVENT,
-    ClickMarker,
-)
 from rts_nano.game.rules import distance_between_points
+from rts_nano.game.ui.effects import ClickMarker
+from rts_nano.game.ui.state import PresentationState
 from rts_nano.simulation.entities import Base, TeamColor
 from rts_nano.simulation.entities.base import Unit
 
 if TYPE_CHECKING:
-    from rts_nano.game.manager import GameManager
+    from rts_nano.application import GameSession
     from rts_nano.game.ui.command_panel import CommandButton
+
+FULLSCREEN_TOGGLE_EVENT = pygame.USEREVENT + 1
+CAMERA_SPEED = 12
+EDGE_SCROLL_MARGIN = 24
+DOUBLE_CLICK_MS = 350
 
 
 class InputController:
     """Translate pygame events and held keys into manager interactions."""
 
-    def __init__(self) -> None:
+    def __init__(self, presentation: PresentationState | None = None) -> None:
         """Initialize transient input state (double-click tracking)."""
+        self.presentation = presentation or PresentationState()
         self._last_click_ms = 0
         self._last_click_pos: tuple[int, int] = (0, 0)
 
-    def update_camera(self, manager: GameManager) -> None:
+    def update_camera(self, manager: GameSession) -> None:
         """Scroll the viewport with keyboard keys or screen-edge mouse position."""
         if manager.menu_active:
             return
@@ -72,7 +73,7 @@ class InputController:
         manager.camera_y += dy
         manager._clamp_camera()
 
-    def handle_event(self, manager: GameManager, event: pygame.event.Event) -> None:
+    def handle_event(self, manager: GameSession, event: pygame.event.Event) -> None:
         """Process one pygame event for team control, selection, and orders."""
         if event.type == pygame.KEYDOWN:
             self._handle_keydown(manager, event)
@@ -83,13 +84,11 @@ class InputController:
         elif event.type == pygame.MOUSEMOTION:
             self._handle_mouse_motion(manager, event)
 
-    def _handle_keydown(self, manager: GameManager, event: pygame.event.Event) -> None:
+    def _handle_keydown(self, manager: GameSession, event: pygame.event.Event) -> None:
         if event.key == pygame.K_TAB:
             manager.cancel_pending_construction_placement()
             manager.cancel_pending_unit_command()
             manager.current_team = TeamColor.RED if manager.current_team == TeamColor.BLUE else TeamColor.BLUE
-            for entity in manager.selected_entities:
-                entity.selected = False
             manager.selected_entities.clear()
         elif event.key == pygame.K_q:
             pygame.event.post(pygame.event.Event(pygame.QUIT))
@@ -132,7 +131,7 @@ class InputController:
             else:
                 manager.recall_control_group(group_id)
 
-    def _handle_mouse_down(self, manager: GameManager, event: pygame.event.Event) -> None:
+    def _handle_mouse_down(self, manager: GameSession, event: pygame.event.Event) -> None:
         mouse_pos = event.pos
         manager.set_mouse_pos(mouse_pos)
 
@@ -146,7 +145,7 @@ class InputController:
         elif event.button == 3:
             self._handle_right_click(manager, mouse_pos)
 
-    def _handle_left_click(self, manager: GameManager, mouse_pos: tuple[int, int]) -> None:
+    def _handle_left_click(self, manager: GameSession, mouse_pos: tuple[int, int]) -> None:
         minimap_rect = manager._minimap_rect()
         if minimap_rect.collidepoint(mouse_pos):
             manager.minimap_dragging = True
@@ -200,7 +199,7 @@ class InputController:
         manager.drag_start = world_pos
         manager.drag_end = world_pos
 
-    def _handle_right_click(self, manager: GameManager, mouse_pos: tuple[int, int]) -> None:
+    def _handle_right_click(self, manager: GameSession, mouse_pos: tuple[int, int]) -> None:
         if manager.pending_construction_type is not None:
             manager.cancel_pending_construction_placement()
             return
@@ -219,7 +218,9 @@ class InputController:
                 break
 
         marker_color = (255, 80, 80) if target_entity else (80, 255, 120)
-        manager.click_markers.append(ClickMarker(order_pos[0], order_pos[1], marker_color, pygame.time.get_ticks()))
+        self.presentation.click_markers.append(
+            ClickMarker(order_pos[0], order_pos[1], marker_color, pygame.time.get_ticks())
+        )
 
         selected_units = [entity for entity in manager.selected_entities if isinstance(entity, Unit)]
         if target_entity is None:
@@ -228,7 +229,7 @@ class InputController:
             for entity in selected_units:
                 manager._assign_unit_target(entity, order_pos, target_entity)
 
-    def _handle_mouse_up(self, manager: GameManager, event: pygame.event.Event) -> None:
+    def _handle_mouse_up(self, manager: GameSession, event: pygame.event.Event) -> None:
         if event.button == 1 and manager.minimap_dragging:
             manager.minimap_dragging = False
         elif event.button == 1 and manager.dragging:
@@ -237,23 +238,23 @@ class InputController:
             manager.drag_start = None
             manager.drag_end = None
 
-    def _handle_mouse_motion(self, manager: GameManager, event: pygame.event.Event) -> None:
+    def _handle_mouse_motion(self, manager: GameSession, event: pygame.event.Event) -> None:
         manager.set_mouse_pos(event.pos)
         if manager.minimap_dragging:
             manager._center_camera_from_minimap_pos(event.pos)
         elif manager.dragging:
             manager.drag_end = manager._screen_to_world(event.pos)
 
-    def _handle_command_panel_click(self, manager: GameManager, mouse_pos: tuple[int, int]) -> bool:
+    def _handle_command_panel_click(self, manager: GameSession, mouse_pos: tuple[int, int]) -> bool:
         """Dispatch a click on a command-panel button. Return True if handled."""
-        for button in manager.command_panel.build(manager, manager.screen_width, manager.screen_height):
+        for button in self.presentation.command_panel.build(manager, manager.screen_width, manager.screen_height):
             if not button.enabled or button.action is None or not button.rect.collidepoint(mouse_pos):
                 continue
             self._dispatch_command_button(manager, button)
             return True
         return False
 
-    def _dispatch_command_button(self, manager: GameManager, button: CommandButton) -> None:
+    def _dispatch_command_button(self, manager: GameSession, button: CommandButton) -> None:
         """Run the manager action behind an enabled command-panel button."""
         action = button.action
         if action == "produce" and button.producer is not None and button.unit_type:
@@ -267,7 +268,7 @@ class InputController:
         elif action in {"stop", "hold", "attack_move", "patrol", "gather", "return_cargo"}:
             manager._handle_unit_command_button(action)
 
-    def _faction_building(self, manager: GameManager, role: str) -> str:
+    def _faction_building(self, manager: GameSession, role: str) -> str:
         """Return the building type the current team builds for a hotkey role."""
         faction = manager.state.faction_for_team(manager.current_team)
         definition_role = {"military": "military_production", "tech": "advanced_production"}[role]
@@ -277,14 +278,14 @@ class InputController:
             if definition.role == definition_role
         )
 
-    def _try_build_peasant_from_selection(self, manager: GameManager) -> None:
+    def _try_build_peasant_from_selection(self, manager: GameSession) -> None:
         """Attempt to build a peasant from the first selected base."""
         for entity in manager.selected_entities:
             if isinstance(entity, Base) and entity.team == manager.current_team:
                 manager.build_peasant(entity)
                 break
 
-    def _handle_menu_click(self, manager: GameManager, mouse_pos: tuple[int, int]) -> None:
+    def _handle_menu_click(self, manager: GameSession, mouse_pos: tuple[int, int]) -> None:
         """Process clicks on the F10 main menu."""
         menu_width = 300
         button_height = 50
@@ -320,7 +321,7 @@ class InputController:
             elif option == "EXIT":
                 pygame.event.post(pygame.event.Event(pygame.QUIT))
 
-    def _request_fullscreen_toggle(self, manager: GameManager) -> None:
+    def _request_fullscreen_toggle(self, manager: GameSession) -> None:
         """Ask the application shell to toggle fullscreen mode."""
         manager.set_fullscreen_enabled(not manager.fullscreen_enabled)
         pygame.event.post(pygame.event.Event(FULLSCREEN_TOGGLE_EVENT, enabled=manager.fullscreen_enabled))

@@ -9,7 +9,7 @@ from rts_nano.simulation.entities import TeamColor
 from rts_nano.simulation.entities.base import Building
 
 if TYPE_CHECKING:
-    from rts_nano.game.manager import GameManager
+    from rts_nano.application import GameSession
     from rts_nano.game.state import TeamState
     from rts_nano.simulation.entities.base import Entity
 
@@ -109,7 +109,7 @@ class EntityIdRegistry:
             self._entity_ids[entity] = entity_id
         return entity_id
 
-    def entity_by_id(self, manager: GameManager, entity_id: EntityId) -> Entity:
+    def entity_by_id(self, manager: GameSession, entity_id: EntityId) -> Entity:
         """Resolve a snapshot ID back to the live entity in the current manager."""
         for entity in manager.all_entities:
             if self.id_for(entity) == entity_id:
@@ -117,7 +117,7 @@ class EntityIdRegistry:
         raise KeyError(f"Unknown entity id: {entity_id}")
 
 
-def build_observation(manager: GameManager, tick: int, registry: EntityIdRegistry) -> Observation:
+def build_observation(manager: GameSession, tick: int, registry: EntityIdRegistry) -> Observation:
     """Build a deterministic serializable snapshot from a game manager."""
     return Observation(
         tick=tick,
@@ -130,7 +130,7 @@ def build_observation(manager: GameManager, tick: int, registry: EntityIdRegistr
     )
 
 
-def _snapshot_team(manager: GameManager, team: TeamColor, team_state: TeamState) -> TeamSnapshot:
+def _snapshot_team(manager: GameSession, team: TeamColor, team_state: TeamState) -> TeamSnapshot:
     return TeamSnapshot(
         team=team.value,
         wood=team_state.resources["wood"],
@@ -142,7 +142,7 @@ def _snapshot_team(manager: GameManager, team: TeamColor, team_state: TeamState)
     )
 
 
-def _snapshot_entity(manager: GameManager, entity: Entity, registry: EntityIdRegistry) -> EntitySnapshot:
+def _snapshot_entity(manager: GameSession, entity: Entity, registry: EntityIdRegistry) -> EntitySnapshot:
     team = getattr(entity, "team", None)
     current_order = getattr(entity, "current_order", None)
     building = entity if isinstance(entity, Building) else None
@@ -160,7 +160,7 @@ def _snapshot_entity(manager: GameManager, entity: Entity, registry: EntityIdReg
         state=getattr(entity, "state", None),
         carry_wood=getattr(entity, "carry_wood", 0),
         carry_gold=getattr(entity, "carry_gold", 0),
-        selected=entity.selected,
+        selected=entity in manager.selected_entities,
         production_queue=_snapshot_production_queue(manager, building) if building is not None else (),
         is_under_construction=building is not None and building.is_under_construction,
         construction_progress=building.construction_progress if building is not None else None,
@@ -168,7 +168,7 @@ def _snapshot_entity(manager: GameManager, entity: Entity, registry: EntityIdReg
     )
 
 
-def _snapshot_production_queue(manager: GameManager, building: Building) -> tuple[ProductionSnapshot, ...]:
+def _snapshot_production_queue(manager: GameSession, building: Building) -> tuple[ProductionSnapshot, ...]:
     return tuple(
         ProductionSnapshot(
             unit_type=item.unit_type,

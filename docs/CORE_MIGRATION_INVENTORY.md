@@ -7,7 +7,7 @@ This inventory freezes the pre-registry architecture for Executive Plan 05. It i
 checklist, not a target design. Every duplicated source listed below must be removed or reduced
 to an adapter by S2.
 
-## S3 progress
+## S4 progress
 
 The canonical gameplay values listed in the original inventory live in `content/` as immutable
 definitions exposed through `ContentRegistry`. Concrete entity classes retain behavior but
@@ -26,6 +26,13 @@ caches sprites, portraits, and flipped variants through `visual_key`. Projectile
 flash timing are presentation-owned and driven by bounded `AttackLanded` output events. Headless
 entity construction no longer uses a `load_visuals` flag. The remaining Pygame boundary debt is
 manager/application state and terrain geometry assigned to S4.
+
+S4 completed the boundary. `simulation/geometry.py` replaces Pygame rectangles with tested SDL-
+compatible clipping semantics. Terrain drawing, click markers, projectiles, asset caches, input,
+and command-panel state live under presentation adapters. `SimulationRunner` owns deterministic
+system order, ticks, and bounded output events. The former `GameManager` module was removed;
+`application/GameSession` composes the runner with camera, menu, pause, selection, and viewport
+state. Headless import and construction neither import Pygame nor configure SDL.
 
 ## Stable vocabulary
 
@@ -71,15 +78,10 @@ creation order.
 
 ## Current Pygame boundary debt
 
-Direct Pygame imports in non-UI game modules are locked by
-`tests/test_architecture_boundaries.py`:
-
-- `game/manager.py`,
-- `game/terrain.py`.
-
-The allowlist may only shrink. S4 removes manager and terrain dependencies. The complete
-`simulation/` package is statically and fresh-process tested to remain Pygame-free. UI,
-`main.py`, and the map editor remain presentation/application code.
+Direct Pygame imports in non-UI game modules are forbidden by
+`tests/test_architecture_boundaries.py`; the debt allowlist is now empty. The simulation, terrain,
+application session, and headless entry points are fresh-process tested to remain Pygame-free.
+UI, `main.py`, and the map editor remain presentation/application code.
 
 ## Migration ownership
 

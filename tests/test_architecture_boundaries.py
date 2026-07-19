@@ -12,9 +12,7 @@ CONTENT_ROOT = Path("src/rts_nano/content")
 
 # Sprint S0 records existing debt rather than pretending the core is already pure.
 # Every later sprint must shrink this exact allowlist; Sprint S4 removes it.
-APPROVED_DIRECT_PYGAME_DEBT = {
-    "manager.py",
-}
+APPROVED_DIRECT_PYGAME_DEBT: set[str] = set()
 
 SIMULATION_ROOT = Path("src/rts_nano/simulation")
 
@@ -59,4 +57,20 @@ def test_simulation_entity_import_does_not_load_pygame() -> None:
 def test_terrain_import_does_not_load_pygame() -> None:
     """Terrain data and collision queries import without presentation dependencies."""
     code = "import sys; import rts_nano.game.terrain; assert 'pygame' not in sys.modules"
+    subprocess.run([sys.executable, "-c", code], check=True)  # noqa: S603 - fixed interpreter and source
+
+
+def test_game_session_import_does_not_load_pygame() -> None:
+    """Application composition imports in a fresh process without Pygame."""
+    code = "import sys; import rts_nano.application; assert 'pygame' not in sys.modules"
+    subprocess.run([sys.executable, "-c", code], check=True)  # noqa: S603 - fixed interpreter and source
+
+
+def test_headless_import_does_not_load_or_configure_pygame() -> None:
+    """Headless composition requires neither Pygame nor SDL environment setup."""
+    code = (
+        "import os, sys; before=os.environ.get('SDL_VIDEODRIVER'); "
+        "import rts_nano.headless; assert 'pygame' not in sys.modules; "
+        "assert os.environ.get('SDL_VIDEODRIVER') == before"
+    )
     subprocess.run([sys.executable, "-c", code], check=True)  # noqa: S603 - fixed interpreter and source

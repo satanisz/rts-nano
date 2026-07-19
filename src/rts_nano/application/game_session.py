@@ -1,6 +1,6 @@
-"""Game state coordination and simulation tick.
+"""Application session composing pure simulation with interactive session state.
 
-``GameManager`` is the central runtime object for the playable game. It owns the
+``GameSession`` is the application facade for the playable game. It owns the
 loaded map, all entities, camera state, selected units, resource collection,
 simulation output events, and the menu/selection state. Rendering lives in
 ``GameRenderer``, event/input handling in ``InputController``, and the command
@@ -29,10 +29,7 @@ cross-entity systems.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
-
-import pygame
 
 from rts_nano.content import CONTENT
 from rts_nano.game.combat import CombatSystem
@@ -57,7 +54,6 @@ from rts_nano.game.rules import distance_between_points
 from rts_nano.game.state import GameState, TeamState
 from rts_nano.game.terrain import TerrainMap
 from rts_nano.game.types import FactionId, TeamId
-from rts_nano.game.ui.command_panel import CommandPanel
 from rts_nano.game.victory import VictorySystem
 from rts_nano.simulation.entities import (
     Base,
@@ -65,60 +61,20 @@ from rts_nano.simulation.entities import (
     TeamColor,
 )
 from rts_nano.simulation.entities.base import Building, Entity, Resource, Unit
-from rts_nano.simulation.events import AttackLanded
+from rts_nano.simulation.geometry import Rect
+from rts_nano.simulation.runner import SimulationRunner
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
     from rts_nano.map_schema import MapSettings
+    from rts_nano.simulation.events import AttackLanded
 
-FULLSCREEN_TOGGLE_EVENT = pygame.USEREVENT + 1
 PLAY_AREA_HEIGHT = SCREEN_HEIGHT - BOTTOM_MENU_HEIGHT
-CAMERA_SPEED = 12
-EDGE_SCROLL_MARGIN = 24
-DOUBLE_CLICK_MS = 350
 
 
-@dataclass
-class ClickMarker:
-    """Short-lived visual marker for issued map orders.
-
-    Markers are stored in world coordinates and drawn with the same camera
-    offset as entities. They are intentionally independent of selected units:
-    even a right click with no units selected confirms where the player clicked.
-    """
-
-    x: float
-    y: float
-    color: tuple[int, int, int]
-    created_at_ms: int
-    duration_ms: int = 450
-
-    def is_alive(self, now_ms: int) -> bool:
-        """Return whether this marker should still be drawn."""
-        return now_ms - self.created_at_ms < self.duration_ms
-
-    def draw(self, screen: pygame.Surface, offset: tuple[float, float] = (0, 0)) -> None:
-        """Draw an expanding ring at the order position."""
-        now_ms = pygame.time.get_ticks()
-        elapsed = now_ms - self.created_at_ms
-        progress = min(max(elapsed / self.duration_ms, 0.0), 1.0)
-        alpha = int(220 * (1.0 - progress))
-        radius = int(8 + progress * 22)
-        offset_x, offset_y = offset
-        draw_pos = (int(self.x - offset_x), int(self.y - offset_y))
-
-        marker_surface = pygame.Surface((radius * 2 + 6, radius * 2 + 6), pygame.SRCALPHA)
-        center = marker_surface.get_width() // 2, marker_surface.get_height() // 2
-        color = (*self.color, alpha)
-        pygame.draw.circle(marker_surface, color, center, radius, width=3)
-        pygame.draw.line(marker_surface, color, (center[0] - 6, center[1]), (center[0] + 6, center[1]), width=2)
-        pygame.draw.line(marker_surface, color, (center[0], center[1] - 6), (center[0], center[1] + 6), width=2)
-        screen.blit(marker_surface, marker_surface.get_rect(center=draw_pos))
-
-
-class GameManager:
-    """Coordinate input, simulation, selection, and drawing.
+class GameSession:
+    """Compose simulation operations with selection, camera, and menu state.
 
     Args:
         map_settings: Parsed JSON map settings. Team sections are dictionaries
@@ -146,6 +102,9 @@ class GameManager:
             map_height=map_height,
         )
         self.control_groups: dict[int, list[Unit]] = {}
+        self._current_team = TeamColor.BLUE
+        self._selected_entities: list[Entity] = []
+        self._paused = False
         self.dragging: bool = False
         self.minimap_dragging: bool = False
         self.drag_start: tuple[int, int] | None = None
@@ -161,10 +120,6 @@ class GameManager:
             "FULLSCREEN: OFF",
             "EXIT",
         ]
-        self.click_markers: list[ClickMarker] = []
-        self.recent_attacks: list[AttackLanded] = []
-        self.presentation_attached = False
-        self.command_panel = CommandPanel()
         self.pending_construction_type: str | None = None
         self.pending_construction_builder: Peasant | None = None
         self.pending_unit_command: str | None = None
@@ -175,6 +130,16 @@ class GameManager:
         self.victory = VictorySystem(self.state)
         self.gather = GatherSystem(self.state, self.movement)
         self.construction = ConstructionSystem(self.state, self.movement)
+        self.simulation = SimulationRunner(
+            self.state,
+            self.movement,
+            self.production,
+            self.combat,
+            self.effects,
+            self.victory,
+            self.gather,
+            self.construction,
+        )
         self.orders = OrderSystem(self.state, self.movement, self.production, self.construction)
         self.menu_status: str | None = None
         self.mouse_pos: tuple[int, int] = (0, 0)
@@ -188,9 +153,10 @@ class GameManager:
 
     # --- GameState-backed data (single source of truth lives in self.state) ---
 
-    def attach_presentation(self) -> None:
-        """Enable optional simulation output events for a presentation adapter."""
-        self.presentation_attached = True
+    @property
+    def recent_attacks(self) -> list[AttackLanded]:
+        """Return the current tick's pure simulation output events."""
+        return self.simulation.events
 
     @property
     def teams(self) -> dict[TeamColor, TeamState]:
@@ -227,21 +193,21 @@ class GameManager:
 
     @property
     def current_team(self) -> TeamColor:
-        """Team currently controlled/viewed (backed by ``GameState``)."""
-        return self.state.current_team
+        """Team currently controlled by the application session."""
+        return self._current_team
 
     @current_team.setter
     def current_team(self, value: TeamColor) -> None:
-        self.state.current_team = value
+        self._current_team = value
 
     @property
     def selected_entities(self) -> list[Entity]:
-        """Currently selected entities (backed by ``GameState``)."""
-        return self.state.selected_entities
+        """Currently selected entities in the application session."""
+        return self._selected_entities
 
     @selected_entities.setter
     def selected_entities(self, value: list[Entity]) -> None:
-        self.state.selected_entities = value
+        self._selected_entities = value
 
     @property
     def game_over_message(self) -> str | None:
@@ -254,12 +220,12 @@ class GameManager:
 
     @property
     def paused(self) -> bool:
-        """Whether the simulation tick is frozen (backed by ``GameState``)."""
-        return self.state.paused
+        """Whether the application has paused simulation stepping."""
+        return self._paused
 
     @paused.setter
     def paused(self, value: bool) -> None:
-        self.state.paused = value
+        self._paused = value
 
     def set_viewport_size(self, width: int, height: int) -> None:
         """Update the visible game area to match the current display size.
@@ -293,17 +259,6 @@ class GameManager:
     def play_area_height(self) -> int:
         """Current playable area height above the bottom menu."""
         return PLAY_AREA_HEIGHT
-
-    def _remove_dead_entities(self) -> None:
-        """Remove defeated units and buildings from the game state."""
-        removed_entities = {
-            entity for entity in self.all_entities if not isinstance(entity, Resource) and entity.life <= 0
-        }
-        for entity in removed_entities:
-            self.state.store.remove(entity)
-
-        if removed_entities:
-            self.selected_entities = [entity for entity in self.selected_entities if entity not in removed_entities]
 
     @property
     def all_entities(self) -> list[Entity]:
@@ -398,7 +353,10 @@ class GameManager:
 
     def cancel_construction(self, building: Building) -> bool:
         """Attempt to cancel an unfinished building."""
-        return self.orders.cancel_construction(building)
+        canceled = self.orders.cancel_construction(building)
+        if canceled:
+            self.selected_entities = [entity for entity in self.selected_entities if entity is not building]
+        return canceled
 
     def begin_construction_placement(self, building_type: str) -> bool:
         """Enter placement mode for a selected peasant construction command."""
@@ -493,7 +451,11 @@ class GameManager:
 
     def select_entities_for_team(self, team: TeamColor, entities: Iterable[Entity]) -> int:
         """Select team-owned units/buildings and return the selected count."""
-        return self.orders.select_entities_for_team(team, entities)
+        self.selected_entities.clear()
+        for entity in entities:
+            if getattr(entity, "team", None) == team and isinstance(entity, (Unit, Building)):
+                self.selected_entities.append(entity)
+        return len(self.selected_entities)
 
     def assign_control_group(self, group_id: int) -> int:
         """Store the current team's selected units under a control-group number."""
@@ -508,14 +470,14 @@ class GameManager:
     def recall_control_group(self, group_id: int) -> int:
         """Reselect the living members of a previously stored control group."""
         members = [unit for unit in self.control_groups.get(group_id, []) if unit.life > 0]
-        return self.orders.select_entities_for_team(self.current_team, members)
+        return self.select_entities_for_team(self.current_team, members)
 
     def select_units_like(self, reference: Unit) -> int:
         """Select every current-team unit sharing the reference unit's type."""
         if reference.team != self.current_team:
             return 0
         same_type = [unit for unit in self.orders.units_for_team(self.current_team) if type(unit) is type(reference)]
-        return self.orders.select_entities_for_team(self.current_team, same_type)
+        return self.select_entities_for_team(self.current_team, same_type)
 
     def _handle_unit_command_button(self, command: str) -> None:
         """Apply a selected-unit command from the bottom command panel."""
@@ -547,17 +509,6 @@ class GameManager:
         """Return the current population cap for a team (delegates to state)."""
         return self.state.population_cap_for_team(team)
 
-    def _clamp_unit_to_world(self, unit: Unit) -> None:
-        """Keep a unit's body inside the map after movement and collision pushes.
-
-        Collision separation and edge steering can otherwise drift a unit's
-        center past the map border. Clamping by the unit radius keeps the whole
-        body on-map without affecting units away from the edges.
-        """
-        radius = unit.radius
-        unit.x = min(max(unit.x, radius), self.map_width - radius)
-        unit.y = min(max(unit.y, radius), self.map_height - radius)
-
     def _clamp_to_world(self, pos: tuple[float, float]) -> tuple[int, int]:
         """Clamp a world-space point to full map bounds (delegates to state)."""
         return self.state.clamp_to_world(pos)
@@ -580,9 +531,9 @@ class GameManager:
         """Convert world coordinates to screen coordinates."""
         return int(pos[0] - self.camera_x), int(pos[1] - self.camera_y)
 
-    def _minimap_rect(self) -> pygame.Rect:
+    def _minimap_rect(self) -> Rect:
         """Return the screen rectangle used by the minimap."""
-        return pygame.Rect(
+        return Rect(
             MINIMAP_PADDING,
             SCREEN_HEIGHT - MINIMAP_HEIGHT - MINIMAP_PADDING,
             MINIMAP_WIDTH,
@@ -612,18 +563,6 @@ class GameManager:
         """Refresh height levels for every entity. Used once after map load."""
         for entity in self.all_entities:
             entity.height_level = self.terrain.height_at(entity.get_center())
-
-    def _update_mobile_height_levels(self) -> None:
-        """Refresh height levels for units and buildings each tick.
-
-        Neutral resources never move and terrain is static, so resource height is
-        computed once after load. Only team entities (movable units, plus
-        buildings that can be constructed mid-game) need a per-tick refresh, which
-        avoids re-querying terrain for every resource node every frame.
-        """
-        for team in self.teams:
-            for entity in self.state.entities_for_team(team):
-                entity.height_level = self.terrain.height_at(entity.get_center())
 
     def _selected_construction_builder(self) -> Peasant | None:
         return next(
@@ -751,8 +690,6 @@ class GameManager:
         drag_distance = distance_between_points(self.drag_start, self.drag_end)
         is_click = drag_distance < 5
 
-        for entity in self.all_entities:
-            entity.selected = False
         self.selected_entities.clear()
 
         if is_click:
@@ -770,7 +707,6 @@ class GameManager:
                         if not is_resource and not is_visible:
                             continue
 
-                    entity.selected = True
                     self.selected_entities.append(entity)
                     break
         else:
@@ -780,61 +716,17 @@ class GameManager:
                 if isinstance(entity, Unit) and entity.team == self.current_team:
                     cx, cy = entity.get_center()
                     if min_x <= cx <= max_x and min_y <= cy <= max_y:
-                        entity.selected = True
                         self.selected_entities.append(entity)
 
     def update(self) -> None:
-        """Advance unit simulation, harvesting, combat VFX, production, and victory.
-
-        Returns early when paused, freezing unit movement, harvesting, combat,
-        projectiles, and click-marker cleanup. Camera scrolling lives in the
-        ``InputController`` so it can still pan while the simulation is paused.
-        """
+        """Advance the pure simulation runner unless the application is paused."""
         if self.paused:
             return
-
-        self.state.tick_count += 1
-        self.recent_attacks.clear()
-
-        self._update_mobile_height_levels()
-        all_ents = self.all_entities
-        collidable_entities = [entity for entity in all_ents if isinstance(entity, (Unit, Building))]
-        self.state.spatial_index.rebuild(collidable_entities)
-        for entity in all_ents:
-            if getattr(entity, "life", 1) <= 0:
-                continue
-
-            if isinstance(entity, Unit):
-                query_radius = self.movement.attack_move_acquire_range(entity) + self.state.spatial_index.max_radius
-                query_radius += float(getattr(entity, "splash_radius", 0))
-                nearby_entities = self.state.spatial_index.query(entity.get_center(), query_radius)
-                self.movement.update_attack_move_target(entity, nearby_entities)
-                entity.update(nearby_entities, self.movement.can_unit_move_to)
-                self._clamp_unit_to_world(entity)
-                self.movement.update_unit_stuck_recovery(entity)
-                attack_event = entity.consume_attack_event()
-                if attack_event and entity.entity_id is not None and self.presentation_attached:
-                    source_pos, target_pos, _, target_entity = attack_event
-                    self.recent_attacks.append(
-                        AttackLanded(entity.entity_id, entity.content_id, source_pos, target_pos, target_entity)
-                    )
-                self.movement.resume_or_finish_attack_move(entity)
-                self.movement.update_patrol(entity)
-
-            if isinstance(entity, Peasant):
-                self.gather.update_peasant(entity, all_ents)
-
-        self.construction.update()
-        self.production.update()
-        tower_attacks = self.combat.update()
-        if self.presentation_attached:
-            self.recent_attacks.extend(tower_attacks)
-        self.effects.update()
-        self._remove_dead_entities()
-        self.victory.update()
-        if self.click_markers:
-            now_ms = pygame.time.get_ticks()
-            self.click_markers = [marker for marker in self.click_markers if marker.is_alive(now_ms)]
+        removed_entities = self.simulation.step()
+        if removed_entities:
+            self.selected_entities = [entity for entity in self.selected_entities if entity not in removed_entities]
+        if self.game_over_message is not None:
+            self.paused = True
 
     def _rebuild_spatial_index(self) -> None:
         """Refresh proximity-query data after loading or mutating entity rosters."""

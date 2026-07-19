@@ -9,7 +9,7 @@ from rts_nano.simulation.entities.base import Building, Resource
 from rts_nano.simulation.entities.units import Peasant
 
 if TYPE_CHECKING:
-    from rts_nano.game.manager import GameManager
+    from rts_nano.application import GameSession
     from rts_nano.simulation.entities import TeamColor
     from rts_nano.simulation.entities.base import Unit
     from rts_nano.simulation.entities.buildings import Base
@@ -25,7 +25,7 @@ class ScriptedAI:
 
     ATTACK_FORCE_SIZE = 3
 
-    def __init__(self, manager: GameManager, team: TeamColor, *, decision_interval: int = 15) -> None:
+    def __init__(self, manager: GameSession, team: TeamColor, *, decision_interval: int = 15) -> None:
         """Initialize the AI from the team's explicit faction assignment."""
         self._manager = manager
         self._team = team

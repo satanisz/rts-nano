@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 
 from rts_nano.game.order import Order, OrderKind
 from rts_nano.game.rules import distance_between_points, nearest_entity
-from rts_nano.simulation.entities.base import Building, Entity, Unit
 from rts_nano.simulation.entities.buildings import Base
 from rts_nano.simulation.entities.units import Peasant
 
@@ -18,7 +17,7 @@ if TYPE_CHECKING:
     from rts_nano.game.production import ProductionSystem
     from rts_nano.game.state import GameState
     from rts_nano.simulation.entities import TeamColor
-    from rts_nano.simulation.entities.base import Resource
+    from rts_nano.simulation.entities.base import Building, Entity, Resource, Unit
 
 
 class OrderSystem:
@@ -227,18 +226,6 @@ class OrderSystem:
     def cancel_production(self, producer: Building) -> bool:
         """Attempt to cancel the active production job at a building."""
         return self._production.cancel_next(producer)
-
-    def select_entities_for_team(self, team: TeamColor, entities: Iterable[Entity]) -> int:
-        """Select team-owned units/buildings and return the selected count."""
-        for entity in self._state.all_entities:
-            entity.selected = False
-        self._state.selected_entities.clear()
-
-        for entity in entities:
-            if getattr(entity, "team", None) == team and isinstance(entity, (Unit, Building)):
-                entity.selected = True
-                self._state.selected_entities.append(entity)
-        return len(self._state.selected_entities)
 
     def _order_units_for_team(self, team: TeamColor, units: Iterable[Unit] | None = None) -> list[Unit]:
         """Normalize an optional unit iterable to units owned by a team."""

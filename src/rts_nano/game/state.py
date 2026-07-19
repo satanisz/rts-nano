@@ -37,10 +37,7 @@ class GameState:
     map_height: int
     teams: dict[TeamColor, TeamState] = field(default_factory=dict)
     store: EntityStore = field(default_factory=EntityStore)
-    current_team: TeamColor = TeamColor.BLUE
-    selected_entities: list[Entity] = field(default_factory=list)
     game_over_message: str | None = None
-    paused: bool = False
     tick_count: int = 0
     spatial_index: SpatialIndex = field(default_factory=SpatialIndex)
 

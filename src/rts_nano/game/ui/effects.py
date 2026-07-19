@@ -79,3 +79,33 @@ class ArcherShot:
         draw_pos = (int(self.x - offset[0]), int(self.y - offset[1]))
         pygame.draw.circle(screen, (70, 70, 70), draw_pos, self.radius + 2)
         pygame.draw.circle(screen, BLACK, draw_pos, self.radius)
+
+
+@dataclass(slots=True)
+class ClickMarker:
+    """Short-lived presentation marker for an issued world-space order."""
+
+    x: float
+    y: float
+    color: tuple[int, int, int]
+    created_at_ms: int
+    duration_ms: int = 450
+
+    def is_alive(self, now_ms: int) -> bool:
+        """Return whether the marker is still inside its display lifetime."""
+        return now_ms - self.created_at_ms < self.duration_ms
+
+    def draw(self, screen: pygame.Surface, offset: tuple[float, float]) -> None:
+        """Draw an expanding, fading confirmation ring."""
+        elapsed = pygame.time.get_ticks() - self.created_at_ms
+        progress = min(max(elapsed / self.duration_ms, 0.0), 1.0)
+        alpha = int(220 * (1.0 - progress))
+        radius = int(8 + progress * 22)
+        draw_pos = (int(self.x - offset[0]), int(self.y - offset[1]))
+        marker_surface = pygame.Surface((radius * 2 + 6, radius * 2 + 6), pygame.SRCALPHA)
+        center = marker_surface.get_width() // 2, marker_surface.get_height() // 2
+        color = (*self.color, alpha)
+        pygame.draw.circle(marker_surface, color, center, radius, width=3)
+        pygame.draw.line(marker_surface, color, (center[0] - 6, center[1]), (center[0] + 6, center[1]), width=2)
+        pygame.draw.line(marker_surface, color, (center[0], center[1] - 6), (center[0], center[1] + 6), width=2)
+        screen.blit(marker_surface, marker_surface.get_rect(center=draw_pos))

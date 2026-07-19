@@ -2,7 +2,7 @@
 
 This module intentionally stays thin. It owns pygame display creation,
 fullscreen/window fallback behavior, and the outer event/update/draw loop. The
-actual game state lives in :class:`rts_nano.game.manager.GameManager`; keep new
+actual game state lives in :class:`rts_nano.game.manager.GameSession`; keep new
 gameplay logic there unless it truly concerns process startup, display mode, or
 top-level event dispatch.
 
@@ -19,10 +19,11 @@ from pathlib import Path
 import pygame
 
 from rts_nano.ai import ScriptedAI
+from rts_nano.application import GameSession
 from rts_nano.game.constants import FPS, GRAY, SCREEN_HEIGHT, SCREEN_WIDTH
-from rts_nano.game.manager import FULLSCREEN_TOGGLE_EVENT, GameManager
-from rts_nano.game.ui.input_controller import InputController
+from rts_nano.game.ui.input_controller import FULLSCREEN_TOGGLE_EVENT, InputController
 from rts_nano.game.ui.renderer import GameRenderer
+from rts_nano.game.ui.state import PresentationState
 from rts_nano.map_schema import load_map_settings
 from rts_nano.simulation.entities import TeamColor
 
@@ -116,11 +117,11 @@ def main() -> None:
     clock = pygame.time.Clock()
 
     map_settings = load_map_settings(BASE_DIR / "maps" / "map_settings_01.json")
-    game_manager = GameManager(map_settings)
+    game_manager = GameSession(map_settings)
     game_manager.set_viewport_size(*display_screen.get_size())
-    renderer = GameRenderer()
-    renderer.attach(game_manager)
-    input_controller = InputController()
+    presentation = PresentationState()
+    renderer = GameRenderer(presentation=presentation)
+    input_controller = InputController(presentation=presentation)
     opponent_ai = ScriptedAI(game_manager, TeamColor.RED)
 
     running = True

@@ -11,7 +11,7 @@ from rts_nano.headless import HeadlessSimulation
 from rts_nano.simulation.entities import Arclight, Guardian, Marksman, Spitter, TeamColor
 
 if TYPE_CHECKING:
-    from rts_nano.game.manager import GameManager
+    from rts_nano.application import GameSession
     from rts_nano.map_schema import MapSettings
     from rts_nano.simulation.entities.base import Entity
 
@@ -57,7 +57,7 @@ def _settings() -> MapSettings:
     }
 
 
-def _one(manager: GameManager, team: TeamColor, entity_type: type[Entity]) -> Entity:
+def _one(manager: GameSession, team: TeamColor, entity_type: type[Entity]) -> Entity:
     return next(entity for entity in manager.state.entities_for_team(team) if isinstance(entity, entity_type))
 
 
