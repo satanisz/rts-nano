@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from rts_nano.game.constants import SCREEN_HEIGHT, SCREEN_WIDTH
 from rts_nano.game.ui.command_panel import CommandPanel
 from rts_nano.game.ui.input_controller import InputController
+from rts_nano.game.ui.selection_panel import build_selection_panel_layout
 from rts_nano.headless import HeadlessSimulation
 from rts_nano.simulation.entities.base import TeamColor
 
@@ -117,4 +118,20 @@ def test_command_panel_click_dispatch_queues_production() -> None:
 
     assert handled is True
     assert len(manager.production.queue_for(base)) == 1
+    simulation.close()
+
+
+def test_clicking_multi_selection_icon_selects_that_entity() -> None:
+    """Selection-card hit testing uses the same rectangles as rendering."""
+    simulation = HeadlessSimulation.from_settings(_settings())
+    manager = simulation.manager
+    peasant = manager.state.entities_by_content_id("peasant", team=TeamColor.BLUE)[0]
+    guardian = manager.state.entities_by_content_id("guardian", team=TeamColor.BLUE)[0]
+    manager.select_entities_for_team(TeamColor.BLUE, [peasant, guardian])
+    icon_rects = build_selection_panel_layout(2, manager.screen_width, manager.screen_height).icon_rects
+
+    handled = InputController()._handle_selection_panel_click(manager, icon_rects[1].center)
+
+    assert handled is True
+    assert manager.selected_entities == [guardian]
     simulation.close()

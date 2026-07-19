@@ -18,6 +18,7 @@ import pygame
 from rts_nano.content import CONTENT
 from rts_nano.game.rules import distance_between_points
 from rts_nano.game.ui.effects import ClickMarker
+from rts_nano.game.ui.selection_panel import build_selection_panel_layout
 from rts_nano.game.ui.state import PresentationState
 from rts_nano.simulation.entities import Base, TeamColor
 from rts_nano.simulation.entities.base import Unit
@@ -152,6 +153,8 @@ class InputController:
             manager._center_camera_from_minimap_pos(mouse_pos)
             return
 
+        if self._handle_selection_panel_click(manager, mouse_pos):
+            return
         if self._handle_command_panel_click(manager, mouse_pos):
             return
         if mouse_pos[1] >= manager.play_area_height:
@@ -252,6 +255,20 @@ class InputController:
                 continue
             self._dispatch_command_button(manager, button)
             return True
+        return False
+
+    @staticmethod
+    def _handle_selection_panel_click(manager: GameSession, mouse_pos: tuple[int, int]) -> bool:
+        """Select the entity represented by a multi-selection icon."""
+        layout = build_selection_panel_layout(
+            len(manager.selected_entities),
+            manager.screen_width,
+            manager.screen_height,
+        )
+        for entity, rect in zip(manager.selected_entities, layout.icon_rects, strict=False):
+            if rect.collidepoint(mouse_pos):
+                manager.selected_entities = [entity]
+                return True
         return False
 
     def _dispatch_command_button(self, manager: GameSession, button: CommandButton) -> None:

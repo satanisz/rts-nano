@@ -19,8 +19,6 @@ from rts_nano.game.constants import (
     FOG_CELL_SIZE,
     FPS,
     GREEN,
-    MINIMAP_PADDING,
-    MINIMAP_WIDTH,
     RED,
     WHITE,
     YELLOW,
@@ -28,6 +26,7 @@ from rts_nano.game.constants import (
 from rts_nano.game.fog import FogOfWar
 from rts_nano.game.ui.effects import ArcherShot, MagicMissile
 from rts_nano.game.ui.pygame_assets import PygameAssets, building_glyph
+from rts_nano.game.ui.selection_panel import PORTRAIT_SIZE, build_selection_panel_layout
 from rts_nano.game.ui.state import PresentationState
 from rts_nano.game.ui.terrain_renderer import TerrainRenderer
 from rts_nano.simulation.entities import TeamColor, Wood
@@ -344,37 +343,18 @@ class GameRenderer:
 
         primary_entity = manager.selected_entities[0]
 
-        minimap_end_x = MINIMAP_WIDTH + MINIMAP_PADDING * 2
-        command_card_width = 180
-        portrait_size = 120
-        portrait_box_width = portrait_size + 20
-
-        command_card_x = screen_width - command_card_width
-        portrait_x = command_card_x - portrait_box_width
-        center_panel_x = minimap_end_x
-        center_panel_width = portrait_x - minimap_end_x
+        portrait_size = PORTRAIT_SIZE
+        layout = build_selection_panel_layout(len(manager.selected_entities), screen_width, screen_height)
+        portrait_x = layout.portrait_x
+        center_panel_x = layout.center_panel_x
 
         font_small = pygame.font.SysFont(None, 24)
 
         if len(manager.selected_entities) > 1:
-            icon_size = 40
-            padding = 8
-            max_cols = max(1, center_panel_width // (icon_size + padding))
-
-            start_x = center_panel_x + padding
-            start_y = screen_height - BOTTOM_MENU_HEIGHT + padding
-
-            for i, entity in enumerate(manager.selected_entities):
-                col = i % max_cols
-                row = i // max_cols
-
-                pos_x = start_x + col * (icon_size + padding)
-                pos_y = start_y + row * (icon_size + padding)
-
-                if pos_y + icon_size > screen_height:
-                    break
-
-                icon_rect = pygame.Rect(pos_x, pos_y, icon_size, icon_size)
+            for entity, icon_rect in zip(manager.selected_entities, layout.icon_rects, strict=False):
+                pos_x = icon_rect.x
+                pos_y = icon_rect.y
+                icon_size = icon_rect.width
 
                 sprite = self.assets.sprite(entity)
                 if sprite is not None:
