@@ -33,6 +33,7 @@ from rts_nano.simulation.entities.base import Building, Entity, Resource, Unit
 
 if TYPE_CHECKING:
     from rts_nano.game.manager import GameManager
+    from rts_nano.simulation.geometry import Rect
 
 WOOD_ICON = "\U0001fab5"
 GOLD_ICON = "\U0001fa99"
@@ -448,7 +449,7 @@ class GameRenderer:
         scale_x = rect.width / manager.map_width
         scale_y = rect.height / manager.map_height
 
-        def mini_rect(world_rect: pygame.Rect) -> pygame.Rect:
+        def mini_rect(world_rect: Rect) -> pygame.Rect:
             return pygame.Rect(
                 rect.left + int(world_rect.left * scale_x),
                 rect.top + int(world_rect.top * scale_y),

@@ -29,6 +29,8 @@ from typing import TYPE_CHECKING
 
 import pygame
 
+from rts_nano.simulation.geometry import Rect
+
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
 
@@ -45,7 +47,7 @@ class TerrainRegion:
         kind: Human-readable layer name used by drawing/debugging.
     """
 
-    rect: pygame.Rect
+    rect: Rect
     level: int
     kind: str
 
@@ -54,7 +56,7 @@ class TerrainRegion:
         """Build a terrain region from a JSON array: x, y, width, height."""
         match payload:
             case [int() | float() as x, int() | float() as y, int() | float() as width, int() | float() as height]:
-                return cls(pygame.Rect(int(x), int(y), int(width), int(height)), level, kind)
+                return cls(Rect(int(x), int(y), int(width), int(height)), level, kind)
         raise TypeError(f"Invalid terrain region: {payload!r}")
 
 
@@ -316,12 +318,42 @@ class TerrainMap:
         offset_x, offset_y = int(offset[0]), int(offset[1])
         self._draw_ground(screen)
         for shape in self.water_shapes:
-            self._draw_water_shape(screen, [region.rect.move(-offset_x, -offset_y) for region in shape])
+            self._draw_water_shape(
+                screen,
+                [
+                    pygame.Rect(
+                        region.rect.x - offset_x,
+                        region.rect.y - offset_y,
+                        region.rect.width,
+                        region.rect.height,
+                    )
+                    for region in shape
+                ],
+            )
         for shape in self.high_ground_shapes:
-            self._draw_high_ground_shape(screen, [region.rect.move(-offset_x, -offset_y) for region in shape])
+            self._draw_high_ground_shape(
+                screen,
+                [
+                    pygame.Rect(
+                        region.rect.x - offset_x,
+                        region.rect.y - offset_y,
+                        region.rect.width,
+                        region.rect.height,
+                    )
+                    for region in shape
+                ],
+            )
         for shape in self.ramp_shapes:
             for region in shape:
-                self._draw_ramp(screen, region.rect.move(-offset_x, -offset_y))
+                self._draw_ramp(
+                    screen,
+                    pygame.Rect(
+                        region.rect.x - offset_x,
+                        region.rect.y - offset_y,
+                        region.rect.width,
+                        region.rect.height,
+                    ),
+                )
         for decoration in self.grass:
             self._draw_grass(screen, decoration, offset)
         for decoration in self.rocks:
