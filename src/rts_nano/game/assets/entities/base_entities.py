@@ -14,10 +14,12 @@ time. Avoid storing screen-space positions on entities.
 from __future__ import annotations
 
 import logging
+from contextlib import contextmanager
+from contextvars import ContextVar
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable
+    from collections.abc import Callable, Iterable, Iterator
 
     from rts_nano.game.order import Order
 from enum import StrEnum
@@ -60,6 +62,36 @@ _BUILDING_GLYPHS: dict[str, tuple[str, tuple[int, int, int]]] = {
     "spiker": ("X", (150, 90, 70)),
 }
 _glyph_font_cache: dict[int, pygame.font.Font] = {}
+_visual_assets_enabled: ContextVar[bool] = ContextVar("visual_assets_enabled", default=True)
+_raw_image_cache: dict[Path, pygame.Surface] = {}
+_fitted_image_cache: dict[tuple[Path, int], pygame.Surface] = {}
+
+
+@contextmanager
+def visual_assets_enabled(enabled: bool) -> Iterator[None]:
+    """Temporarily control whether newly created entities load visual assets."""
+    token = _visual_assets_enabled.set(enabled)
+    try:
+        yield
+    finally:
+        _visual_assets_enabled.reset(token)
+
+
+def _load_fitted_image(path: str | Path, size: int) -> pygame.Surface:
+    """Load and fit an image once, sharing immutable source surfaces by key."""
+    resolved_path = Path(path).resolve()
+    fitted_key = (resolved_path, size)
+    fitted = _fitted_image_cache.get(fitted_key)
+    if fitted is not None:
+        return fitted
+
+    raw = _raw_image_cache.get(resolved_path)
+    if raw is None:
+        raw = pygame.image.load(resolved_path)
+        _raw_image_cache[resolved_path] = raw
+    fitted = _fit_surface_to_square(raw, size)
+    _fitted_image_cache[fitted_key] = fitted
+    return fitted
 
 
 def building_glyph(spec_key: str) -> tuple[str, tuple[int, int, int]]:
@@ -173,6 +205,7 @@ class Entity:
         self.image: pygame.Surface | None = None
         self.original_image: pygame.Surface | None = None
         self.avatar_image: pygame.Surface | None = None
+        self.visuals_enabled = _visual_assets_enabled.get()
         self.height_level: int = 0
         self.vision_range: int = 0
 
@@ -204,21 +237,18 @@ class Entity:
             image_path: Path to the sprite file.
             avatar_path: Optional path to the portrait/avatar file.
         """
-        if image_path:
+        if image_path and self.visuals_enabled:
             try:
-                raw_image = pygame.image.load(image_path)
-
                 if avatar_path:
                     try:
-                        raw_avatar = pygame.image.load(avatar_path)
-                        self.avatar_image = _fit_surface_to_square(raw_avatar, 120)
+                        self.avatar_image = _load_fitted_image(avatar_path, 120)
                     except Exception as exc:
                         logging.warning(f"Could not load avatar {avatar_path}: {exc}")
-                        self.avatar_image = _fit_surface_to_square(raw_image, 120)
+                        self.avatar_image = _load_fitted_image(image_path, 120)
                 else:
-                    self.avatar_image = _fit_surface_to_square(raw_image, 120)
+                    self.avatar_image = _load_fitted_image(image_path, 120)
 
-                self.image = _fit_surface_to_square(raw_image, int(self.size))
+                self.image = _load_fitted_image(image_path, int(self.size))
                 self.original_image = self.image
             except Exception as exc:
                 logging.warning(f"Could not load image {image_path}: {exc}")
@@ -532,7 +562,8 @@ class Unit(Entity):
 
     def _trigger_hit_flash(self) -> None:
         """Start a short visual flash to indicate a landed hit."""
-        self.hit_flash_until_ms = pygame.time.get_ticks() + self.HIT_FLASH_DURATION_MS
+        if self.visuals_enabled:
+            self.hit_flash_until_ms = pygame.time.get_ticks() + self.HIT_FLASH_DURATION_MS
 
     def _is_hit_flash_active(self) -> bool:
         """Return whether the hit flash is currently visible."""

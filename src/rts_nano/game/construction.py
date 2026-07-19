@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, ClassVar
 
-from rts_nano.game.assets.entities.base_entities import Building, Entity, TeamColor
+from rts_nano.game.assets.entities.base_entities import Building, Entity, TeamColor, visual_assets_enabled
 from rts_nano.game.assets.entities.buildings import (
     Arsenal,
     Bastion,
@@ -104,7 +104,8 @@ class ConstructionSystem:
             return False, reason
 
         factory = self._BUILDING_FACTORIES[building_type]
-        preview = factory(int(position[0]), int(position[1]), builder.team)
+        with visual_assets_enabled(self._state.load_visuals):
+            preview = factory(int(position[0]), int(position[1]), builder.team)
         if not self._is_valid_placement(preview, ignore=builder):
             return False, "invalid_placement"
         return True, None
@@ -125,7 +126,8 @@ class ConstructionSystem:
         self._pay(group.resources, spec.cost)
 
         factory = self._BUILDING_FACTORIES[building_type]
-        building = factory(int(position[0]), int(position[1]), builder.team)
+        with visual_assets_enabled(self._state.load_visuals):
+            building = factory(int(position[0]), int(position[1]), builder.team)
         building.start_construction(spec.build_frames)
         self._add_building_to_group(group, building_type, building)
         self._movement.assign_unit_target(builder, building.get_center(), building)

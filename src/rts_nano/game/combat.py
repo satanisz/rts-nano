@@ -60,9 +60,10 @@ class CombatSystem:
     def _acquire_target(self, attacker: Tower) -> Entity | None:
         """Return the nearest hostile unit/building within attack reach."""
         reach = attacker.attack_range + attacker.radius
+        nearby = self._state.spatial_index.query(attacker.get_center(), reach + self._state.spatial_index.max_radius)
         candidates = [
             entity
-            for entity in self._state.all_entities
+            for entity in nearby
             if isinstance(entity, (Unit, Building))
             and entity.team != attacker.team
             and entity.life > 0

@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING
 from rts_nano.game.assets.entities import TeamColor
 from rts_nano.game.data import get_building_spec
 from rts_nano.game.rules import clamp_point
+from rts_nano.game.spatial import SpatialIndex
 
 if TYPE_CHECKING:
     from rts_nano.game.assets.entities.base_entities import Entity
@@ -99,6 +100,8 @@ class GameState:
     selected_entities: list[Entity] = field(default_factory=list)
     game_over_message: str | None = None
     paused: bool = False
+    load_visuals: bool = True
+    spatial_index: SpatialIndex = field(default_factory=SpatialIndex)
 
     @property
     def all_entities(self) -> list[Entity]:

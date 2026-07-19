@@ -71,3 +71,12 @@ def test_buildings_ship_runtime_art(building_type: type[Building], team: TeamCol
     assert building.image.get_size() == (building.size, building.size)
     assert building.avatar_image is not None
     assert building.avatar_image.get_size() == (120, 120)
+
+
+def test_repeated_entities_share_cached_visual_surfaces() -> None:
+    """Identical runtime art is decoded and scaled once, then safely shared."""
+    first = Marksman(0, 0, TeamColor.BLUE)
+    second = Marksman(100, 100, TeamColor.BLUE)
+
+    assert first.original_image is second.original_image
+    assert first.avatar_image is second.avatar_image

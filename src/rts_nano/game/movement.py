@@ -39,7 +39,9 @@ class MovementSystem:
     def can_unit_move_to(self, unit: Unit, next_point: tuple[float, float]) -> bool:
         """Return whether terrain permits a unit movement step."""
         next_x, next_y = self._state.clamp_to_world(next_point)
-        return self._state.terrain.can_move_between(unit.get_center(), (next_x, next_y), radius=unit.radius)
+        if not self._state.terrain.can_move_between(unit.get_center(), (next_x, next_y), radius=unit.radius):
+            return False
+        return not self._building_blocks_point(unit, (next_x, next_y), unit.target_entity)
 
     def find_unit_path(self, unit: Unit, destination: tuple[float, float]) -> list[tuple[float, float]]:
         """Build a terrain-aware path for a unit."""
@@ -50,11 +52,12 @@ class MovementSystem:
             key = (current, next_point)
             if key not in movement_cache:
                 movement_cache[key] = self._state.terrain.can_move_between(
-                    current,
-                    next_point,
-                    radius=unit.radius,
-                )
+                    current, next_point, radius=unit.radius
+                ) and not (self._building_blocks_segment(unit, current, next_point, unit.target_entity))
             return movement_cache[key]
+
+        if can_move_between(unit.get_center(), goal):
+            return [goal]
 
         return find_path(
             unit.get_center(),
@@ -63,6 +66,63 @@ class MovementSystem:
             height=self._state.map_height,
             can_move_between=can_move_between,
         )
+
+    def attack_move_acquire_range(self, unit: Unit) -> float:
+        """Return the exact center-query range used by attack-move acquisition."""
+        return max(float(unit.vision_range), unit.attack_range + ATTACK_MOVE_MIN_ACQUIRE_RANGE)
+
+    def _building_blocks_point(self, unit: Unit, point: tuple[float, float], target: Entity | None) -> bool:
+        query_radius = unit.radius + self._state.spatial_index.max_radius
+        for entity in self._state.spatial_index.query(point, query_radius):
+            if not isinstance(entity, Building) or entity is target or entity.life <= 0:
+                continue
+            min_distance = unit.radius + entity.radius
+            current_distance = distance_between_points(unit.get_center(), entity.get_center())
+            next_distance = distance_between_points(point, entity.get_center())
+            if next_distance < min_distance and next_distance <= current_distance:
+                return True
+        return False
+
+    def _building_blocks_segment(
+        self,
+        unit: Unit,
+        start: tuple[float, float],
+        end: tuple[float, float],
+        target: Entity | None,
+    ) -> bool:
+        """Return whether a path edge crosses a living non-target building."""
+        for group in self._state.entities.values():
+            for entity in (*group.bases, *group.barracks, *group.houses, *group.mage_towers, *group.towers):
+                if entity is target or entity.life <= 0:
+                    continue
+                center = entity.get_center()
+                min_distance_squared = (unit.radius + entity.radius) ** 2
+                start_distance_squared = distance_between_points(start, center) ** 2
+                end_distance_squared = distance_between_points(end, center) ** 2
+                escaping_overlap = (
+                    start_distance_squared < min_distance_squared and end_distance_squared > start_distance_squared
+                )
+                if (
+                    not escaping_overlap
+                    and self._distance_squared_to_segment(center, start, end) < min_distance_squared
+                ):
+                    return True
+        return False
+
+    @staticmethod
+    def _distance_squared_to_segment(
+        point: tuple[float, float], start: tuple[float, float], end: tuple[float, float]
+    ) -> float:
+        segment_x = end[0] - start[0]
+        segment_y = end[1] - start[1]
+        segment_length_squared = segment_x * segment_x + segment_y * segment_y
+        if segment_length_squared == 0:
+            return (point[0] - start[0]) ** 2 + (point[1] - start[1]) ** 2
+        projection = ((point[0] - start[0]) * segment_x + (point[1] - start[1]) * segment_y) / segment_length_squared
+        projection = min(1.0, max(0.0, projection))
+        closest_x = start[0] + projection * segment_x
+        closest_y = start[1] + projection * segment_y
+        return (point[0] - closest_x) ** 2 + (point[1] - closest_y) ** 2
 
     def assign_unit_target(
         self,
@@ -165,7 +225,7 @@ class MovementSystem:
 
     def nearest_attack_move_target(self, unit: Unit, entities: list[Entity]) -> Entity | None:
         """Return the nearest hostile unit/building in attack-move acquisition range."""
-        acquire_range = max(float(unit.vision_range), unit.attack_range + ATTACK_MOVE_MIN_ACQUIRE_RANGE)
+        acquire_range = self.attack_move_acquire_range(unit)
         candidates = [
             entity
             for entity in entities

@@ -51,6 +51,37 @@ def test_headless_simulation_steps_and_issues_orders() -> None:
     simulation.close()
 
 
+def test_headless_entities_skip_visual_asset_loading() -> None:
+    """No-render simulations do not allocate sprites or portraits per entity."""
+    settings = _settings()
+    settings["Resources"]["wood"] = [[100, 100]]
+    simulation = HeadlessSimulation.from_settings(settings)
+
+    assert simulation.manager.state.load_visuals is False
+    assert all(entity.image is None for entity in simulation.manager.all_entities)
+    assert all(entity.avatar_image is None for entity in simulation.manager.all_entities)
+    simulation.close()
+
+
+def test_unit_path_routes_around_non_target_building() -> None:
+    """Dynamic buildings block A* edges while remaining approachable as targets."""
+    settings = _settings()
+    settings["Blue"].update({"peasant": [], "base": [[200, 150]], "guardian": [[50, 150]]})
+    settings["Red"]["base"] = [[390, 290]]
+    simulation = HeadlessSimulation.from_settings(settings)
+    manager = simulation.manager
+    guardian = manager.entities[TeamColor.BLUE].knights[0]
+
+    assert manager.issue_move_order(TeamColor.BLUE, (350, 150), [guardian]) == 1
+    assert guardian.path
+    assert any(abs(waypoint_y - 150) > 30 for _, waypoint_y in guardian.path)
+
+    simulation.step(180)
+
+    assert guardian.x > 300
+    simulation.close()
+
+
 def test_manager_public_move_order_helper_assigns_units() -> None:
     """Game manager exposes move orders without requiring private helper access."""
     simulation = HeadlessSimulation.from_settings(_settings())

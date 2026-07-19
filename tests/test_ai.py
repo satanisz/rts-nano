@@ -46,13 +46,16 @@ def test_scripted_ai_gathers_resources_into_bank() -> None:
     manager = simulation.manager
     red = manager.entities[TeamColor.RED]
     ai = ScriptedAI(manager, TeamColor.RED, decision_interval=10)
+    initial_wood = sum(node.amount for node in manager.resources.woods)
 
     assert red.resources["wood"] == 0
     for _ in range(600):
         ai.step()
         simulation.step(1)
 
-    assert red.resources["wood"] > 0
+    remaining_wood = sum(node.amount for node in manager.resources.woods)
+    assert remaining_wood < initial_wood
+    assert red.resources["wood"] > 0 or red.barracks
     simulation.close()
 
 

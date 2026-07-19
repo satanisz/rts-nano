@@ -14,6 +14,7 @@ from rts_nano.game.assets.entities import (
     Ripper,
     Spitter,
 )
+from rts_nano.game.assets.entities.base_entities import visual_assets_enabled
 from rts_nano.game.data import PRODUCTION_REFUND_RATIO, ResourceCost, UnitSpec, get_building_spec, get_unit_spec
 
 if TYPE_CHECKING:
@@ -189,7 +190,8 @@ class ProductionSystem:
             return
 
         spawn_x, spawn_y = self._state.clamp_to_world((producer.x, producer.y + producer.size))
-        unit: Unit = unit_factory(int(spawn_x), int(spawn_y), producer.team)
+        with visual_assets_enabled(self._state.load_visuals):
+            unit: Unit = unit_factory(int(spawn_x), int(spawn_y), producer.team)
         roster = getattr(team_group, spec.roster_attribute)
         roster.append(unit)
 

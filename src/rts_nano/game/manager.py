@@ -61,7 +61,7 @@ from rts_nano.game.assets.entities import (
     Tower,
     Wood,
 )
-from rts_nano.game.assets.entities.base_entities import Building, Entity, Resource, Unit
+from rts_nano.game.assets.entities.base_entities import Building, Entity, Resource, Unit, visual_assets_enabled
 from rts_nano.game.combat import CombatSystem
 from rts_nano.game.constants import (
     BLACK,
@@ -301,7 +301,7 @@ class GameManager:
         ``_clamp_to_world`` instead of reading camera fields directly.
     """
 
-    def __init__(self, map_settings: MapSettings) -> None:
+    def __init__(self, map_settings: MapSettings, *, load_visuals: bool = True) -> None:
         """Initialize the object."""
         self.map_settings = map_settings
         terrain = TerrainMap(map_settings.get("Terrain"))
@@ -312,6 +312,7 @@ class GameManager:
             fog=FogOfWar(map_width, map_height),
             map_width=map_width,
             map_height=map_height,
+            load_visuals=load_visuals,
         )
         self.control_groups: dict[int, list[Unit]] = {}
         self.dragging: bool = False
@@ -350,6 +351,7 @@ class GameManager:
         self.camera_y: float = 0
 
         self._load_map_settings()
+        self._rebuild_spatial_index()
         self._update_entity_height_levels()
         self.set_viewport_size(SCREEN_WIDTH, SCREEN_HEIGHT)
 
@@ -874,7 +876,8 @@ class GameManager:
             for asset_type, coords in assets.items():
                 normalized_coords = self._normalize_coords(coords)
                 for x, y in normalized_coords:
-                    entity = EntityFactory.create_entity(cast("str", asset_type), x, y, team_color)
+                    with visual_assets_enabled(self.state.load_visuals):
+                        entity = EntityFactory.create_entity(cast("str", asset_type), x, y, team_color)
                     match entity:
                         case Peasant():
                             group.peasents.append(entity)
@@ -992,29 +995,34 @@ class GameManager:
         if self.paused:
             return
 
-        current_team_group = self.entities.get(self.current_team)
-        if current_team_group:
-            visible_entities = current_team_group.all_entities
-            self.fog.update(visible_entities)
-        else:
-            self.fog.update([])
+        if self.state.load_visuals:
+            current_team_group = self.entities.get(self.current_team)
+            if current_team_group:
+                visible_entities = current_team_group.all_entities
+                self.fog.update(visible_entities)
+            else:
+                self.fog.update([])
 
         self._update_mobile_height_levels()
         all_ents = self.all_entities
         collidable_entities = [entity for entity in all_ents if isinstance(entity, (Unit, Building))]
+        self.state.spatial_index.rebuild(collidable_entities)
         for entity in all_ents:
             if getattr(entity, "life", 1) <= 0:
                 continue
 
             if isinstance(entity, Unit):
-                self.movement.update_attack_move_target(entity, all_ents)
-                entity.update(collidable_entities, self.movement.can_unit_move_to)
+                query_radius = self.movement.attack_move_acquire_range(entity) + self.state.spatial_index.max_radius
+                query_radius += float(getattr(entity, "SPLASH_RADIUS", 0))
+                nearby_entities = self.state.spatial_index.query(entity.get_center(), query_radius)
+                self.movement.update_attack_move_target(entity, nearby_entities)
+                entity.update(nearby_entities, self.movement.can_unit_move_to)
                 self._clamp_unit_to_world(entity)
                 self.movement.update_unit_stuck_recovery(entity)
                 attack_event = entity.consume_attack_event()
                 if attack_event and attack_event[2] == AttackType.RANGED:
                     source_pos, target_pos, _, target_entity = attack_event
-                    if isinstance(entity, Mage):
+                    if self.state.load_visuals and isinstance(entity, Mage):
                         self.magic_missiles.append(
                             MagicMissile(
                                 source_pos[0],
@@ -1024,7 +1032,7 @@ class GameManager:
                                 target_entity=target_entity,
                             )
                         )
-                    elif isinstance(entity, Archer):
+                    elif self.state.load_visuals and isinstance(entity, Archer):
                         source_pos, target_pos, _, target_entity = attack_event
                         self.archer_shots.append(
                             ArcherShot(
@@ -1044,13 +1052,19 @@ class GameManager:
         self.construction.update()
         self.production.update()
         for source_pos, target_pos, target in self.combat.update():
-            self.archer_shots.append(
-                ArcherShot(source_pos[0], source_pos[1], target_pos[0], target_pos[1], target_entity=target)
-            )
+            if self.state.load_visuals:
+                self.archer_shots.append(
+                    ArcherShot(source_pos[0], source_pos[1], target_pos[0], target_pos[1], target_entity=target)
+                )
         self.effects.update()
         self._remove_dead_entities()
         self.victory.update()
-        self.magic_missiles = [missile for missile in self.magic_missiles if missile.update()]
-        self.archer_shots = [shot for shot in self.archer_shots if shot.update()]
-        now_ms = pygame.time.get_ticks()
-        self.click_markers = [marker for marker in self.click_markers if marker.is_alive(now_ms)]
+        if self.state.load_visuals:
+            self.magic_missiles = [missile for missile in self.magic_missiles if missile.update()]
+            self.archer_shots = [shot for shot in self.archer_shots if shot.update()]
+            now_ms = pygame.time.get_ticks()
+            self.click_markers = [marker for marker in self.click_markers if marker.is_alive(now_ms)]
+
+    def _rebuild_spatial_index(self) -> None:
+        """Refresh proximity-query data after loading or mutating entity rosters."""
+        self.state.spatial_index.rebuild(entity for entity in self.all_entities if isinstance(entity, (Unit, Building)))
