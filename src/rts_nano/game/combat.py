@@ -16,14 +16,15 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from rts_nano.game.assets.entities.base_entities import Building, Unit
+from rts_nano.game.assets.entities.buildings import Tower
 from rts_nano.game.constants import FPS
 from rts_nano.game.rules import apply_damage, apply_poison, calculate_damage, distance_between, nearest_entity
+from rts_nano.game.types import EntityCategory
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
     from rts_nano.game.assets.entities.base_entities import Entity
-    from rts_nano.game.assets.entities.buildings import Tower
     from rts_nano.game.state import GameState
 
 type ShotEvent = tuple[tuple[float, float], tuple[float, float], "Entity"]
@@ -52,10 +53,14 @@ class CombatSystem:
 
     def _attacking_buildings(self) -> Iterator[Tower]:
         """Yield completed, living towers able to attack this tick."""
-        for group in self._state.entities.values():
-            for tower in group.towers:
-                if tower.life > 0 and not tower.is_under_construction and tower.attack_damage > 0:
-                    yield tower
+        for building in self._state.store.by_category(EntityCategory.BUILDING):
+            if (
+                isinstance(building, Tower)
+                and building.life > 0
+                and not building.is_under_construction
+                and building.attack_damage > 0
+            ):
+                yield building
 
     def _acquire_target(self, attacker: Tower) -> Entity | None:
         """Return the nearest hostile unit/building within attack reach."""

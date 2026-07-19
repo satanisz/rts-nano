@@ -14,14 +14,16 @@ if TYPE_CHECKING:
 
 def _valid_payload() -> dict[str, object]:
     return {
+        "schema_version": 2,
         "Blue": {
+            "faction_id": "AEGIS",
             "base": [[10, 10]],
             "arsenal": [[60, 60]],
             "house": [[80, 80]],
             "spire": [[120, 120]],
             "peasant": [],
         },
-        "Red": {"base": [[100, 100]], "pit": [], "house": []},
+        "Red": {"faction_id": "RUST", "base": [[100, 100]], "pit": [], "house": []},
         "Resources": {"wood": [[20, 20]], "gold": []},
         "Terrain": {
             "width": 500,

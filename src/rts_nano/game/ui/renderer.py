@@ -115,21 +115,13 @@ class GameRenderer:
 
         font = pygame.font.SysFont(None, 36)
         emoji_font = pygame.font.SysFont(["Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", "Noto Emoji"], 20)
-        team_group = manager.entities.get(manager.current_team)
+        team_group = manager.teams.get(manager.current_team)
         ui_color = BLUE if manager.current_team == TeamColor.BLUE else RED
 
         if team_group:
             res = team_group.resources
-            num_buildings = (
-                len(team_group.bases)
-                + len(team_group.barracks)
-                + len(team_group.houses)
-                + len(team_group.mage_towers)
-                + len(team_group.towers)
-            )
-            num_units = (
-                len(team_group.peasents) + len(team_group.knights) + len(team_group.archers) + len(team_group.mages)
-            )
+            num_buildings = len(manager.state.buildings_for_team(manager.current_team))
+            num_units = len(manager.state.units_for_team(manager.current_team))
             population_cap = manager.population_cap_for_team(manager.current_team)
         else:
             res = {"wood": 0, "gold": 0}

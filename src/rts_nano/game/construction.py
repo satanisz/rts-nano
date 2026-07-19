@@ -2,53 +2,21 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, cast
 
 from rts_nano.content import CONSTRUCTION_REFUND_RATIO, CONTENT, ResourceCost
 from rts_nano.game.assets.entities.base_entities import Building, Entity, TeamColor, visual_assets_enabled
-from rts_nano.game.assets.entities.buildings import (
-    Arsenal,
-    Bastion,
-    ChemVat,
-    House,
-    Pit,
-    Spiker,
-    Spire,
-)
-from rts_nano.game.data import faction_for_team
+from rts_nano.game.assets.entities.units import Peasant
+from rts_nano.game.entity_factory import EntityFactory
 from rts_nano.game.rules import distance_between_points
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
-    from rts_nano.game.assets.entities.units import Peasant
     from rts_nano.game.movement import MovementSystem
-    from rts_nano.game.state import EntitiesGroup, GameState
+    from rts_nano.game.state import GameState
 
 
 class ConstructionSystem:
     """Place unfinished buildings and advance them with workers."""
-
-    _BUILDING_FACTORIES: ClassVar[dict[str, Callable[[int, int, TeamColor], Building]]] = {
-        "house": House,
-        # AEGIS (slot into the barracks/mage_tower/tower rosters via subclassing)
-        "arsenal": Arsenal,
-        "spire": Spire,
-        "bastion": Bastion,
-        # RUST
-        "pit": Pit,
-        "chem_vat": ChemVat,
-        "spiker": Spiker,
-    }
-    _BUILDING_ROSTERS: ClassVar[dict[str, str]] = {
-        "house": "houses",
-        "arsenal": "barracks",
-        "spire": "mage_towers",
-        "bastion": "towers",
-        "pit": "barracks",
-        "chem_vat": "mage_towers",
-        "spiker": "towers",
-    }
 
     def __init__(self, state: GameState, movement: MovementSystem) -> None:
         """Initialize construction state for one game state."""
@@ -58,7 +26,7 @@ class ConstructionSystem:
     @classmethod
     def supported_building_types(cls) -> tuple[str, ...]:
         """Return building types currently supported by worker construction."""
-        return tuple(cls._BUILDING_FACTORIES)
+        return tuple(key for key, definition in CONTENT.buildings.items() if definition.constructable)
 
     def can_team_construct(self, team: TeamColor, building_type: str) -> tuple[bool, str | None]:
         """Return whether a team has builders and resources for a building."""
@@ -67,30 +35,33 @@ class ConstructionSystem:
         except ValueError:
             return False, "unsupported_building"
 
-        if building_type not in self._BUILDING_FACTORIES:
+        if not spec.constructable:
             return False, "unsupported_building"
-        if spec.faction is not None and spec.faction != faction_for_team(team):
+        if spec.faction is not None and spec.faction != self._state.faction_for_team(team):
             return False, "wrong_faction"
 
-        group = self._state.entities.get(team)
-        if group is None:
+        team_state = self._state.team(team)
+        if team_state is None:
             return False, "missing_team"
-        if not any(builder.life > 0 for builder in group.peasents):
+        if not any(builder.life > 0 for builder in self._builders_for_team(team)):
             return False, "no_builder"
-        if not all(self._has_completed_building(group, required) for required in spec.requires):
+        if not all(self._has_completed_building(team, str(required)) for required in spec.requires):
             return False, "missing_tech"
-        if not self._can_pay(group.resources, spec.cost):
+        if not self._can_pay(team_state.resources, spec.cost):
             return False, "insufficient_resources"
         return True, None
 
-    @staticmethod
-    def _has_completed_building(group: EntitiesGroup, spec_key: str) -> bool:
+    def _has_completed_building(self, team: TeamColor, spec_key: str) -> bool:
         """Return whether a team owns a finished, living building of a given type."""
-        buildings = (*group.bases, *group.barracks, *group.houses, *group.mage_towers, *group.towers)
         return any(
-            getattr(building, "spec_key", "") == spec_key and building.life > 0 and not building.is_under_construction
-            for building in buildings
+            isinstance(building, Building) and building.life > 0 and not building.is_under_construction
+            for building in self._state.entities_by_content_id(spec_key, team=team)
         )
+
+    def _builders_for_team(self, team: TeamColor) -> list[Peasant]:
+        return [
+            entity for entity in self._state.entities_by_content_id("peasant", team=team) if isinstance(entity, Peasant)
+        ]
 
     def can_start_construction(
         self,
@@ -106,9 +77,10 @@ class ConstructionSystem:
         if not can_construct:
             return False, reason
 
-        factory = self._BUILDING_FACTORIES[building_type]
         with visual_assets_enabled(self._state.load_visuals):
-            preview = factory(int(position[0]), int(position[1]), builder.team)
+            preview = cast(
+                "Building", EntityFactory.create(building_type, int(position[0]), int(position[1]), builder.team)
+            )
         if not self._is_valid_placement(preview, ignore=builder):
             return False, "invalid_placement"
         return True, None
@@ -125,25 +97,25 @@ class ConstructionSystem:
             return None
 
         spec = CONTENT.get_building(building_type)
-        group = self._state.entities[builder.team]
-        self._pay(group.resources, spec.cost)
+        team_state = self._state.teams[builder.team]
+        self._pay(team_state.resources, spec.cost)
 
-        factory = self._BUILDING_FACTORIES[building_type]
         with visual_assets_enabled(self._state.load_visuals):
-            building = factory(int(position[0]), int(position[1]), builder.team)
+            building = cast(
+                "Building", EntityFactory.create(building_type, int(position[0]), int(position[1]), builder.team)
+            )
         building.start_construction(spec.build_frames)
-        self._add_building_to_group(group, building_type, building)
+        self._state.store.add(building)
         self._movement.assign_unit_target(builder, building.get_center(), building)
         return building
 
     def unfinished_buildings_for_team(self, team: TeamColor) -> list[Building]:
         """Return unfinished buildings owned by a team."""
-        group = self._state.entities.get(team)
-        if group is None:
+        if self._state.team(team) is None:
             return []
         return [
             entity
-            for entity in group.all_entities
+            for entity in self._state.buildings_for_team(team)
             if isinstance(entity, Building) and entity.life > 0 and entity.is_under_construction
         ]
 
@@ -152,8 +124,8 @@ class ConstructionSystem:
         if building.life <= 0 or not building.is_under_construction:
             return False
 
-        group = self._state.entities.get(building.team)
-        if group is None:
+        team_state = self._state.team(building.team)
+        if team_state is None:
             return False
 
         building_type = getattr(building, "spec_key", type(building).__name__.lower())
@@ -162,21 +134,21 @@ class ConstructionSystem:
         except ValueError:
             return False
 
-        if not self._remove_building_from_group(group, building_type, building):
+        if not self._state.store.remove(building):
             return False
 
-        self._refund(group.resources, spec.cost)
+        self._refund(team_state.resources, spec.cost)
         building.is_under_construction = False
         building.life = 0
-        self._detach_builders(group, building)
+        self._detach_builders(building.team, building)
         self._state.selected_entities = [entity for entity in self._state.selected_entities if entity is not building]
         building.selected = False
         return True
 
     def update(self) -> None:
         """Advance unfinished buildings when workers are actively building them."""
-        for group in self._state.entities.values():
-            for builder in group.peasents:
+        for team in self._state.teams:
+            for builder in self._builders_for_team(team):
                 target = builder.target_entity
                 constructable_target = self._constructable_target(builder, target)
                 if builder.state != "BUILDING" or constructable_target is None:
@@ -215,26 +187,8 @@ class ConstructionSystem:
             return target
         return None
 
-    @classmethod
-    def _add_building_to_group(cls, group: EntitiesGroup, building_type: str, building: Building) -> None:
-        roster_name = cls._BUILDING_ROSTERS[building_type]
-        roster = getattr(group, roster_name)
-        roster.append(building)
-
-    @classmethod
-    def _remove_building_from_group(cls, group: EntitiesGroup, building_type: str, building: Building) -> bool:
-        roster_name = cls._BUILDING_ROSTERS.get(building_type)
-        if roster_name is None:
-            return False
-        roster = getattr(group, roster_name)
-        if building not in roster:
-            return False
-        roster.remove(building)
-        return True
-
-    @staticmethod
-    def _detach_builders(group: EntitiesGroup, building: Building) -> None:
-        for builder in group.peasents:
+    def _detach_builders(self, team: TeamColor, building: Building) -> None:
+        for builder in self._builders_for_team(team):
             if builder.target_entity is not building:
                 continue
             builder.target_entity = None

@@ -14,8 +14,16 @@ if TYPE_CHECKING:
 
 def _settings() -> MapSettings:
     return {
-        "Blue": {"peasant": [[20, 20]], "base": [[60, 60]], "guardian": [], "marksman": [], "arclight": []},
-        "Red": {"peasant": [], "base": [[250, 250]], "ripper": [], "spitter": [], "brute": []},
+        "schema_version": 2,
+        "Blue": {
+            "faction_id": "AEGIS",
+            "peasant": [[20, 20]],
+            "base": [[60, 60]],
+            "guardian": [],
+            "marksman": [],
+            "arclight": [],
+        },
+        "Red": {"faction_id": "RUST", "peasant": [], "base": [[250, 250]], "ripper": [], "spitter": [], "brute": []},
         "Resources": {"wood": [], "gold": []},
         "Terrain": {
             "width": 400,

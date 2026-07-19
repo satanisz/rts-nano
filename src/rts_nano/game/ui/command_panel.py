@@ -22,7 +22,6 @@ from rts_nano.content import CONTENT
 from rts_nano.game.assets.entities.base_entities import Building, Unit
 from rts_nano.game.assets.entities.units import Peasant
 from rts_nano.game.constants import BOTTOM_MENU_HEIGHT
-from rts_nano.game.data import faction_for_team
 
 if TYPE_CHECKING:
     from rts_nano.game.manager import GameManager
@@ -168,7 +167,7 @@ class CommandPanel:
                     else:
                         commands.append(("Unavailable", False, None, None))
         elif isinstance(primary_entity, Peasant) and primary_entity.team == manager.current_team:
-            faction = faction_for_team(manager.current_team)
+            faction = manager.state.faction_for_team(manager.current_team)
             for building_type in manager.construction.supported_building_types():
                 try:
                     building_spec = CONTENT.get_building(building_type)

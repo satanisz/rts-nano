@@ -28,8 +28,16 @@ if TYPE_CHECKING:
 
 def _settings() -> MapSettings:
     return {
-        "Blue": {"peasant": [[20, 20]], "base": [[60, 60]], "guardian": [], "marksman": [], "arclight": []},
-        "Red": {"peasant": [], "base": [[250, 250]], "ripper": [], "spitter": [], "brute": []},
+        "schema_version": 2,
+        "Blue": {
+            "faction_id": "AEGIS",
+            "peasant": [[20, 20]],
+            "base": [[60, 60]],
+            "guardian": [],
+            "marksman": [],
+            "arclight": [],
+        },
+        "Red": {"faction_id": "RUST", "peasant": [], "base": [[250, 250]], "ripper": [], "spitter": [], "brute": []},
         "Resources": {"wood": [[160, 20]], "gold": []},
         "Terrain": {
             "width": 400,
@@ -98,7 +106,7 @@ def test_action_translator_applies_build_orders() -> None:
     """Action translator applies DTOs through the manager order system."""
     simulation = HeadlessSimulation.from_settings(_settings())
     manager = simulation.manager
-    manager.entities[TeamColor.BLUE].resources["wood"] = 50
+    manager.teams[TeamColor.BLUE].resources["wood"] = 50
     registry = EntityIdRegistry()
     observation = build_observation(manager, tick=0, registry=registry)
     base_id = next(entity.id for entity in observation.entities if entity.kind == "Base" and entity.team == "Blue")
@@ -116,7 +124,7 @@ def test_action_translator_applies_military_build_orders() -> None:
     """Action translator can produce military units from an arsenal."""
     simulation = HeadlessSimulation.from_settings(_settings_with_arsenal())
     manager = simulation.manager
-    manager.entities[TeamColor.BLUE].resources.update({"wood": 110, "gold": 55})
+    manager.teams[TeamColor.BLUE].resources.update({"wood": 110, "gold": 55})
     registry = EntityIdRegistry()
     observation = build_observation(manager, tick=0, registry=registry)
     arsenal_id = next(
@@ -133,7 +141,7 @@ def test_action_translator_applies_military_build_orders() -> None:
         == "guardian"
     )
     simulation.step(150)
-    assert len(manager.entities[TeamColor.BLUE].knights) == 1
+    assert len(manager.state.entities_by_content_id("guardian", team=TeamColor.BLUE)) == 1
     simulation.close()
 
 
@@ -141,7 +149,7 @@ def test_action_translator_applies_worker_construction_orders() -> None:
     """Action translator can place unfinished structures through a worker."""
     simulation = HeadlessSimulation.from_settings(_settings())
     manager = simulation.manager
-    manager.entities[TeamColor.BLUE].resources.update({"wood": 220, "gold": 60})
+    manager.teams[TeamColor.BLUE].resources.update({"wood": 220, "gold": 60})
     registry = EntityIdRegistry()
     observation = build_observation(manager, tick=0, registry=registry)
     builder_id = next(
@@ -153,8 +161,9 @@ def test_action_translator_applies_worker_construction_orders() -> None:
     )
 
     assert affected == 1
-    assert len(manager.entities[TeamColor.BLUE].barracks) == 1
-    assert manager.entities[TeamColor.BLUE].barracks[0].is_under_construction is True
+    arsenals = manager.state.entities_by_content_id("arsenal", team=TeamColor.BLUE)
+    assert len(arsenals) == 1
+    assert arsenals[0].is_under_construction is True
     simulation.close()
 
 
@@ -217,8 +226,8 @@ def test_action_translator_applies_gather_orders() -> None:
     """Action translator can send peasants to resources through the public DTO."""
     simulation = HeadlessSimulation.from_settings(_settings())
     manager = simulation.manager
-    peasant = manager.entities[TeamColor.BLUE].peasents[0]
-    wood = manager.resources.woods[0]
+    peasant = manager.state.entities_by_content_id("peasant", team=TeamColor.BLUE)[0]
+    wood = manager.state.resources_by_content("wood")[0]
     registry = EntityIdRegistry()
     observation = build_observation(manager, tick=0, registry=registry)
     peasant_id = next(
@@ -239,8 +248,8 @@ def test_action_translator_applies_return_cargo_orders() -> None:
     """Action translator can return carried resources through the public DTO."""
     simulation = HeadlessSimulation.from_settings(_settings())
     manager = simulation.manager
-    peasant = manager.entities[TeamColor.BLUE].peasents[0]
-    base = manager.entities[TeamColor.BLUE].bases[0]
+    peasant = manager.state.entities_by_content_id("peasant", team=TeamColor.BLUE)[0]
+    base = manager.state.entities_by_content_id("base", team=TeamColor.BLUE)[0]
     peasant.carry_wood = 5
     registry = EntityIdRegistry()
     observation = build_observation(manager, tick=0, registry=registry)
@@ -257,7 +266,7 @@ def test_action_translator_applies_return_cargo_orders() -> None:
     assert peasant.target_entity is base
     simulation.step(30)
     assert peasant.carry_wood == 0
-    assert manager.entities[TeamColor.BLUE].resources["wood"] == 5
+    assert manager.teams[TeamColor.BLUE].resources["wood"] == 5
     simulation.close()
 
 
@@ -287,12 +296,13 @@ def test_env_action_mask_reports_stateful_legality() -> None:
     assert specs[("cancel_construction", "Blue", None)].reason == "no_unfinished_building"
 
     manager = env._require_simulation().manager
-    manager.entities[TeamColor.BLUE].resources["wood"] = 50
-    manager.entities[TeamColor.BLUE].peasents[0].carry_wood = 3
+    manager.teams[TeamColor.BLUE].resources["wood"] = 50
+    peasant = manager.state.entities_by_content_id("peasant", team=TeamColor.BLUE)[0]
+    peasant.carry_wood = 3
     specs = {(spec.kind, spec.team, spec.unit_type): spec for spec in env.action_mask(TeamColor.BLUE)}
     assert specs[("return_cargo", "Blue", None)].enabled is True
 
-    manager.entities[TeamColor.BLUE].peasents[0].carry_wood = 0
+    peasant.carry_wood = 0
     observation = env.observe()
     base_id = next(entity.id for entity in observation.entities if entity.kind == "Base" and entity.team == "Blue")
 
@@ -312,7 +322,7 @@ def test_env_construct_action_observes_unfinished_arsenal() -> None:
     """Environment exposes worker construction through actions and snapshots."""
     env = RtsNanoEnv(settings=_settings())
     manager = env._require_simulation().manager
-    manager.entities[TeamColor.BLUE].resources.update({"wood": 220, "gold": 60})
+    manager.teams[TeamColor.BLUE].resources.update({"wood": 220, "gold": 60})
     observation = env.observe()
     builder_id = next(
         entity.id for entity in observation.entities if entity.kind == "Peasant" and entity.team == "Blue"
@@ -335,7 +345,7 @@ def test_env_constructs_house_and_reports_population_cap() -> None:
     """House construction is available through env actions and raises support on completion."""
     env = RtsNanoEnv(settings=_settings())
     manager = env._require_simulation().manager
-    manager.entities[TeamColor.BLUE].resources["wood"] = 80
+    manager.teams[TeamColor.BLUE].resources["wood"] = 80
     observation = env.observe()
     builder_id = next(
         entity.id for entity in observation.entities if entity.kind == "Peasant" and entity.team == "Blue"
@@ -361,7 +371,7 @@ def test_env_cancel_construction_refunds_resources() -> None:
     """Environment can cancel unfinished construction and remove it from observations."""
     env = RtsNanoEnv(settings=_settings())
     manager = env._require_simulation().manager
-    manager.entities[TeamColor.BLUE].resources["wood"] = 80
+    manager.teams[TeamColor.BLUE].resources["wood"] = 80
     observation = env.observe()
     builder_id = next(
         entity.id for entity in observation.entities if entity.kind == "Peasant" and entity.team == "Blue"
@@ -387,7 +397,7 @@ def test_env_action_mask_reports_military_production() -> None:
     env = RtsNanoEnv(settings=_settings_with_arsenal())
     manager = env._require_simulation().manager
     # Enough for a marksman (90W/35G) but not a guardian (110W/55G).
-    manager.entities[TeamColor.BLUE].resources.update({"wood": 90, "gold": 35})
+    manager.teams[TeamColor.BLUE].resources.update({"wood": 90, "gold": 35})
 
     specs = {(spec.kind, spec.team, spec.unit_type): spec for spec in env.action_mask(TeamColor.BLUE)}
 
@@ -402,7 +412,7 @@ def test_env_action_mask_exposes_spire_construction() -> None:
     """Action masks expose the Spire as constructable once its arsenal tech is met."""
     env = RtsNanoEnv(settings=_settings())
     manager = env._require_simulation().manager
-    manager.entities[TeamColor.BLUE].resources.update({"wood": 200, "gold": 150})
+    manager.teams[TeamColor.BLUE].resources.update({"wood": 200, "gold": 150})
 
     # Without an arsenal the spire is present but tech-gated.
     gated = {(spec.kind, spec.team, spec.building_type): spec for spec in env.action_mask(TeamColor.BLUE)}
@@ -414,7 +424,7 @@ def test_env_action_mask_exposes_spire_construction() -> None:
 
     env = RtsNanoEnv(settings=_settings_with_arsenal())
     manager = env._require_simulation().manager
-    manager.entities[TeamColor.BLUE].resources.update({"wood": 200, "gold": 150})
+    manager.teams[TeamColor.BLUE].resources.update({"wood": 200, "gold": 150})
 
     specs = {(spec.kind, spec.team, spec.building_type): spec for spec in env.action_mask(TeamColor.BLUE)}
 
@@ -446,7 +456,7 @@ def test_env_action_mask_exposes_bastion_construction() -> None:
     """Action masks expose the defensive Bastion as a worker-constructable building."""
     env = RtsNanoEnv(settings=_settings())
     manager = env._require_simulation().manager
-    manager.entities[TeamColor.BLUE].resources.update({"wood": 150, "gold": 80})
+    manager.teams[TeamColor.BLUE].resources.update({"wood": 150, "gold": 80})
 
     specs = {(spec.kind, spec.team, spec.building_type): spec for spec in env.action_mask(TeamColor.BLUE)}
 
@@ -464,8 +474,7 @@ def test_env_reports_game_over_when_one_team_remains() -> None:
     assert env.observe().game_over is None
     assert env.is_done() is False
 
-    red_group = manager.entities[TeamColor.RED]
-    for entity in red_group.all_entities:
+    for entity in manager.state.entities_for_team(TeamColor.RED):
         entity.life = 0
 
     result = env.step(NoOpAction(frames=1))
@@ -484,7 +493,7 @@ def test_env_replays_same_action_sequence_deterministically() -> None:
         env = RtsNanoEnv(settings=_settings())
         observation = env.reset(seed=11)
         manager = env._require_simulation().manager
-        manager.entities[TeamColor.BLUE].resources["wood"] = 50
+        manager.teams[TeamColor.BLUE].resources["wood"] = 50
         observation = env.observe()
         base_id = next(entity.id for entity in observation.entities if entity.kind == "Base" and entity.team == "Blue")
         actions = (

@@ -21,19 +21,9 @@ from rts_nano.content import (
     ResourceCost as ResourceCost,
 )
 
-UnitSpec = UnitDefinition
-BuildingSpec = BuildingDefinition
 UNIT_SPECS = CONTENT.units
 BUILDING_SPECS = CONTENT.buildings
 RESOURCE_KINDS: tuple[str, ...] = tuple(CONTENT.resources)
-
-FACTION_BY_TEAM: dict[str, str] = {"Blue": "AEGIS", "Red": "RUST"}
-
-
-def faction_for_team(team: object) -> str:
-    """Return the faction a team plays (Blue=AEGIS, Red=RUST), else ``any``."""
-    team_name = str(getattr(team, "value", team))
-    return FACTION_BY_TEAM.get(team_name, "any")
 
 
 def units_for_faction(faction: str) -> dict[str, UnitDefinition]:

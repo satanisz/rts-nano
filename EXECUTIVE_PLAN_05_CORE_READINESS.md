@@ -2,11 +2,12 @@
 
 Last updated: 2026-07-19
 
-## STATUS: IN PROGRESS — S1 COMPLETE
+## STATUS: IN PROGRESS — S2 COMPLETE
 
-Sprints S0 and S1 completed on 2026-07-19. Gameplay definitions now have one validated,
-Pygame-free source of truth, while runtime behavior remains identical to the S0 golden replay.
-See `docs/reviews/SPRINT_S0_REVIEW.md` and `docs/reviews/SPRINT_S1_REVIEW.md`. Sprint S2 is next.
+Sprints S0 through S2 completed on 2026-07-19. Gameplay definitions now have one validated,
+Pygame-free source of truth, and runtime state uses one stable generic entity store with explicit
+team factions. Runtime behavior remains identical to the S0 golden replay. See the corresponding
+reports in `docs/reviews/`. Sprint S3 is next.
 
 Goal: bring the current game to a **game-core-complete state suitable for later AI and RL work**.
 “Complete” does not mean a commercial product, campaign, or polished HUD. It means:

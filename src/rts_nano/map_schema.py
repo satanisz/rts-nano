@@ -23,7 +23,9 @@ without forcing a full serialization rewrite.
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING, NotRequired, TypedDict, cast
+from typing import TYPE_CHECKING, NotRequired, Required, TypedDict, cast
+
+from rts_nano.content import CONTENT
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -43,6 +45,7 @@ class TeamSettings(TypedDict, total=False):
     :data:`TEAM_ENTITY_NAMES`, regardless of which team it appears under.
     """
 
+    faction_id: Required[str]
     # Shared
     peasant: list[Coordinate]
     base: list[Coordinate]
@@ -64,28 +67,7 @@ class TeamSettings(TypedDict, total=False):
 
 
 # Entity names accepted in a team's spawn section.
-TEAM_ENTITY_NAMES: frozenset[str] = frozenset(
-    {
-        # Shared
-        "peasant",
-        "base",
-        "house",
-        # AEGIS
-        "marksman",
-        "guardian",
-        "arclight",
-        "arsenal",
-        "spire",
-        "bastion",
-        # RUST
-        "ripper",
-        "spitter",
-        "brute",
-        "pit",
-        "chem_vat",
-        "spiker",
-    }
-)
+TEAM_ENTITY_NAMES: frozenset[str] = frozenset((*CONTENT.units, *CONTENT.buildings))
 
 
 class ResourceSettings(TypedDict, total=False):
@@ -115,6 +97,7 @@ class TerrainSettings(TypedDict):
 class MapSettings(TypedDict):
     """Complete serialized map payload."""
 
+    schema_version: int
     Blue: TeamSettings
     Red: TeamSettings
     Resources: ResourceSettings
@@ -152,6 +135,8 @@ def validate_map_settings(payload: object) -> list[str]:
         return ["Map root must be a JSON object."]
 
     root = cast("dict[object, object]", payload)
+    if root.get("schema_version") != 2:
+        errors.append("schema_version must be 2.")
     _validate_team(root, "Blue", errors)
     _validate_team(root, "Red", errors)
     _validate_resources(root, errors)
@@ -176,9 +161,23 @@ def _validate_team(payload: dict[object, object], key: str, errors: list[str]) -
     if not isinstance(team, dict):
         errors.append(f"{key} must be an object.")
         return
-    for entity_name, coords in team.items():
+    team_payload = cast("dict[object, object]", team)
+    faction_id = team_payload.get("faction_id")
+    if not isinstance(faction_id, str) or faction_id not in CONTENT.factions:
+        errors.append(f"{key}.faction_id must name a known faction.")
+    available_content = (
+        set(CONTENT.units_for_faction(faction_id)) | set(CONTENT.buildings_for_faction(faction_id))
+        if isinstance(faction_id, str) and faction_id in CONTENT.factions
+        else set()
+    )
+    for entity_name, coords in team_payload.items():
+        if entity_name == "faction_id":
+            continue
         if entity_name not in TEAM_ENTITY_NAMES:
             errors.append(f"{key}.{entity_name} is not a known entity type.")
+            continue
+        if entity_name not in available_content:
+            errors.append(f"{key}.{entity_name} is not available to faction {faction_id}.")
             continue
         _validate_coordinate_list(coords, f"{key}.{entity_name}", errors)
 
@@ -189,7 +188,7 @@ def _validate_resources(payload: dict[object, object], errors: list[str]) -> Non
         errors.append("Resources must be an object.")
         return
     for resource_name, coords in resources.items():
-        if resource_name not in {"wood", "gold"}:
+        if resource_name not in CONTENT.resources:
             errors.append(f"Resources.{resource_name} is not a known resource type.")
             continue
         _validate_coordinate_list(coords, f"Resources.{resource_name}", errors)

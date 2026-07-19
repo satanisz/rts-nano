@@ -35,7 +35,9 @@ def _stress_settings(unit_count: int = 400) -> MapSettings:
     blue = [[100 + (index % 20) * 70, 100 + (index // 20) * 70] for index in range(per_team)]
     red = [[3100 - (index % 20) * 70, 2000 - (index // 20) * 70] for index in range(per_team)]
     return {
+        "schema_version": 2,
         "Blue": {
+            "faction_id": "AEGIS",
             "peasant": [],
             "base": [[80, 80]],
             "guardian": blue,
@@ -43,6 +45,7 @@ def _stress_settings(unit_count: int = 400) -> MapSettings:
             "arclight": [],
         },
         "Red": {
+            "faction_id": "RUST",
             "peasant": [],
             "base": [[3120, 2120]],
             "ripper": red,

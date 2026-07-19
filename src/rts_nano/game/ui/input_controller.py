@@ -15,9 +15,9 @@ from typing import TYPE_CHECKING
 
 import pygame
 
+from rts_nano.content import CONTENT
 from rts_nano.game.assets.entities import Base, TeamColor
 from rts_nano.game.assets.entities.base_entities import Unit
-from rts_nano.game.data import faction_for_team
 from rts_nano.game.manager import (
     CAMERA_SPEED,
     DOUBLE_CLICK_MS,
@@ -267,17 +267,15 @@ class InputController:
         elif action in {"stop", "hold", "attack_move", "patrol", "gather", "return_cargo"}:
             manager._handle_unit_command_button(action)
 
-    # Build hotkeys are faction-aware: ``B`` raises the faction's military
-    # building, ``M`` its tech/caster building (AEGIS vs RUST).
-    _FACTION_BUILD_HOTKEYS = {
-        "AEGIS": {"military": "arsenal", "tech": "spire"},
-        "RUST": {"military": "pit", "tech": "chem_vat"},
-    }
-
     def _faction_building(self, manager: GameManager, role: str) -> str:
         """Return the building type the current team builds for a hotkey role."""
-        faction = faction_for_team(manager.current_team)
-        return self._FACTION_BUILD_HOTKEYS.get(faction, self._FACTION_BUILD_HOTKEYS["AEGIS"])[role]
+        faction = manager.state.faction_for_team(manager.current_team)
+        definition_role = {"military": "military_production", "tech": "advanced_production"}[role]
+        return next(
+            key
+            for key, definition in CONTENT.buildings_for_faction(faction).items()
+            if definition.role == definition_role
+        )
 
     def _try_build_peasant_from_selection(self, manager: GameManager) -> None:
         """Attempt to build a peasant from the first selected base."""

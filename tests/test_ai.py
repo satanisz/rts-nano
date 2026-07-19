@@ -19,8 +19,17 @@ if TYPE_CHECKING:
 def _ai_settings() -> MapSettings:
     wood = [[200 + 10 * i, 120] for i in range(6)]
     return {
-        "Blue": {"peasant": [], "base": [[700, 400]], "guardian": [], "marksman": [], "arclight": []},
+        "schema_version": 2,
+        "Blue": {
+            "faction_id": "AEGIS",
+            "peasant": [],
+            "base": [[700, 400]],
+            "guardian": [],
+            "marksman": [],
+            "arclight": [],
+        },
         "Red": {
+            "faction_id": "RUST",
             "peasant": [[120, 120], [150, 120], [120, 150]],
             "base": [[120, 90]],
             "ripper": [],
@@ -44,18 +53,18 @@ def test_scripted_ai_gathers_resources_into_bank() -> None:
     """The AI drives idle workers to harvest and bank resources."""
     simulation = HeadlessSimulation.from_settings(_ai_settings())
     manager = simulation.manager
-    red = manager.entities[TeamColor.RED]
+    red = manager.teams[TeamColor.RED]
     ai = ScriptedAI(manager, TeamColor.RED, decision_interval=10)
-    initial_wood = sum(node.amount for node in manager.resources.woods)
+    initial_wood = sum(node.amount for node in manager.state.resources_by_content("wood"))
 
     assert red.resources["wood"] == 0
     for _ in range(600):
         ai.step()
         simulation.step(1)
 
-    remaining_wood = sum(node.amount for node in manager.resources.woods)
+    remaining_wood = sum(node.amount for node in manager.state.resources_by_content("wood"))
     assert remaining_wood < initial_wood
-    assert red.resources["wood"] > 0 or red.barracks
+    assert red.resources["wood"] > 0 or manager.state.entities_by_content_id("pit", team=TeamColor.RED)
     simulation.close()
 
 
@@ -63,7 +72,7 @@ def test_scripted_ai_builds_trains_and_attacks() -> None:
     """With resources the RUST AI raises a pit, trains rippers, and attacks."""
     simulation = HeadlessSimulation.from_settings(_ai_settings())
     manager = simulation.manager
-    red = manager.entities[TeamColor.RED]
+    red = manager.teams[TeamColor.RED]
     red.resources.update({"wood": 600, "gold": 300})
     ai = ScriptedAI(manager, TeamColor.RED, decision_interval=10)
 
@@ -71,11 +80,13 @@ def test_scripted_ai_builds_trains_and_attacks() -> None:
     for _ in range(1500):
         ai.step()
         simulation.step(1)
-        if red.barracks and not red.barracks[0].is_under_construction:
+        pits = manager.state.entities_by_content_id("pit", team=TeamColor.RED)
+        rippers = manager.state.entities_by_content_id("ripper", team=TeamColor.RED)
+        if pits and not pits[0].is_under_construction:
             built_pit = True
-        if red.knights:
+        if rippers:
             trained_unit = True
-        if any(unit.attack_move_destination is not None for unit in red.knights):
+        if any(unit.attack_move_destination is not None for unit in rippers):
             launched_attack = True
         if built_pit and trained_unit and launched_attack:
             break

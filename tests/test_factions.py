@@ -18,8 +18,16 @@ if TYPE_CHECKING:
 def _settings() -> MapSettings:
     """Small map with a Blue (AEGIS) base/peasant and a far Red base."""
     return {
-        "Blue": {"peasant": [[40, 40]], "base": [[80, 80]], "guardian": [], "marksman": [], "arclight": []},
-        "Red": {"peasant": [], "base": [[760, 560]], "ripper": [], "spitter": [], "brute": []},
+        "schema_version": 2,
+        "Blue": {
+            "faction_id": "AEGIS",
+            "peasant": [[40, 40]],
+            "base": [[80, 80]],
+            "guardian": [],
+            "marksman": [],
+            "arclight": [],
+        },
+        "Red": {"faction_id": "RUST", "peasant": [], "base": [[760, 560]], "ripper": [], "spitter": [], "brute": []},
         "Resources": {"wood": [], "gold": []},
         "Terrain": {
             "width": 800,
@@ -49,7 +57,7 @@ def _with_ripper() -> MapSettings:
 def test_apply_damage_drains_shield_before_life() -> None:
     """Damage hits the AEGIS shield buffer first, then spills into life."""
     simulation = HeadlessSimulation.from_settings(_with_guardian())
-    guardian = simulation.manager.entities[TeamColor.BLUE].knights[0]
+    guardian = simulation.manager.state.entities_by_content_id("guardian", team=TeamColor.BLUE)[0]
     assert (guardian.shield, guardian.shield_max, guardian.life) == (60, 60, 150)
 
     apply_damage(guardian, 20)
@@ -69,7 +77,7 @@ def test_non_aegis_unit_has_no_shield() -> None:
     settings = _settings()
     settings["Red"]["ripper"] = [[300, 300]]
     simulation = HeadlessSimulation.from_settings(settings)
-    ripper = simulation.manager.entities[TeamColor.RED].knights[0]
+    ripper = simulation.manager.state.entities_by_content_id("ripper", team=TeamColor.RED)[0]
 
     assert ripper.shield_max == 0
     assert ripper.shield == 0
@@ -84,7 +92,7 @@ def test_shield_regenerates_after_out_of_combat_delay() -> None:
     """A damaged shield only regenerates once the regen delay has elapsed."""
     simulation = HeadlessSimulation.from_settings(_with_guardian())
     manager = simulation.manager
-    guardian = manager.entities[TeamColor.BLUE].knights[0]
+    guardian = manager.state.entities_by_content_id("guardian", team=TeamColor.BLUE)[0]
 
     apply_damage(guardian, 30)
     assert guardian.shield == 30
@@ -105,7 +113,7 @@ def test_new_hit_restarts_shield_regen_delay() -> None:
     """Taking fresh damage resets the regen delay, pausing recovery again."""
     simulation = HeadlessSimulation.from_settings(_with_guardian())
     manager = simulation.manager
-    guardian = manager.entities[TeamColor.BLUE].knights[0]
+    guardian = manager.state.entities_by_content_id("guardian", team=TeamColor.BLUE)[0]
 
     apply_damage(guardian, 20)  # shield 40
     for _ in range(guardian.shield_regen_delay):
@@ -139,8 +147,8 @@ def test_shield_absorbs_damage_in_live_combat() -> None:
     settings["Red"]["ripper"] = [[330, 300]]
     simulation = HeadlessSimulation.from_settings(settings)
     manager = simulation.manager
-    guardian = manager.entities[TeamColor.BLUE].knights[0]
-    ripper = manager.entities[TeamColor.RED].knights[0]
+    guardian = manager.state.entities_by_content_id("guardian", team=TeamColor.BLUE)[0]
+    ripper = manager.state.entities_by_content_id("ripper", team=TeamColor.RED)[0]
 
     # Make the ripper attack the guardian.
     manager.issue_attack_move_order(TeamColor.RED, guardian.get_center(), [ripper])
@@ -165,13 +173,11 @@ def test_poison_attacker_stats() -> None:
     settings["Red"]["ripper"] = [[380, 300]]
     settings["Blue"]["guardian"] = [[200, 200]]
     simulation = HeadlessSimulation.from_settings(settings)
-    red = simulation.manager.entities[TeamColor.RED]
-    blue = simulation.manager.entities[TeamColor.BLUE]
-
-    spitter = red.archers[0]
-    brute = next(unit for unit in red.knights if type(unit).__name__ == "Brute")
-    ripper = next(unit for unit in red.knights if type(unit).__name__ == "Ripper")
-    guardian = blue.knights[0]
+    manager = simulation.manager
+    spitter = manager.state.entities_by_content_id("spitter", team=TeamColor.RED)[0]
+    brute = manager.state.entities_by_content_id("brute", team=TeamColor.RED)[0]
+    ripper = manager.state.entities_by_content_id("ripper", team=TeamColor.RED)[0]
+    guardian = manager.state.entities_by_content_id("guardian", team=TeamColor.BLUE)[0]
 
     assert (spitter.poison_damage, spitter.poison_duration) == (2, 90)
     assert (brute.poison_damage, brute.poison_duration) == (3, 120)
@@ -184,7 +190,7 @@ def test_apply_poison_refreshes_not_stacks() -> None:
     """A second poison application refreshes the timer instead of stacking damage."""
     simulation = HeadlessSimulation.from_settings(_with_ripper())
     manager = simulation.manager
-    ripper = manager.entities[TeamColor.RED].knights[0]
+    ripper = manager.state.entities_by_content_id("ripper", team=TeamColor.RED)[0]
 
     apply_poison(ripper, 2, 90)
     assert (ripper.poison_tick_damage, ripper.poison_remaining_frames) == (2, 90)
@@ -203,7 +209,7 @@ def test_poison_deals_periodic_damage_then_expires() -> None:
     """Poison drains life on the interval cadence and stops once it runs out."""
     simulation = HeadlessSimulation.from_settings(_with_ripper())
     manager = simulation.manager
-    ripper = manager.entities[TeamColor.RED].knights[0]
+    ripper = manager.state.entities_by_content_id("ripper", team=TeamColor.RED)[0]
     start_life = ripper.life
 
     apply_poison(ripper, 2, 3 * POISON_INTERVAL)
@@ -228,7 +234,7 @@ def test_poison_drains_shield_on_aegis_target() -> None:
     """Poison ticks route through the shield buffer before life, like any damage."""
     simulation = HeadlessSimulation.from_settings(_with_guardian())
     manager = simulation.manager
-    guardian = manager.entities[TeamColor.BLUE].knights[0]
+    guardian = manager.state.entities_by_content_id("guardian", team=TeamColor.BLUE)[0]
 
     apply_poison(guardian, 2, 3 * POISON_INTERVAL)
     for _ in range(POISON_INTERVAL):
@@ -246,8 +252,8 @@ def test_spitter_applies_poison_in_live_combat() -> None:
     settings["Red"]["spitter"] = [[400, 300]]
     simulation = HeadlessSimulation.from_settings(settings)
     manager = simulation.manager
-    guardian = manager.entities[TeamColor.BLUE].knights[0]
-    spitter = manager.entities[TeamColor.RED].archers[0]
+    guardian = manager.state.entities_by_content_id("guardian", team=TeamColor.BLUE)[0]
+    spitter = manager.state.entities_by_content_id("spitter", team=TeamColor.RED)[0]
 
     manager.issue_attack_move_order(TeamColor.RED, guardian.get_center(), [spitter])
     for _ in range(200):
@@ -270,8 +276,8 @@ def test_arclight_splash_hits_nearby_enemies() -> None:
     settings["Red"]["ripper"] = [[400, 300], [440, 300]]  # 40px apart < 60 splash radius
     simulation = HeadlessSimulation.from_settings(settings)
     manager = simulation.manager
-    arclight = manager.entities[TeamColor.BLUE].mages[0]
-    primary, secondary = manager.entities[TeamColor.RED].knights
+    arclight = manager.state.entities_by_content_id("arclight", team=TeamColor.BLUE)[0]
+    primary, secondary = manager.state.entities_by_content_id("ripper", team=TeamColor.RED)
 
     # Drive a single resolved volley directly to isolate one splash.
     arclight._splash_candidates = [primary, secondary]
@@ -292,9 +298,9 @@ def test_arclight_splash_spares_allies() -> None:
     settings["Red"]["ripper"] = [[400, 300]]
     simulation = HeadlessSimulation.from_settings(settings)
     manager = simulation.manager
-    arclight = manager.entities[TeamColor.BLUE].mages[0]
-    ally = manager.entities[TeamColor.BLUE].knights[0]
-    primary = manager.entities[TeamColor.RED].knights[0]
+    arclight = manager.state.entities_by_content_id("arclight", team=TeamColor.BLUE)[0]
+    ally = manager.state.entities_by_content_id("guardian", team=TeamColor.BLUE)[0]
+    primary = manager.state.entities_by_content_id("ripper", team=TeamColor.RED)[0]
 
     arclight._splash_candidates = [primary, ally, arclight]
     arclight.attack_cooldown = 0
@@ -312,7 +318,7 @@ def test_arclight_splash_spares_allies() -> None:
 def test_frenzy_speeds_attacks_when_wounded() -> None:
     """A frenzied unit's cooldown shrinks once it drops below half life."""
     simulation = HeadlessSimulation.from_settings(_with_ripper())
-    ripper = simulation.manager.entities[TeamColor.RED].knights[0]
+    ripper = simulation.manager.state.entities_by_content_id("ripper", team=TeamColor.RED)[0]
 
     ripper.life = ripper.max_life
     healthy = ripper._attack_cooldown_frames()
@@ -328,7 +334,7 @@ def test_frenzy_speeds_attacks_when_wounded() -> None:
 def test_frenzy_threshold_is_half_life() -> None:
     """Frenzy engages only at or below half life, not just above it."""
     simulation = HeadlessSimulation.from_settings(_with_ripper())
-    ripper = simulation.manager.entities[TeamColor.RED].knights[0]
+    ripper = simulation.manager.state.entities_by_content_id("ripper", team=TeamColor.RED)[0]
     base = max(1, int(ripper.attack_speed * 60))
 
     ripper.life = 23  # 23 > 0.5 * 45 -> no frenzy
@@ -342,7 +348,7 @@ def test_frenzy_threshold_is_half_life() -> None:
 def test_non_frenzy_unit_keeps_constant_attack_speed() -> None:
     """AEGIS units never frenzy: their cooldown is the same at full and low life."""
     simulation = HeadlessSimulation.from_settings(_with_guardian())
-    guardian = simulation.manager.entities[TeamColor.BLUE].knights[0]
+    guardian = simulation.manager.state.entities_by_content_id("guardian", team=TeamColor.BLUE)[0]
 
     full = guardian._attack_cooldown_frames()
     guardian.life = 1
@@ -355,8 +361,16 @@ def test_non_frenzy_unit_keeps_constant_attack_speed() -> None:
 
 def _battlefield() -> MapSettings:
     return {
-        "Blue": {"peasant": [], "base": [[80, 300]], "guardian": [], "marksman": [], "arclight": []},
-        "Red": {"peasant": [], "base": [[720, 300]], "ripper": [], "spitter": [], "brute": []},
+        "schema_version": 2,
+        "Blue": {
+            "faction_id": "AEGIS",
+            "peasant": [],
+            "base": [[80, 300]],
+            "guardian": [],
+            "marksman": [],
+            "arclight": [],
+        },
+        "Red": {"faction_id": "RUST", "peasant": [], "base": [[720, 300]], "ripper": [], "spitter": [], "brute": []},
         "Resources": {"wood": [], "gold": []},
         "Terrain": {
             "width": 800,
@@ -378,8 +392,8 @@ def test_aegis_army_can_destroy_rust_base() -> None:
     settings["Red"]["ripper"] = [[700, 300]]
     simulation = HeadlessSimulation.from_settings(settings)
     manager = simulation.manager
-    red_base = manager.entities[TeamColor.RED].bases[0]
-    army = [*manager.entities[TeamColor.BLUE].knights, *manager.entities[TeamColor.BLUE].archers]
+    red_base = manager.state.entities_by_content_id("base", team=TeamColor.RED)[0]
+    army = manager.units_for_team(TeamColor.BLUE)
 
     manager.issue_attack_move_order(TeamColor.BLUE, red_base.get_center(), army)
     for _ in range(2500):
@@ -397,8 +411,8 @@ def test_rust_swarm_can_destroy_aegis_base() -> None:
     settings["Red"]["ripper"] = [[200 + (i % 4) * 20, 280 + (i // 4) * 20] for i in range(8)]
     simulation = HeadlessSimulation.from_settings(settings)
     manager = simulation.manager
-    blue_base = manager.entities[TeamColor.BLUE].bases[0]
-    swarm = list(manager.entities[TeamColor.RED].knights)
+    blue_base = manager.state.entities_by_content_id("base", team=TeamColor.BLUE)[0]
+    swarm = manager.units_for_team(TeamColor.RED)
 
     manager.issue_attack_move_order(TeamColor.RED, blue_base.get_center(), swarm)
     for _ in range(2500):
@@ -413,8 +427,9 @@ def test_rust_swarm_can_destroy_aegis_base() -> None:
 def test_aegis_vs_rust_ai_game_progresses_to_engagement() -> None:
     """A fair AEGIS-vs-RUST AI game forms armies and engages (no hard stalemate)."""
     settings: MapSettings = {
-        "Blue": {"peasant": [[120, 120], [150, 120], [120, 150]], "base": [[140, 160]]},
-        "Red": {"peasant": [[680, 460], [650, 460], [680, 430]], "base": [[660, 440]]},
+        "schema_version": 2,
+        "Blue": {"faction_id": "AEGIS", "peasant": [[120, 120], [150, 120], [120, 150]], "base": [[140, 160]]},
+        "Red": {"faction_id": "RUST", "peasant": [[680, 460], [650, 460], [680, 430]], "base": [[660, 440]]},
         "Resources": {"wood": [[400, 280], [420, 280], [380, 300]], "gold": [[400, 320]]},
         "Terrain": {
             "width": 800,
@@ -428,8 +443,8 @@ def test_aegis_vs_rust_ai_game_progresses_to_engagement() -> None:
     }
     simulation = HeadlessSimulation.from_settings(settings)
     manager = simulation.manager
-    manager.entities[TeamColor.BLUE].resources.update({"wood": 2000, "gold": 1000})
-    manager.entities[TeamColor.RED].resources.update({"wood": 2000, "gold": 1000})
+    manager.teams[TeamColor.BLUE].resources.update({"wood": 2000, "gold": 1000})
+    manager.teams[TeamColor.RED].resources.update({"wood": 2000, "gold": 1000})
     blue_ai = ScriptedAI(manager, TeamColor.BLUE, decision_interval=10)
     red_ai = ScriptedAI(manager, TeamColor.RED, decision_interval=10)
 
@@ -440,7 +455,7 @@ def test_aegis_vs_rust_ai_game_progresses_to_engagement() -> None:
         simulation.step(1)
         if manager.game_over_message:
             break
-        units = [unit for group in manager.entities.values() for unit in (*group.knights, *group.archers, *group.mages)]
+        units = [unit for team in manager.teams for unit in manager.units_for_team(team)]
         if any(unit.attack_move_destination is not None for unit in units):
             engaged = True
             break

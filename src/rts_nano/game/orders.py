@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from rts_nano.game.assets.entities.base_entities import Building, Entity, Unit
+from rts_nano.game.assets.entities.buildings import Base
 from rts_nano.game.assets.entities.units import Peasant
 from rts_nano.game.order import Order, OrderKind
 from rts_nano.game.rules import distance_between_points, nearest_entity
@@ -14,7 +15,6 @@ if TYPE_CHECKING:
 
     from rts_nano.game.assets.entities import TeamColor
     from rts_nano.game.assets.entities.base_entities import Resource
-    from rts_nano.game.assets.entities.buildings import Base
     from rts_nano.game.construction import ConstructionSystem
     from rts_nano.game.movement import MovementSystem
     from rts_nano.game.production import ProductionSystem
@@ -39,17 +39,11 @@ class OrderSystem:
 
     def units_for_team(self, team: TeamColor) -> list[Unit]:
         """Return all living units owned by a team."""
-        group = self._state.entities.get(team)
-        if group is None:
-            return []
-        return [*group.peasents, *group.knights, *group.archers, *group.mages]
+        return self._state.units_for_team(team)
 
     def bases_for_team(self, team: TeamColor) -> list[Base]:
         """Return all bases owned by a team."""
-        group = self._state.entities.get(team)
-        if group is None:
-            return []
-        return group.bases.copy()
+        return [base for base in self._state.entities_by_content_id("base", team=team) if isinstance(base, Base)]
 
     def carrying_peasants_for_team(self, team: TeamColor) -> list[Peasant]:
         """Return living team peasants that currently carry resources."""
@@ -61,10 +55,7 @@ class OrderSystem:
 
     def production_buildings_for_team(self, team: TeamColor) -> list[Building]:
         """Return production-capable buildings owned by a team."""
-        group = self._state.entities.get(team)
-        if group is None:
-            return []
-        return [*group.bases, *group.barracks, *group.mage_towers]
+        return [building for building in self._state.buildings_for_team(team) if building.definition.produces]
 
     def issue_move_order(
         self,

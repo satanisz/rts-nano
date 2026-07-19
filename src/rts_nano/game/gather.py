@@ -59,12 +59,8 @@ class GatherSystem:
             self._send_to_base(peasant, is_wood=is_wood)
 
     def _replace_depleted_resource(self, peasant: Peasant, resource: Wood | Gold, *, is_wood: bool) -> None:
-        if isinstance(resource, Wood) and resource in self._state.resources.woods:
-            self._state.resources.woods.remove(resource)
-        elif isinstance(resource, Gold) and resource in self._state.resources.golds:
-            self._state.resources.golds.remove(resource)
-
-        resource_list = self._state.resources.woods if is_wood else self._state.resources.golds
+        self._state.store.remove(resource)
+        resource_list = self._state.resources_by_content("wood" if is_wood else "gold")
         new_resource = find_replacement_resource(resource, resource_list, search_radius=HARVEST_SEARCH_RADIUS)
         peasant.source_resource = new_resource
         peasant.target_entity = new_resource
@@ -75,8 +71,7 @@ class GatherSystem:
         elif not is_wood and peasant.carry_gold > peasant.max_carry:
             peasant.carry_gold = peasant.max_carry
 
-        team_group = self._state.entities.get(peasant.team)
-        team_bases = team_group.bases if team_group else []
+        team_bases = self._state.entities_by_content_id("base", team=peasant.team)
         nearest_base = nearest_entity(peasant, team_bases)
         if nearest_base:
             self._movement.assign_unit_target(peasant, nearest_base.get_center(), nearest_base)
@@ -84,10 +79,10 @@ class GatherSystem:
             peasant.state = "IDLE"
 
     def _update_depositing(self, peasant: Peasant, all_entities: list[Entity]) -> None:
-        team_group = self._state.entities.get(peasant.team)
-        if team_group:
-            team_group.resources["wood"] += peasant.carry_wood
-            team_group.resources["gold"] += peasant.carry_gold
+        team_state = self._state.team(peasant.team)
+        if team_state:
+            team_state.resources["wood"] += peasant.carry_wood
+            team_state.resources["gold"] += peasant.carry_gold
         peasant.carry_wood = 0
         peasant.carry_gold = 0
 

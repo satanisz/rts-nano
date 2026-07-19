@@ -23,6 +23,7 @@ if TYPE_CHECKING:
 
     from rts_nano.content import BuildingDefinition, ResourceDefinition, UnitDefinition
     from rts_nano.game.order import Order
+    from rts_nano.game.types import ContentId, EntityId
 from enum import StrEnum
 from pathlib import Path
 
@@ -171,6 +172,9 @@ class Entity:
         class_name: Human-readable entity label.
     """
 
+    definition: UnitDefinition | BuildingDefinition | ResourceDefinition
+    content_id: ContentId
+
     # Shield buffer defaults shared by every entity. Only combat entities that
     # call ``init_shield`` (AEGIS units/towers) get a nonzero buffer; everything
     # else stays inert at 0 so combat and the effects tick can treat any target
@@ -196,6 +200,7 @@ class Entity:
         if type(self) is Entity:
             raise TypeError("Entity is an abstract base class and cannot be instantiated directly.")
         self.x: float = float(x)
+        self.entity_id: EntityId | None = None
         self.y: float = float(y)
         self.color: tuple[int, int, int] = color
         self.size: int = size
@@ -327,6 +332,8 @@ class Resource(Entity):
         name: Display name of the resource.
     """
 
+    definition: ResourceDefinition
+
     def __init__(self, x: int, y: int, definition: ResourceDefinition) -> None:
         """Initialize the object."""
         if type(self) is Resource:
@@ -351,6 +358,8 @@ class Building(Entity):
         y: Vertical center position.
         team: Owning team.
     """
+
+    definition: BuildingDefinition
 
     def __init__(
         self,
@@ -460,6 +469,7 @@ class Unit(Entity):
         radius: Interaction radius used for collisions and selection.
     """
 
+    definition: UnitDefinition
     HIT_FLASH_DURATION_MS: int = 120
 
     def __init__(self, x: int, y: int, team: TeamColor, definition: UnitDefinition) -> None:

@@ -17,8 +17,9 @@ def _write_map(path: Path) -> None:
     path.write_text(
         json.dumps(
             {
-                "Blue": {"base": [[100, 100]]},
-                "Red": {"base": []},
+                "schema_version": 2,
+                "Blue": {"faction_id": "AEGIS", "base": [[100, 100]]},
+                "Red": {"faction_id": "RUST", "base": []},
                 "Resources": {"wood": [[200, 200]], "gold": []},
                 "Terrain": {
                     "width": 500,

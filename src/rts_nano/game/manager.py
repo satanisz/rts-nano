@@ -38,29 +38,10 @@ import pygame
 from rts_nano.content import CONTENT
 from rts_nano.game.assets.entities import (
     Archer,
-    Arclight,
-    Arsenal,
-    Barracks,
     Base,
-    Bastion,
-    Brute,
-    ChemVat,
-    Gold,
-    Guardian,
-    House,
-    Knight,
     Mage,
-    MageTower,
-    Marksman,
     Peasant,
-    Pit,
-    Ripper,
-    Spiker,
-    Spire,
-    Spitter,
     TeamColor,
-    Tower,
-    Wood,
 )
 from rts_nano.game.assets.entities.base_entities import Building, Entity, Resource, Unit, visual_assets_enabled
 from rts_nano.game.combat import CombatSystem
@@ -79,19 +60,21 @@ from rts_nano.game.constants import (
 )
 from rts_nano.game.construction import ConstructionSystem
 from rts_nano.game.effects import EffectsSystem
+from rts_nano.game.entity_factory import EntityFactory
 from rts_nano.game.fog import FogOfWar
 from rts_nano.game.gather import GatherSystem
 from rts_nano.game.movement import MovementSystem
 from rts_nano.game.orders import OrderSystem
 from rts_nano.game.production import ProductionSystem
 from rts_nano.game.rules import distance_between_points
-from rts_nano.game.state import EntitiesGroup, GameState, ResourcesGroup
+from rts_nano.game.state import GameState, TeamState
 from rts_nano.game.terrain import TerrainMap
+from rts_nano.game.types import FactionId, TeamId
 from rts_nano.game.ui.command_panel import CommandPanel
 from rts_nano.game.victory import VictorySystem
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable
+    from collections.abc import Iterable
 
     from rts_nano.map_schema import MapSettings
 
@@ -226,65 +209,6 @@ class ClickMarker:
         screen.blit(marker_surface, marker_surface.get_rect(center=draw_pos))
 
 
-class EntityFactory:
-    """Create game entities from map configuration values.
-
-    The factory is the only place that maps serialized asset names such as
-    ``"peasant"`` or ``"gold"`` to concrete classes. Add new JSON entity
-    types here before expecting maps or the editor to spawn them in-game.
-    """
-
-    _TEAM_ENTITY_TYPES: dict[str, Callable[[int, int, TeamColor], Entity]] = {
-        "peasant": Peasant,
-        "base": Base,
-        "house": House,
-        # AEGIS
-        "marksman": Marksman,
-        "guardian": Guardian,
-        "arclight": Arclight,
-        "arsenal": Arsenal,
-        "spire": Spire,
-        "bastion": Bastion,
-        # RUST
-        "ripper": Ripper,
-        "spitter": Spitter,
-        "brute": Brute,
-        "pit": Pit,
-        "chem_vat": ChemVat,
-        "spiker": Spiker,
-    }
-    _NEUTRAL_ENTITY_TYPES: dict[str, Callable[[int, int], Entity]] = {
-        "wood": Wood,
-        "gold": Gold,
-    }
-
-    @classmethod
-    def create_entity(cls, asset_type: str, x: int, y: int, team: TeamColor) -> Entity:
-        """Create an entity instance matching the requested asset type.
-
-        Args:
-            asset_type: Serialized concrete asset type name.
-            x: Horizontal spawn position.
-            y: Vertical spawn position.
-            team: Team associated with the entity.
-
-        Returns:
-            Instantiated entity.
-
-        Raises:
-            ValueError: If the asset type is unknown.
-        """
-        team_entity_type = cls._TEAM_ENTITY_TYPES.get(asset_type)
-        if team_entity_type is not None:
-            return team_entity_type(x, y, team)
-
-        neutral_entity_type = cls._NEUTRAL_ENTITY_TYPES.get(asset_type)
-        if neutral_entity_type is not None:
-            return neutral_entity_type(x, y)
-
-        raise ValueError(f"Unknown asset type: {asset_type}")
-
-
 class GameManager:
     """Coordinate input, simulation, selection, and drawing.
 
@@ -358,14 +282,9 @@ class GameManager:
     # --- GameState-backed data (single source of truth lives in self.state) ---
 
     @property
-    def entities(self) -> dict[TeamColor, EntitiesGroup]:
-        """Team entity rosters (backed by ``GameState``)."""
-        return self.state.entities
-
-    @property
-    def resources(self) -> ResourcesGroup:
-        """Neutral resource nodes (backed by ``GameState``)."""
-        return self.state.resources
+    def teams(self) -> dict[TeamColor, TeamState]:
+        """Team economy and explicit faction state."""
+        return self.state.teams
 
     @property
     def fog(self) -> FogOfWar:
@@ -466,27 +385,14 @@ class GameManager:
 
     def _remove_dead_entities(self) -> None:
         """Remove defeated units and buildings from the game state."""
-        removed_entities: set[int] = set()
-
-        for group in self.entities.values():
-            for attr_name in (
-                "peasents",
-                "knights",
-                "archers",
-                "mages",
-                "bases",
-                "barracks",
-                "houses",
-                "mage_towers",
-                "towers",
-            ):
-                entities = getattr(group, attr_name)
-                alive_entities = [entity for entity in entities if entity.life > 0]
-                removed_entities.update(id(entity) for entity in entities if entity.life <= 0)
-                setattr(group, attr_name, alive_entities)
+        removed_entities = {
+            entity for entity in self.all_entities if not isinstance(entity, Resource) and entity.life <= 0
+        }
+        for entity in removed_entities:
+            self.state.store.remove(entity)
 
         if removed_entities:
-            self.selected_entities = [entity for entity in self.selected_entities if id(entity) not in removed_entities]
+            self.selected_entities = [entity for entity in self.selected_entities if entity not in removed_entities]
 
     @property
     def all_entities(self) -> list[Entity]:
@@ -804,8 +710,8 @@ class GameManager:
         buildings that can be constructed mid-game) need a per-tick refresh, which
         avoids re-querying terrain for every resource node every frame.
         """
-        for group in self.entities.values():
-            for entity in group.all_entities:
+        for team in self.teams:
+            for entity in self.state.entities_for_team(team):
                 entity.height_level = self.terrain.height_at(entity.get_center())
 
     def _selected_construction_builder(self) -> Peasant | None:
@@ -859,48 +765,30 @@ class GameManager:
     def _load_map_settings(self) -> None:
         """Instantiate entities from the loaded map configuration.
 
-        Every non-``Terrain`` top-level key is interpreted as a ``TeamColor``.
-        This currently includes ``Blue``, ``Red``, and ``Resources``. Resource
-        entities are created while iterating the resources group but stored in
-        ``self.resources`` rather than the temporary group.
+        Team sections carry explicit faction IDs. Every entity is registered
+        once in the generic store; map loading does not choose a roster.
         """
         for category_str, assets in self.map_settings.items():
-            if category_str == "Terrain":
+            if category_str in {"Terrain", "schema_version"}:
                 continue
             if not isinstance(assets, dict):
                 raise TypeError(f"Invalid map category payload: {category_str!r}")
+            asset_payload = cast("dict[object, object]", assets)
             team_color = TeamColor(category_str)
-            group = EntitiesGroup(team_color)
-            self.entities[team_color] = group
+            if team_color != TeamColor.RESOURCES:
+                faction_value = asset_payload.get("faction_id")
+                if not isinstance(faction_value, str) or faction_value not in CONTENT.factions:
+                    raise ValueError(f"Team {category_str} requires a valid faction_id")
+                self.teams[team_color] = TeamState(TeamId(category_str), FactionId(faction_value))
 
-            for asset_type, coords in assets.items():
+            for asset_type, coords in asset_payload.items():
+                if asset_type == "faction_id":
+                    continue
                 normalized_coords = self._normalize_coords(coords)
                 for x, y in normalized_coords:
                     with visual_assets_enabled(self.state.load_visuals):
-                        entity = EntityFactory.create_entity(cast("str", asset_type), x, y, team_color)
-                    match entity:
-                        case Peasant():
-                            group.peasents.append(entity)
-                        case Knight():
-                            group.knights.append(entity)
-                        case Archer():
-                            group.archers.append(entity)
-                        case Mage():
-                            group.mages.append(entity)
-                        case Base():
-                            group.bases.append(entity)
-                        case Barracks():
-                            group.barracks.append(entity)
-                        case House():
-                            group.houses.append(entity)
-                        case MageTower():
-                            group.mage_towers.append(entity)
-                        case Tower():
-                            group.towers.append(entity)
-                        case Wood():
-                            self.resources.woods.append(entity)
-                        case Gold():
-                            self.resources.golds.append(entity)
+                        entity = EntityFactory.create(cast("str", asset_type), x, y, team_color)
+                    self.state.store.add(entity)
 
     def _normalize_coords(self, coords: object) -> list[tuple[int, int]]:
         """Normalize map coordinates to a list of coordinate pairs."""
@@ -996,9 +884,8 @@ class GameManager:
             return
 
         if self.state.load_visuals:
-            current_team_group = self.entities.get(self.current_team)
-            if current_team_group:
-                visible_entities = current_team_group.all_entities
+            if self.current_team in self.teams:
+                visible_entities = self.state.entities_for_team(self.current_team)
                 self.fog.update(visible_entities)
             else:
                 self.fog.update([])

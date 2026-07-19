@@ -7,22 +7,25 @@ This inventory freezes the pre-registry architecture for Executive Plan 05. It i
 checklist, not a target design. Every duplicated source listed below must be removed or reduced
 to an adapter by S2.
 
-## S1 progress
+## S2 progress
 
-The canonical gameplay values listed in the original inventory now live in `content/` as
-immutable definitions exposed through `ContentRegistry`. `game/data.py` is a temporary legacy
-facade only; its mappings are read-only views of the registry and contain no independent values.
-Concrete entity classes retain behavior but receive all runtime stats from definitions.
+The canonical gameplay values listed in the original inventory live in `content/` as immutable
+definitions exposed through `ContentRegistry`. Concrete entity classes retain behavior but
+receive all runtime stats from definitions.
 
-The remaining factory-to-class and factory-to-roster mappings are intentionally assigned to S2,
-together with historical rosters and `FACTION_BY_TEAM`.
+S2 removed all historical runtime rosters, `FACTION_BY_TEAM`, color-based faction selection,
+class-to-roster routing, and the temporary `game/data.py` facade mappings. `EntityStore` is now
+the sole runtime collection and indexes stable entity IDs by team, category, and content ID.
+`EntityFactory` is the single definition-to-runtime-class boundary used by map loading,
+production, and construction. Every shipped map uses schema version 2 and declares each team's
+faction explicitly. The remaining inventory is Pygame boundary debt assigned to S3 and S4.
 
 ## Stable vocabulary
 
 | Term | Meaning | Runtime representation in S0 |
 |---|---|---|
 | `content_id` | Stable ID of a unit, building, or resource definition | `ContentId(str)` |
-| `entity_id` | Stable identity of one runtime entity | `EntityId(int)`; assignment begins in S2 |
+| `entity_id` | Stable identity of one runtime entity | `EntityId(int)` assigned once by `EntityStore` |
 | `team_id` | Team identity independent of color | `TeamId(str)` |
 | `faction_id` | Explicit faction assigned to a team | `FactionId(str)` |
 | `unit` | Mobile team-owned entity | `EntityCategory.UNIT` |
@@ -42,23 +45,22 @@ together with historical rosters and `FACTION_BY_TEAM`.
 | `game/constants.py` | Global combat/movement timing and colors | Gameplay constants remain core; colors move to presentation. |
 | `game/data.py::FACTION_BY_TEAM` | Blue/Red faction assignment | Replaced by explicit map/team `faction_id` in S2. |
 
-## Current creation paths
+## Migrated creation paths
 
-| Creation path | Registry/factory today | Destination today |
+| Creation path | Registry/factory now | Destination now |
 |---|---|---|
-| Map loading | `manager.EntityFactory._TEAM_ENTITY_TYPES` and `_NEUTRAL_ENTITY_TYPES` | Pattern matching in `GameManager._load_map_settings`. |
-| Unit production | `ProductionSystem._UNIT_FACTORIES` | `UnitSpec.roster_attribute` plus `getattr`. |
-| Building construction | `ConstructionSystem._BUILDING_FACTORIES` | `_BUILDING_ROSTERS` plus `getattr`. |
-| Map editor | Tool/type tables in `map_editor.py` and schema keys | Serialized per-type coordinate lists. |
-| Command panel | Spec queries plus selection class checks | Manager production/construction helpers. |
+| Map loading | `EntityFactory` plus `ContentRegistry` | `EntityStore.add`. |
+| Unit production | `EntityFactory` plus producer definition | `EntityStore.add`. |
+| Building construction | `EntityFactory` plus constructable definition | `EntityStore.add`. |
+| Map editor | Registry-backed schema keys | Schema-versioned per-type coordinate lists. |
+| Command panel | Registry definition queries | Manager production/construction helpers. |
 
-## Current runtime rosters
+## Removed runtime rosters
 
-`EntitiesGroup` owns `bases`, `barracks`, `houses`, `mage_towers`, `towers`, `peasents`,
-`knights`, `archers`, and `mages`. Faction units subclass historical classes so they fit these
-lists. `ResourcesGroup` separately owns `woods` and `golds`.
-
-S2 replaces these with one stable `EntityStore` and indexes by team, category, and content ID.
+The former `EntitiesGroup` and `ResourcesGroup`, including the `bases`, `barracks`, `houses`,
+`mage_towers`, `towers`, `peasents`, `knights`, `archers`, `mages`, `woods`, and `golds`
+collections, have been deleted. Runtime queries use `EntityStore` indexes and preserve entity
+creation order.
 
 ## Current Pygame boundary debt
 

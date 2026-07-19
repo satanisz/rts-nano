@@ -30,7 +30,6 @@ class UnitDefinition:
     population: int
     produced_at: ContentId
     requires: tuple[ContentId, ...]
-    legacy_roster: str
     size: int
     radius: float
     speed: float
@@ -62,11 +61,6 @@ class UnitDefinition:
         return str(self.id)
 
     @property
-    def roster_attribute(self) -> str:
-        """Temporary S1 compatibility field removed with legacy rosters in S2."""
-        return self.legacy_roster
-
-    @property
     def category(self) -> EntityCategory:
         """Return the generic runtime category."""
         return EntityCategory.UNIT
@@ -84,6 +78,7 @@ class BuildingDefinition:
     behavior: str
     cost: ResourceCost
     build_frames: int
+    constructable: bool
     footprint: tuple[int, int]
     size: int
     radius: float

@@ -203,7 +203,9 @@ class MapEditor:
         ``high_ground`` and ``water``.
         """
         return {
+            "schema_version": 2,
             "Blue": {
+                "faction_id": "AEGIS",
                 "peasant": [],
                 "base": [],
                 "house": [],
@@ -215,6 +217,7 @@ class MapEditor:
                 "arclight": [],
             },
             "Red": {
+                "faction_id": "RUST",
                 "peasant": [],
                 "base": [],
                 "house": [],

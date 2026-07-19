@@ -1,101 +1,42 @@
-"""Explicit container for core simulation state.
-
-``GameState`` owns the data the simulation systems read and write: team entity
-rosters, neutral resources, fog, terrain, map bounds, the current team, the
-selection, and the terminal/pause flags. Pure queries over that data
-(``all_entities``, ``clamp_to_world``, ``count_units``,
-``population_cap_for_team``) live here too.
-
-Keeping state in one object lets systems depend on the data instead of the
-``GameManager`` god object, and keeps the manager a thin coordinator. The entity
-roster containers live here as well so ``GameState`` has no import cycle with the
-manager.
-"""
+"""Explicit generic state container for the deterministic game simulation."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from rts_nano.content import CONTENT
 from rts_nano.game.assets.entities import TeamColor
+from rts_nano.game.entity_store import EntityStore
 from rts_nano.game.rules import clamp_point
 from rts_nano.game.spatial import SpatialIndex
+from rts_nano.game.types import EntityCategory, FactionId, TeamId
 
 if TYPE_CHECKING:
-    from rts_nano.game.assets.entities.base_entities import Entity
-    from rts_nano.game.assets.entities.buildings import Barracks, Base, House, MageTower, Tower
-    from rts_nano.game.assets.entities.resources import Gold, Wood
-    from rts_nano.game.assets.entities.units import Archer, Knight, Mage, Peasant
+    from rts_nano.game.assets.entities.base_entities import Building, Entity, Resource, Unit
     from rts_nano.game.fog import FogOfWar
     from rts_nano.game.terrain import TerrainMap
 
 
-class EntitiesGroup:
-    """Store team-owned entities split into per-class rosters.
+@dataclass(slots=True)
+class TeamState:
+    """Economy and explicit faction assignment for one simulation team."""
 
-    The map JSON groups entities by team, but the runtime further separates unit
-    classes into lists for simple counts, UI summaries, and production logic.
-    Neutral resources are not stored here; they live in ``ResourcesGroup``.
-
-    Args:
-        name: Team associated with the entity collection.
-    """
-
-    def __init__(self, name: TeamColor) -> None:
-        """Initialize the object."""
-        self.name: TeamColor = name
-        self.resources: dict[str, int] = {"wood": 0, "gold": 0}
-        self.bases: list[Base] = []
-        self.barracks: list[Barracks] = []
-        self.houses: list[House] = []
-        self.mage_towers: list[MageTower] = []
-        self.towers: list[Tower] = []
-        self.peasents: list[Peasant] = []
-        self.knights: list[Knight] = []
-        self.archers: list[Archer] = []
-        self.mages: list[Mage] = []
-
-    @property
-    def all_entities(self) -> list[Entity]:
-        """Return all entities owned by the team."""
-        all_ents: list[Entity] = []
-        all_ents.extend(self.bases)
-        all_ents.extend(self.barracks)
-        all_ents.extend(self.houses)
-        all_ents.extend(self.mage_towers)
-        all_ents.extend(self.towers)
-        all_ents.extend(self.peasents)
-        all_ents.extend(self.knights)
-        all_ents.extend(self.archers)
-        all_ents.extend(self.mages)
-        return all_ents
-
-
-class ResourcesGroup:
-    """Store neutral resource nodes available on the map.
-
-    Resources are normal entities for drawing/selection/collision, but their
-    lifetime differs from units: they disappear when ``amount`` reaches zero
-    rather than when ``life`` reaches zero.
-    """
-
-    def __init__(self) -> None:
-        """Initialize the object."""
-        self.golds: list[Gold] = []
-        self.woods: list[Wood] = []
+    team_id: TeamId
+    faction_id: FactionId
+    resources: dict[str, int] = field(default_factory=lambda: {"wood": 0, "gold": 0})
 
 
 @dataclass
 class GameState:
-    """Core simulation state shared by the manager and all systems."""
+    """Core simulation state shared by the manager and gameplay systems."""
 
     terrain: TerrainMap
     fog: FogOfWar
     map_width: int
     map_height: int
-    entities: dict[TeamColor, EntitiesGroup] = field(default_factory=dict)
-    resources: ResourcesGroup = field(default_factory=ResourcesGroup)
+    teams: dict[TeamColor, TeamState] = field(default_factory=dict)
+    store: EntityStore = field(default_factory=EntityStore)
     current_team: TeamColor = TeamColor.BLUE
     selected_entities: list[Entity] = field(default_factory=list)
     game_over_message: str | None = None
@@ -105,37 +46,55 @@ class GameState:
 
     @property
     def all_entities(self) -> list[Entity]:
-        """Return all active entities, including units, buildings, and resources."""
-        ents = [entity for group in self.entities.values() for entity in group.all_entities]
-        ents.extend(self.resources.woods)
-        ents.extend(self.resources.golds)
-        return ents
+        """Return all active entities in stable creation order."""
+        return self.store.all()
+
+    def team(self, team: TeamColor) -> TeamState | None:
+        """Return generic team state."""
+        return self.teams.get(team)
+
+    def faction_for_team(self, team: TeamColor) -> FactionId:
+        """Return the faction explicitly assigned by map setup."""
+        team_state = self.teams.get(team)
+        if team_state is None:
+            raise KeyError(f"Unknown team: {team}")
+        return team_state.faction_id
+
+    def entities_for_team(self, team: TeamColor) -> list[Entity]:
+        """Return all entities owned by a team."""
+        return self.store.for_team(team)
+
+    def units_for_team(self, team: TeamColor) -> list[Unit]:
+        """Return all team units through the category index."""
+        return cast("list[Unit]", self.store.by_category(EntityCategory.UNIT, team=team))
+
+    def buildings_for_team(self, team: TeamColor) -> list[Building]:
+        """Return all team buildings through the category index."""
+        return cast("list[Building]", self.store.by_category(EntityCategory.BUILDING, team=team))
+
+    def resources_by_content(self, content_id: str) -> list[Resource]:
+        """Return neutral resources of one content type."""
+        return cast("list[Resource]", self.store.by_content_id(content_id))
+
+    def entities_by_content_id(self, content_id: str, *, team: TeamColor | None = None) -> list[Entity]:
+        """Return entities by canonical content ID."""
+        return self.store.by_content_id(content_id, team=team)
 
     def clamp_to_world(self, pos: tuple[float, float]) -> tuple[int, int]:
-        """Clamp a world-space point to full map bounds (not the viewport)."""
+        """Clamp a world-space point to full map bounds."""
         x, y = clamp_point(pos, min_x=0, max_x=self.map_width, min_y=0, max_y=self.map_height)
         return int(x), int(y)
 
     def count_units(self, team: TeamColor) -> int:
         """Return the number of living units owned by a team."""
-        group = self.entities.get(team)
-        if group is None:
-            return 0
-        return len(group.peasents) + len(group.knights) + len(group.archers) + len(group.mages)
+        return len(self.units_for_team(team))
 
     def population_cap_for_team(self, team: TeamColor) -> int:
-        """Return the current population cap for a team from completed buildings."""
-        group = self.entities.get(team)
-        if group is None or team == TeamColor.RESOURCES:
+        """Return population supplied by living completed buildings."""
+        if team == TeamColor.RESOURCES:
             return 0
-
-        population_cap = 0
-        for building in (*group.bases, *group.barracks, *group.houses, *group.mage_towers, *group.towers):
-            if building.life <= 0 or building.is_under_construction:
-                continue
-            try:
-                spec = CONTENT.get_building(getattr(building, "spec_key", type(building).__name__.lower()))
-            except ValueError:
-                continue
-            population_cap += spec.provides_population
-        return population_cap
+        return sum(
+            CONTENT.get_building(str(building.content_id)).provides_population
+            for building in self.buildings_for_team(team)
+            if building.life > 0 and not building.is_under_construction
+        )

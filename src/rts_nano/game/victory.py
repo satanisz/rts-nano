@@ -10,8 +10,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from rts_nano.game.assets.entities import TeamColor
-
 if TYPE_CHECKING:
     from rts_nano.game.state import GameState
 
@@ -26,9 +24,7 @@ class VictorySystem:
     def update(self) -> None:
         """Detect a terminal win/draw and record it on the game state."""
         active_teams = [
-            team
-            for team, group in self._state.entities.items()
-            if team != TeamColor.RESOURCES and any(entity.life > 0 for entity in group.all_entities)
+            team for team in self._state.teams if any(entity.life > 0 for entity in self._state.entities_for_team(team))
         ]
         if len(active_teams) == 1:
             self._state.game_over_message = f"Team {active_teams[0].value} wins"

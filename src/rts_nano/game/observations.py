@@ -11,7 +11,7 @@ from rts_nano.game.assets.entities.base_entities import Building
 if TYPE_CHECKING:
     from rts_nano.game.assets.entities.base_entities import Entity
     from rts_nano.game.manager import GameManager
-    from rts_nano.game.state import EntitiesGroup
+    from rts_nano.game.state import TeamState
 
 type EntityId = str
 
@@ -125,24 +125,18 @@ def build_observation(manager: GameManager, tick: int, registry: EntityIdRegistr
         map_height=manager.map_height,
         current_team=manager.current_team.value,
         game_over=manager.game_over_message,
-        teams=tuple(
-            _snapshot_team(manager, team, group)
-            for team, group in manager.entities.items()
-            if team != TeamColor.RESOURCES
-        ),
+        teams=tuple(_snapshot_team(manager, team, team_state) for team, team_state in manager.teams.items()),
         entities=tuple(_snapshot_entity(manager, entity, registry) for entity in manager.all_entities),
     )
 
 
-def _snapshot_team(manager: GameManager, team: TeamColor, group: EntitiesGroup) -> TeamSnapshot:
+def _snapshot_team(manager: GameManager, team: TeamColor, team_state: TeamState) -> TeamSnapshot:
     return TeamSnapshot(
         team=team.value,
-        wood=group.resources["wood"],
-        gold=group.resources["gold"],
-        units=len(group.peasents) + len(group.knights) + len(group.archers) + len(group.mages),
-        buildings=(
-            len(group.bases) + len(group.barracks) + len(group.houses) + len(group.mage_towers) + len(group.towers)
-        ),
+        wood=team_state.resources["wood"],
+        gold=team_state.resources["gold"],
+        units=len(manager.state.units_for_team(team)),
+        buildings=len(manager.state.buildings_for_team(team)),
         population_cap=manager.population_cap_for_team(team),
         queued_units=manager.production.queued_units_for_team(team),
     )

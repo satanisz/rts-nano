@@ -1,9 +1,12 @@
 {
+    "schema_version": 2,
     "Blue": {
+        "faction_id": "AEGIS",
         "peasant": [[250, 840], [330, 845], [255, 930]],
         "base": [[300, 900]]
     },
     "Red": {
+        "faction_id": "RUST",
         "peasant": [[1350, 360], [1270, 355], [1345, 270]],
         "base": [[1300, 300]]
     },

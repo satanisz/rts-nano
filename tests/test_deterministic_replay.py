@@ -21,7 +21,9 @@ EXPECTED_SHA256 = "239c2b1b85c30a2d07526157f622dc297f844b04ed5ce2b63b692e02138f5
 
 def _settings() -> MapSettings:
     return {
+        "schema_version": 2,
         "Blue": {
+            "faction_id": "AEGIS",
             "peasant": [[100, 130]],
             "base": [[100, 80]],
             "guardian": [[300, 300]],
@@ -32,6 +34,7 @@ def _settings() -> MapSettings:
             "bastion": [[250, 80]],
         },
         "Red": {
+            "faction_id": "RUST",
             "peasant": [[650, 500]],
             "base": [[700, 500]],
             "ripper": [[455, 300]],
@@ -55,7 +58,7 @@ def _settings() -> MapSettings:
 
 
 def _one(manager: GameManager, team: TeamColor, entity_type: type[Entity]) -> Entity:
-    return next(entity for entity in manager.entities[team].all_entities if isinstance(entity, entity_type))
+    return next(entity for entity in manager.state.entities_for_team(team) if isinstance(entity, entity_type))
 
 
 def _position(entity: Entity) -> list[float]:
@@ -66,14 +69,13 @@ def run_core_replay() -> dict[str, object]:
     """Run one deterministic scenario and return compact, readable checkpoints."""
     simulation = HeadlessSimulation.from_settings(_settings())
     manager = simulation.manager
-    blue = manager.entities[TeamColor.BLUE]
-    red = manager.entities[TeamColor.RED]
-    worker = blue.peasents[0]
+    blue = manager.teams[TeamColor.BLUE]
+    worker = manager.state.entities_by_content_id("peasant", team=TeamColor.BLUE)[0]
     guardian = _one(manager, TeamColor.BLUE, Guardian)
     arclight = _one(manager, TeamColor.BLUE, Arclight)
     spitter = _one(manager, TeamColor.RED, Spitter)
-    ripper = red.knights[0]
-    wood = manager.resources.woods[0]
+    ripper = manager.state.entities_by_content_id("ripper", team=TeamColor.RED)[0]
+    wood = manager.state.resources_by_content("wood")[0]
     checkpoints: dict[str, object] = {}
     tick = 0
 
@@ -103,7 +105,7 @@ def run_core_replay() -> dict[str, object]:
         assert manager.construct_building(worker, "house", (100, 200))
         simulation.step(220)
         tick += 220
-        house = blue.houses[0]
+        house = manager.state.entities_by_content_id("house", team=TeamColor.BLUE)[0]
         checkpoints["construction"] = {
             "tick": tick,
             "bank": dict(blue.resources),
@@ -113,7 +115,7 @@ def run_core_replay() -> dict[str, object]:
             "worker_state": worker.state,
         }
 
-        arsenal = blue.barracks[0]
+        arsenal = manager.state.entities_by_content_id("arsenal", team=TeamColor.BLUE)[0]
         assert manager.produce_unit(arsenal, "marksman")
         simulation.step(121)
         tick += 121
@@ -151,7 +153,7 @@ def run_core_replay() -> dict[str, object]:
             "ripper_life": ripper.life,
         }
 
-        for entity in red.all_entities:
+        for entity in manager.state.entities_for_team(TeamColor.RED):
             entity.life = 0
         simulation.step(1)
         tick += 1
@@ -160,7 +162,7 @@ def run_core_replay() -> dict[str, object]:
             "result": manager.game_over_message,
             "paused": manager.paused,
             "blue_units": manager.state.count_units(TeamColor.BLUE),
-            "red_entities": len(red.all_entities),
+            "red_entities": len(manager.state.entities_for_team(TeamColor.RED)),
         }
     finally:
         simulation.close()

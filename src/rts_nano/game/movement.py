@@ -23,6 +23,7 @@ from rts_nano.game.constants import (
 )
 from rts_nano.game.pathfinding import find_path
 from rts_nano.game.rules import distance_between_points, nearest_entity
+from rts_nano.game.types import EntityCategory
 
 if TYPE_CHECKING:
     from rts_nano.game.assets.entities.base_entities import Entity
@@ -91,22 +92,18 @@ class MovementSystem:
         target: Entity | None,
     ) -> bool:
         """Return whether a path edge crosses a living non-target building."""
-        for group in self._state.entities.values():
-            for entity in (*group.bases, *group.barracks, *group.houses, *group.mage_towers, *group.towers):
-                if entity is target or entity.life <= 0:
-                    continue
-                center = entity.get_center()
-                min_distance_squared = (unit.radius + entity.radius) ** 2
-                start_distance_squared = distance_between_points(start, center) ** 2
-                end_distance_squared = distance_between_points(end, center) ** 2
-                escaping_overlap = (
-                    start_distance_squared < min_distance_squared and end_distance_squared > start_distance_squared
-                )
-                if (
-                    not escaping_overlap
-                    and self._distance_squared_to_segment(center, start, end) < min_distance_squared
-                ):
-                    return True
+        for entity in self._state.store.by_category(EntityCategory.BUILDING):
+            if entity is target or entity.life <= 0:
+                continue
+            center = entity.get_center()
+            min_distance_squared = (unit.radius + entity.radius) ** 2
+            start_distance_squared = distance_between_points(start, center) ** 2
+            end_distance_squared = distance_between_points(end, center) ** 2
+            escaping_overlap = (
+                start_distance_squared < min_distance_squared and end_distance_squared > start_distance_squared
+            )
+            if not escaping_overlap and self._distance_squared_to_segment(center, start, end) < min_distance_squared:
+                return True
         return False
 
     @staticmethod

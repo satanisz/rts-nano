@@ -2,8 +2,8 @@
 
 All units inherit the movement and base combat state machine from ``Unit``.
 Concrete classes mainly provide balance constants, sprites, and small behavior
-overrides. When adding a new unit type, also register it in
-``manager.EntityFactory`` and consider whether the map editor should expose a
+overrides. When adding a new unit type, register its behavior in
+``entity_factory.EntityFactory`` and consider whether the map editor should expose a
 placement tool.
 """
 

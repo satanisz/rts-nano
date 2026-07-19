@@ -3,19 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from rts_nano.content import CONTENT, PRODUCTION_REFUND_RATIO, ResourceCost, UnitDefinition
-from rts_nano.game.assets.entities import (
-    Arclight,
-    Brute,
-    Guardian,
-    Marksman,
-    Peasant,
-    Ripper,
-    Spitter,
-)
 from rts_nano.game.assets.entities.base_entities import visual_assets_enabled
+from rts_nano.game.entity_factory import EntityFactory
 
 if TYPE_CHECKING:
     from rts_nano.game.assets.entities.base_entities import Building, TeamColor, Unit
@@ -41,18 +33,6 @@ class ProductionItem:
 
 class ProductionSystem:
     """Own production queues and spawn completed units through the manager."""
-
-    _UNIT_FACTORIES = {
-        "peasant": Peasant,
-        # AEGIS
-        "marksman": Marksman,
-        "guardian": Guardian,
-        "arclight": Arclight,
-        # RUST
-        "ripper": Ripper,
-        "spitter": Spitter,
-        "brute": Brute,
-    }
 
     def __init__(self, state: GameState) -> None:
         """Initialize production state for one game state."""
@@ -97,11 +77,11 @@ class ProductionSystem:
         if producer.life <= 0 or producer.is_under_construction:
             return False, "inactive_building"
 
-        team_group = self._state.entities.get(producer.team)
-        if team_group is None:
+        team_state = self._state.team(producer.team)
+        if team_state is None:
             return False, "missing_team"
 
-        if not self._can_pay(team_group.resources, spec.cost):
+        if not self._can_pay(team_state.resources, spec.cost):
             return False, "insufficient_resources"
 
         reserved_population = self._state.count_units(producer.team) + self.queued_population_for_team(producer.team)
@@ -117,8 +97,8 @@ class ProductionSystem:
             return False
 
         spec = CONTENT.get_unit(unit_type)
-        team_group = self._state.entities[producer.team]
-        self._pay(team_group.resources, spec.cost)
+        team_state = self._state.teams[producer.team]
+        self._pay(team_state.resources, spec.cost)
         self._queues.setdefault(producer, []).append(
             ProductionItem(
                 unit_type=unit_type,
@@ -138,18 +118,18 @@ class ProductionSystem:
         if not queue:
             del self._queues[producer]
 
-        team_group = self._state.entities.get(producer.team)
-        if team_group is not None:
-            self._refund(team_group.resources, CONTENT.get_unit(item.unit_type).cost)
+        team_state = self._state.team(producer.team)
+        if team_state is not None:
+            self._refund(team_state.resources, CONTENT.get_unit(item.unit_type).cost)
         return True
 
     def update(self) -> None:
         """Advance active queues and spawn completed jobs."""
         live_producers = {
             producer
-            for group in self._state.entities.values()
-            for producer in (*group.bases, *group.barracks, *group.mage_towers)
-            if producer.life > 0 and not producer.is_under_construction
+            for team in self._state.teams
+            for producer in self._state.buildings_for_team(team)
+            if producer.definition.produces and producer.life > 0 and not producer.is_under_construction
         }
         for producer in tuple(self._queues):
             if producer not in live_producers:
@@ -181,19 +161,13 @@ class ProductionSystem:
         resources["gold"] = resources.get("gold", 0) + int(cost.gold * PRODUCTION_REFUND_RATIO)
 
     def _spawn_unit(self, producer: Building, spec: UnitDefinition) -> None:
-        team_group = self._state.entities.get(producer.team)
-        if team_group is None:
-            return
-
-        unit_factory = self._UNIT_FACTORIES.get(spec.key)
-        if unit_factory is None:
+        if self._state.team(producer.team) is None:
             return
 
         spawn_x, spawn_y = self._state.clamp_to_world((producer.x, producer.y + producer.size))
         with visual_assets_enabled(self._state.load_visuals):
-            unit: Unit = unit_factory(int(spawn_x), int(spawn_y), producer.team)
-        roster = getattr(team_group, spec.roster_attribute)
-        roster.append(unit)
+            unit = cast("Unit", EntityFactory.create(spec.key, int(spawn_x), int(spawn_y), producer.team))
+        self._state.store.add(unit)
 
     @staticmethod
     def _producer_key(producer: Building) -> str:

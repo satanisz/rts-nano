@@ -15,8 +15,16 @@ if TYPE_CHECKING:
 
 def _settings() -> MapSettings:
     return {
-        "Blue": {"peasant": [[40, 40]], "base": [[120, 120]], "guardian": [[60, 200]], "marksman": [], "arclight": []},
-        "Red": {"peasant": [], "base": [[350, 350]], "ripper": [], "spitter": [], "brute": []},
+        "schema_version": 2,
+        "Blue": {
+            "faction_id": "AEGIS",
+            "peasant": [[40, 40]],
+            "base": [[120, 120]],
+            "guardian": [[60, 200]],
+            "marksman": [],
+            "arclight": [],
+        },
+        "Red": {"faction_id": "RUST", "peasant": [], "base": [[350, 350]], "ripper": [], "spitter": [], "brute": []},
         "Resources": {"wood": [], "gold": []},
         "Terrain": {
             "width": 500,
@@ -34,8 +42,8 @@ def test_command_panel_peasant_shows_build_buttons() -> None:
     """An AEGIS peasant with resources gets enabled construct buttons for its faction buildings."""
     simulation = HeadlessSimulation.from_settings(_settings())
     manager = simulation.manager
-    peasant = manager.entities[TeamColor.BLUE].peasents[0]
-    manager.entities[TeamColor.BLUE].resources.update({"wood": 1000, "gold": 1000})
+    peasant = manager.state.entities_by_content_id("peasant", team=TeamColor.BLUE)[0]
+    manager.teams[TeamColor.BLUE].resources.update({"wood": 1000, "gold": 1000})
     manager.select_entities_for_team(TeamColor.BLUE, [peasant])
 
     buttons = manager.command_panel.build(manager, SCREEN_WIDTH, SCREEN_HEIGHT)
@@ -55,8 +63,8 @@ def test_command_panel_base_shows_train_button() -> None:
     """A selected base with peasant cost banked exposes an enabled Train Peasant button."""
     simulation = HeadlessSimulation.from_settings(_settings())
     manager = simulation.manager
-    base = manager.entities[TeamColor.BLUE].bases[0]
-    manager.entities[TeamColor.BLUE].resources.update({"wood": 50, "gold": 0})
+    base = manager.state.entities_by_content_id("base", team=TeamColor.BLUE)[0]
+    manager.teams[TeamColor.BLUE].resources.update({"wood": 50, "gold": 0})
     manager.select_entities_for_team(TeamColor.BLUE, [base])
 
     buttons = manager.command_panel.build(manager, SCREEN_WIDTH, SCREEN_HEIGHT)
@@ -70,8 +78,8 @@ def test_command_panel_base_denies_train_without_resources() -> None:
     """Without resources the base's train command surfaces a disabled cost hint."""
     simulation = HeadlessSimulation.from_settings(_settings())
     manager = simulation.manager
-    base = manager.entities[TeamColor.BLUE].bases[0]
-    manager.entities[TeamColor.BLUE].resources.update({"wood": 0, "gold": 0})
+    base = manager.state.entities_by_content_id("base", team=TeamColor.BLUE)[0]
+    manager.teams[TeamColor.BLUE].resources.update({"wood": 0, "gold": 0})
     manager.select_entities_for_team(TeamColor.BLUE, [base])
 
     buttons = manager.command_panel.build(manager, SCREEN_WIDTH, SCREEN_HEIGHT)
@@ -85,7 +93,7 @@ def test_command_panel_unit_shows_unit_commands() -> None:
     """A selected combat unit exposes stop/hold/attack-move/patrol commands."""
     simulation = HeadlessSimulation.from_settings(_settings())
     manager = simulation.manager
-    guardian = manager.entities[TeamColor.BLUE].knights[0]
+    guardian = manager.state.entities_by_content_id("guardian", team=TeamColor.BLUE)[0]
     manager.select_entities_for_team(TeamColor.BLUE, [guardian])
 
     buttons = manager.command_panel.build(manager, SCREEN_WIDTH, SCREEN_HEIGHT)
@@ -98,8 +106,8 @@ def test_command_panel_click_dispatch_queues_production() -> None:
     """Clicking a built produce button queues the unit, proving render/input share it."""
     simulation = HeadlessSimulation.from_settings(_settings())
     manager = simulation.manager
-    base = manager.entities[TeamColor.BLUE].bases[0]
-    manager.entities[TeamColor.BLUE].resources.update({"wood": 50, "gold": 0})
+    base = manager.state.entities_by_content_id("base", team=TeamColor.BLUE)[0]
+    manager.teams[TeamColor.BLUE].resources.update({"wood": 50, "gold": 0})
     manager.select_entities_for_team(TeamColor.BLUE, [base])
 
     buttons = manager.command_panel.build(manager, SCREEN_WIDTH, SCREEN_HEIGHT)

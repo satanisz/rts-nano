@@ -185,9 +185,9 @@ class RtsNanoEnv:
         """
         manager = self._require_simulation().manager
         team_enum = self._normalize_team(team) or manager.current_team
-        group = manager.entities.get(team_enum)
+        group = manager.teams.get(team_enum)
         fog = FogOfWar(manager.map_width, manager.map_height)
-        fog.update(group.all_entities if group is not None else [])
+        fog.update(manager.state.entities_for_team(team_enum) if group is not None else [])
         return tuple(tuple(row) for row in fog.grid)
 
     def available_actions(self) -> tuple[ActionSpec, ...]:
@@ -200,8 +200,8 @@ class RtsNanoEnv:
         requested_team = self._normalize_team(team)
         teams = tuple(
             candidate_team
-            for candidate_team in manager.entities
-            if candidate_team != TeamColor.RESOURCES and (requested_team is None or candidate_team == requested_team)
+            for candidate_team in manager.teams
+            if requested_team is None or candidate_team == requested_team
         )
 
         specs: list[ActionSpec] = [ActionSpec("no_op")]
@@ -252,7 +252,9 @@ class RtsNanoEnv:
         peasants = [unit for unit in units if isinstance(unit, Peasant)]
         carrying_peasants = [unit for unit in peasants if unit.carry_wood > 0 or unit.carry_gold > 0]
         resources = [
-            resource for resource in (manager.resources.woods + manager.resources.golds) if resource.amount > 0
+            resource
+            for resource in (*manager.state.resources_by_content("wood"), *manager.state.resources_by_content("gold"))
+            if resource.amount > 0
         ]
         hostile_targets = [
             entity

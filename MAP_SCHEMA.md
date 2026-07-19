@@ -8,15 +8,17 @@ files.
 
 ```json
 {
-    "Blue": {},
-    "Red": {},
+    "schema_version": 2,
+    "Blue": {"faction_id": "AEGIS"},
+    "Red": {"faction_id": "RUST"},
     "Resources": {},
     "Terrain": {}
 }
 ```
 
-`Blue` and `Red` hold team-owned entities. `Resources` holds neutral harvestable
-entities. `Terrain` holds dimensions, terrain regions, and decorations.
+`Blue` and `Red` are team IDs used by the current presentation. Each team declares its
+faction explicitly; color never selects faction. `Resources` holds neutral harvestable entities.
+`Terrain` holds dimensions, terrain regions, and decorations.
 
 ## Teams
 
@@ -24,11 +26,12 @@ Each team section contains lists of `[x, y]` world coordinates:
 
 ```json
 "Blue": {
+    "faction_id": "AEGIS",
     "peasant": [[300, 350]],
     "base": [[360, 500]],
-    "knight": [],
-    "archer": [],
-    "mage": []
+    "guardian": [],
+    "marksman": [],
+    "arclight": []
 }
 ```
 
@@ -36,9 +39,12 @@ Known entity keys:
 
 - `peasant`
 - `base`
-- `knight`
-- `archer`
-- `mage`
+- `house`
+- AEGIS: `guardian`, `marksman`, `arclight`, `arsenal`, `spire`, `bastion`
+- RUST: `ripper`, `spitter`, `brute`, `pit`, `chem_vat`, `spiker`
+
+The validator rejects entity IDs outside the team's declared faction roster. Both teams may use
+the same faction, and faction assignments may be swapped without changing code.
 
 ## Resources
 
