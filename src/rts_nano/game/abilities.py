@@ -5,7 +5,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from rts_nano.content import CONTENT, ContentRegistry
-from rts_nano.game.rules import apply_damage, distance_between_points
+from rts_nano.game.constants import AttackType
+from rts_nano.game.rules import apply_damage, apply_poison, distance_between_points
 from rts_nano.game.types import AbilityEffectKind, AbilityTargetKind
 from rts_nano.simulation.entities.base import Building, Unit
 from rts_nano.simulation.entities.units import CasterUnit
@@ -207,7 +208,51 @@ class AbilitySystem:
             target.slow_multiplier = max(0, 100 - ability.magnitude) / 100
             target.speed = round(target.slow_restore_speed * target.slow_multiplier, 6)
             return True
+        if ability.effect_kind == AbilityEffectKind.TOXIC_CLOUD:
+            eligible = self._area_entities(caster, position, ability, allied=False)[: ability.max_targets]
+            if not eligible:
+                return False
+            for entity in eligible:
+                apply_poison(entity, ability.magnitude, ability.duration_frames)
+            return True
+        if ability.effect_kind == AbilityEffectKind.MUTAGENIC_SURGE:
+            team_state = self._state.team(caster.team)
+            if team_state is None or str(team_state.faction_id) != "RUST":
+                return False
+            eligible = [
+                entity
+                for entity in self._area_entities(caster, position, ability, allied=True)
+                if isinstance(entity, Unit) and AttackType.MELEE in entity.attack_types
+            ][: ability.max_targets]
+            if not eligible:
+                return False
+            for entity in eligible:
+                entity.surge_remaining_frames = max(entity.surge_remaining_frames, ability.duration_frames)
+                entity.surge_attack_speed_multiplier = max(0.1, (100 - ability.magnitude) / 100)
+            return True
         return False
+
+    def _area_entities(
+        self,
+        caster: CasterUnit,
+        position: tuple[float, float],
+        ability: AbilityDefinition,
+        *,
+        allied: bool,
+    ) -> list[Entity]:
+        """Return stable living combat targets inside one bounded spatial query."""
+        candidates = self._state.spatial_index.query(position, ability.radius + self._state.spatial_index.max_radius)
+        return sorted(
+            (
+                entity
+                for entity in candidates
+                if isinstance(entity, (Unit, Building))
+                and entity.life > 0
+                and (entity.team == caster.team) is allied
+                and distance_between_points(position, entity.get_center()) <= ability.radius + entity.radius
+            ),
+            key=lambda entity: int(entity.entity_id or 0),
+        )
 
     @staticmethod
     def _clear_order(caster: CasterUnit) -> None:

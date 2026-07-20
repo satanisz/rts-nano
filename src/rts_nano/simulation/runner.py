@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from rts_nano.game.constants import AttackType
 from rts_nano.simulation.entities import Peasant
 from rts_nano.simulation.entities.base import Resource, Unit
 from rts_nano.simulation.events import AttackLanded
@@ -80,6 +81,7 @@ class SimulationRunner:
         return removed
 
     def _update_unit(self, entity: Unit) -> None:
+        self._update_pack_context(entity)
         self.movement.refresh_path_for_obstacles(entity)
         max_radius = self.state.spatial_index.max_radius
         if entity.attack_move_destination is not None and entity.target_entity is None:
@@ -106,6 +108,25 @@ class SimulationRunner:
             self.events.append(AttackLanded(entity.entity_id, entity.content_id, source, target, target_entity))
         self.movement.resume_or_finish_attack_move(entity)
         self.movement.update_patrol(entity)
+
+    def _update_pack_context(self, entity: Unit) -> None:
+        """Derive a capped RUST pack bonus from one local spatial query."""
+        if "rust_pack" not in entity.active_behaviors:
+            return
+        candidates = self.state.spatial_index.query(entity.get_center(), 110)
+        entity.pack_contributors = min(
+            4,
+            sum(
+                1
+                for ally in candidates
+                if isinstance(ally, Unit)
+                and ally is not entity
+                and ally.team == entity.team
+                and ally.life > 0
+                and AttackType.MELEE in ally.attack_types
+                and ((ally.x - entity.x) ** 2 + (ally.y - entity.y) ** 2) <= 100**2
+            ),
+        )
 
     def _update_height_levels(self, entities: tuple[Entity, ...]) -> None:
         """Update height without allocating one temporary team list per tick."""

@@ -64,12 +64,15 @@ def combat_shield_modifier(target: object) -> int:
 
 
 def combat_attack_bonus(attacker: object, target: object) -> int:
-    """Return bounded combined-arms damage against a live allied arc mark."""
-    if getattr(target, "arc_mark_remaining_frames", 0) <= 0:
-        return 0
-    if getattr(target, "arc_mark_team", None) != getattr(attacker, "team", None):
-        return 0
-    return 4 if "arc_targeting" in getattr(attacker, "active_behaviors", ()) else 2
+    """Return bounded doctrine damage from local pack state and allied arc marks."""
+    behaviors = getattr(attacker, "active_behaviors", ())
+    pack_scale = 2 if "advanced_mutations" in behaviors else 1
+    bonus = min(4, max(0, int(getattr(attacker, "pack_contributors", 0)))) * pack_scale
+    if getattr(target, "arc_mark_remaining_frames", 0) > 0 and getattr(target, "arc_mark_team", None) == getattr(
+        attacker, "team", None
+    ):
+        bonus += 4 if "arc_targeting" in behaviors else 2
+    return bonus
 
 
 def apply_damage(target: Entity, amount: int) -> int:

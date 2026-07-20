@@ -111,6 +111,8 @@ class Entity:
     arc_mark_team: TeamColor | None = None
     slow_remaining_frames: int = 0
     stun_remaining_frames: int = 0
+    surge_remaining_frames: int = 0
+    surge_attack_speed_multiplier: float = 1.0
     active_behaviors: frozenset[str] = frozenset()
 
     def __init__(
@@ -293,6 +295,7 @@ class Unit(Entity):
     _charge_position: tuple[float, float]
     slow_restore_speed: float
     slow_multiplier: float
+    pack_contributors: int = 0
 
     def __init__(self, x: int, y: int, team: TeamColor, definition: UnitDefinition) -> None:
         """Initialize the object."""
@@ -504,8 +507,12 @@ class Unit(Entity):
         life rather than life at the start of the fight.
         """
         frames = max(1, int(self.attack_speed * FPS))
-        if self.frenzy and self.life <= self.frenzy_health_fraction * self.max_life:
+        if (self.frenzy or "rust_frenzy" in self.active_behaviors) and self.life <= (
+            self.frenzy_health_fraction * self.max_life
+        ):
             frames = max(1, int(frames * self.frenzy_cooldown_multiplier))
+        if self.surge_remaining_frames > 0:
+            frames = max(1, int(frames * self.surge_attack_speed_multiplier))
         return frames
 
     def consume_attack_event(self) -> tuple[tuple[float, float], tuple[float, float], AttackType, Entity] | None:

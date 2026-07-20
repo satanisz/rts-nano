@@ -55,6 +55,10 @@ class EffectsSystem:
                     del entity.slow_restore_speed
                 if hasattr(entity, "slow_multiplier"):
                     del entity.slow_multiplier
+        if entity.surge_remaining_frames > 0:
+            entity.surge_remaining_frames -= 1
+            if entity.surge_remaining_frames == 0:
+                entity.surge_attack_speed_multiplier = 1.0
 
     @staticmethod
     def _tick_poison(entity: Entity) -> None:

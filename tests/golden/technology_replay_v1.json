@@ -1,23 +1,38 @@
 {
   "schema_version": 1,
-  "tick": 2,
-  "completed_upgrades": [
-    "aegis_arc_targeting",
-    "aegis_archer_arcshot",
-    "aegis_mage_arcbinder"
-  ],
+  "tick": 3,
+  "completed_upgrades": {
+    "AEGIS": [
+      "aegis_arc_targeting",
+      "aegis_archer_arcshot",
+      "aegis_mage_arcbinder"
+    ],
+    "RUST": [
+      "rust_mage_plaguecaller"
+    ]
+  },
   "mage": {
     "energy": 65,
     "cooldowns": {
-      "arc_bind": 150
+      "arc_bind": 149
     },
     "order": null
   },
   "enemy": {
     "life": 93,
-    "arc_mark_frames": 119,
+    "arc_mark_frames": 118,
     "arc_mark_team": "Blue",
-    "slow_frames": 119,
+    "slow_frames": 118,
     "speed": 1.43
+  },
+  "rust_mage": {
+    "energy": 60,
+    "cooldowns": {
+      "toxic_cloud": 180
+    }
+  },
+  "cross_faction_poison": {
+    "damage": 3,
+    "remaining_frames": 119
   }
 }

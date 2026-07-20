@@ -10,11 +10,11 @@ from rts_nano.headless import HeadlessSimulation
 from rts_nano.simulation.entities import Archer, Mage, TeamColor
 
 GOLDEN_PATH = Path(__file__).with_name("golden") / "technology_replay_v1.json"
-EXPECTED_SHA256 = "801e41327249961655d4793aee11f794d17b787362eb3f645ef979ca5d3547fb"
+EXPECTED_SHA256 = "0f5c00aeb392c44da98a41711128cd40a35396b227628dcc3b7469fab1671cda"
 
 
 def run_technology_replay() -> dict[str, object]:
-    """Run one AEGIS doctrine choice, combined-arms mark, and Mage control cast."""
+    """Run deterministic AEGIS control and RUST area-attrition doctrine paths."""
     simulation = HeadlessSimulation.from_settings(
         {
             "schema_version": 2,
@@ -27,7 +27,13 @@ def run_technology_replay() -> dict[str, object]:
                 "mage": [[300, 300]],
                 "arclight": [[220, 300]],
             },
-            "Red": {"faction_id": "RUST", "base": [[700, 500]], "knight": [[390, 300]]},
+            "Red": {
+                "faction_id": "RUST",
+                "base": [[700, 500]],
+                "chem_vat": [[640, 500]],
+                "knight": [[390, 300]],
+                "mage": [[450, 300]],
+            },
             "Resources": {"wood": [], "gold": []},
             "Terrain": {
                 "width": 800,
@@ -44,8 +50,10 @@ def run_technology_replay() -> dict[str, object]:
     archer = manager.state.entities_by_content_id("archer", team=TeamColor.BLUE)[0]
     mage = manager.state.entities_by_content_id("mage", team=TeamColor.BLUE)[0]
     enemy = manager.state.entities_by_content_id("knight", team=TeamColor.RED)[0]
+    rust_mage = manager.state.entities_by_content_id("mage", team=TeamColor.RED)[0]
     assert isinstance(archer, Archer)
     assert isinstance(mage, Mage)
+    assert isinstance(rust_mage, Mage)
     assert manager.upgrades.complete(TeamColor.BLUE, "aegis_archer_arcshot")
     assert manager.upgrades.complete(TeamColor.BLUE, "aegis_arc_targeting")
     assert manager.upgrades.complete(TeamColor.BLUE, "aegis_mage_arcbinder")
@@ -53,11 +61,17 @@ def run_technology_replay() -> dict[str, object]:
     simulation.step()
     assert manager.issue_cast_order(TeamColor.BLUE, "arc_bind", mage, target=enemy) == 1
     simulation.step()
+    assert manager.upgrades.complete(TeamColor.RED, "rust_mage_plaguecaller")
+    assert manager.issue_cast_order(TeamColor.RED, "toxic_cloud", rust_mage, destination=archer.get_center()) == 1
+    simulation.step()
 
     snapshot: dict[str, object] = {
         "schema_version": 1,
         "tick": manager.state.tick_count,
-        "completed_upgrades": [str(item) for item in manager.teams[TeamColor.BLUE].completed_upgrades],
+        "completed_upgrades": {
+            "AEGIS": [str(item) for item in manager.teams[TeamColor.BLUE].completed_upgrades],
+            "RUST": [str(item) for item in manager.teams[TeamColor.RED].completed_upgrades],
+        },
         "mage": {
             "energy": mage.energy,
             "cooldowns": dict(sorted(mage.ability_cooldowns.items())),
@@ -69,6 +83,14 @@ def run_technology_replay() -> dict[str, object]:
             "arc_mark_team": enemy.arc_mark_team.value if enemy.arc_mark_team is not None else None,
             "slow_frames": enemy.slow_remaining_frames,
             "speed": enemy.speed,
+        },
+        "rust_mage": {
+            "energy": rust_mage.energy,
+            "cooldowns": dict(sorted(rust_mage.ability_cooldowns.items())),
+        },
+        "cross_faction_poison": {
+            "damage": archer.poison_tick_damage,
+            "remaining_frames": archer.poison_remaining_frames,
         },
     }
     simulation.close()
