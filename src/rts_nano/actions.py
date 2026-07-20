@@ -35,6 +35,7 @@ type ActionKind = Literal[
     "set_rally",
     "repair",
     "assist_construction",
+    "cast",
     "stop",
     "hold",
     "select",
@@ -221,6 +222,19 @@ class AssistConstructionAction:
 
 
 @dataclass(frozen=True, slots=True)
+class CastAction:
+    """Issue an unlocked Mage ability against an entity or world point."""
+
+    team: TeamColor
+    caster_id: EntityId
+    ability_id: str
+    target_id: EntityId | None = None
+    destination: WorldPoint | None = None
+    frames: int = 1
+    queue: bool = False
+
+
+@dataclass(frozen=True, slots=True)
 class StopAction:
     """Stop a team's units and clear their current unit orders."""
 
@@ -265,6 +279,7 @@ type Action = (
     | SetRallyAction
     | RepairAction
     | AssistConstructionAction
+    | CastAction
     | StopAction
     | HoldAction
     | SelectAction
@@ -283,3 +298,5 @@ class ActionSpec:
     unit_type: str | None = None
     building_type: str | None = None
     upgrade_id: str | None = None
+    ability_id: str | None = None
+    caster_id: EntityId | None = None

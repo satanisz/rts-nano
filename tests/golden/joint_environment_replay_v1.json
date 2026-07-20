@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "observation_schema_version": 4,
+  "commands": [
+    {
+      "decision": 1,
+      "blue": "cast arc_bind: Blue Mage -> Red Knight",
+      "red": "cast toxic_cloud: Red Mage -> [150, 180]",
+      "outcomes": [
+        {"team": "Blue", "kind": "cast", "accepted": true, "reason": null},
+        {"team": "Red", "kind": "cast", "accepted": true, "reason": null}
+      ]
+    },
+    {
+      "decision": 2,
+      "blue": "move Blue Knight -> [100, 220]",
+      "red": "move Red Knight -> [300, 220]",
+      "outcomes": [
+        {"team": "Blue", "kind": "move", "accepted": true, "reason": null},
+        {"team": "Red", "kind": "move", "accepted": true, "reason": null}
+      ]
+    }
+  ],
+  "final": {
+    "tick": 2,
+    "terminated": false,
+    "truncated": false,
+    "completed_upgrades": {
+      "Blue": ["aegis_mage_arcbinder"],
+      "Red": ["rust_mage_plaguecaller"]
+    },
+    "units": {
+      "blue_mage": {
+        "energy": 65,
+        "cooldowns": {"arc_bind": 149},
+        "arc_mark_remaining": 0,
+        "poison_remaining": 118,
+        "order": null
+      },
+      "blue_knight": {
+        "energy": null,
+        "cooldowns": {},
+        "arc_mark_remaining": 0,
+        "poison_remaining": 118,
+        "order": "move"
+      },
+      "red_mage": {
+        "energy": 60,
+        "cooldowns": {"toxic_cloud": 179},
+        "arc_mark_remaining": 0,
+        "poison_remaining": 0,
+        "order": null
+      },
+      "red_knight": {
+        "energy": null,
+        "cooldowns": {},
+        "arc_mark_remaining": 118,
+        "poison_remaining": 0,
+        "order": "move"
+      }
+    }
+  }
+}

@@ -21,6 +21,7 @@ from rts_nano.actions import (
     CancelActivityAction,
     CancelConstructionAction,
     CancelProductionAction,
+    CastAction,
     ConstructAction,
     DepositAction,
     GatherAction,
@@ -42,6 +43,7 @@ from rts_nano.actions import (
 from rts_nano.content import CONTENT
 from rts_nano.game.fog import FogOfWar
 from rts_nano.game.observations import (
+    AbilitySnapshot,
     ActivitySnapshot,
     EntityId,
     EntityIdRegistry,
@@ -54,7 +56,7 @@ from rts_nano.game.observations import (
 from rts_nano.headless import HeadlessSimulation
 from rts_nano.simulation.entities import TeamColor
 from rts_nano.simulation.entities.base import Building, Unit
-from rts_nano.simulation.entities.units import Peasant
+from rts_nano.simulation.entities.units import CasterUnit, Peasant
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -68,6 +70,7 @@ __all__ = [
     "Action",
     "ActionSpec",
     "ActionOutcome",
+    "AbilitySnapshot",
     "ActivitySnapshot",
     "AssistConstructionAction",
     "AttackMoveAction",
@@ -77,6 +80,7 @@ __all__ = [
     "CancelConstructionAction",
     "CancelActivityAction",
     "CancelProductionAction",
+    "CastAction",
     "ConstructAction",
     "DepositAction",
     "EntityId",
@@ -485,6 +489,18 @@ class RtsNanoEnv:
             if not building.is_under_construction and 0 < building.life < building.max_life
         ]
         can_cancel = any(manager.production.queue_for(producer) for producer in production_buildings)
+        cast_specs = tuple(
+            ActionSpec(
+                "cast",
+                team_name,
+                ability.target_kind.value,
+                ability_id=str(ability.id),
+                caster_id=self._entity_ids.id_for(caster),
+            )
+            for caster in units
+            if isinstance(caster, CasterUnit)
+            for ability in manager.abilities.available_abilities(caster)
+        )
         research_specs = tuple(
             ActionSpec(
                 "research",
@@ -546,6 +562,7 @@ class RtsNanoEnv:
             *build_specs,
             *construct_specs,
             *research_specs,
+            *cast_specs,
             ActionSpec(
                 "set_rally",
                 team_name,

@@ -69,6 +69,26 @@ uv run python benchmarks/core_baseline.py
 `rts_nano.headless.HeadlessSimulation` exposes the same simulation used by the windowed game
 without importing Pygame, configuring SDL, loading images, or creating presentation objects.
 
+`rts_nano.env.RtsNanoEnv` adds a deterministic episode lifecycle and simultaneous Blue/Red action
+boundary for future RL adapters. It defaults to a 36,000-frame limit, reports termination and
+truncation separately, supports configurable frame skip, and exposes registry-derived strategic
+and tactical actions. It remains tensor-framework neutral; Gymnasium/PyTorch adapters belong to
+the next milestone.
+
+```python
+from rts_nano.actions import MoveAction, NoOpAction
+from rts_nano.env import RtsNanoEnv
+from rts_nano.simulation.entities import TeamColor
+
+env = RtsNanoEnv(frame_skip=8)  # Always headless; no visual assets are loaded.
+observation = env.reset(seed=7)
+result = env.step_joint({
+    TeamColor.BLUE: (MoveAction(TeamColor.BLUE, (600, 400)),),
+    TeamColor.RED: (NoOpAction(),),
+})
+env.close()
+```
+
 ## Core controls
 
 - Right-click ground to move selected units. Hold Shift while right-clicking to append a move.
@@ -108,9 +128,11 @@ runs rendering with SDL's dummy video driver, and reports a fast benchmark smoke
 - [Adding units, buildings, resources, or factions](docs/ADDING_CONTENT.md)
 - [Technology and ability authoring](docs/TECH_TREE_AUTHORING.md)
 - [Determinism contract](docs/DETERMINISM.md)
+- [RL environment contract](docs/RL_ENVIRONMENT_CONTRACT.md)
 - [Sprint S5 performance report](benchmarks/SPRINT_S5_REPORT.md)
 - [Game-core readiness plan](EXECUTIVE_PLAN_05_CORE_READINESS.md)
 - [Expanded faction tech-tree plan](EXECUTIVE_PLAN_06_EXPANDED_FACTION_TECH_TREES.md)
+- [RL environment foundation plan](EXECUTIVE_PLAN_07_RL_ENVIRONMENT_FOUNDATION.md)
 
-AI policies, automated balance work, reward design, environment lifecycle changes, and RL training
-adapters remain deferred until the expanded faction tech-tree milestone is complete.
+Tensor schemas, curriculum maps, vector environments, AI policies, automated balance work, reward
+design, Gymnasium/PyTorch adapters, and RL training remain deferred to the next milestone.

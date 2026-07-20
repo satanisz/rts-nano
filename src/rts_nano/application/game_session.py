@@ -333,27 +333,33 @@ class GameSession:
         team: TeamColor,
         destination: tuple[float, float],
         units: Iterable[Unit] | None = None,
+        *,
+        queue: bool = False,
     ) -> int:
         """Assign an attack-move order to team units and return the affected count."""
-        return self.orders.issue_attack_move_order(team, destination, units)
+        return self.orders.issue_attack_move_order(team, destination, units, queue=queue)
 
     def issue_patrol_order(
         self,
         team: TeamColor,
         destination: tuple[float, float],
         units: Iterable[Unit] | None = None,
+        *,
+        queue: bool = False,
     ) -> int:
         """Assign a patrol order between current position and a destination."""
-        return self.orders.issue_patrol_order(team, destination, units)
+        return self.orders.issue_patrol_order(team, destination, units, queue=queue)
 
     def issue_target_order(
         self,
         team: TeamColor,
         target: Entity,
         units: Iterable[Unit] | None = None,
+        *,
+        queue: bool = False,
     ) -> int:
         """Assign a target interaction order and return the affected count."""
-        return self.orders.issue_target_order(team, target, units)
+        return self.orders.issue_target_order(team, target, units, queue=queue)
 
     def issue_gather_order(
         self,
@@ -401,9 +407,11 @@ class GameSession:
         team: TeamColor,
         units: Iterable[Unit] | None = None,
         base: Base | None = None,
+        *,
+        queue: bool = False,
     ) -> int:
         """Order carrying peasants to return resources to an allied base."""
-        return self.orders.issue_return_cargo_order(team, units, base)
+        return self.orders.issue_return_cargo_order(team, units, base, queue=queue)
 
     def issue_cast_order(
         self,

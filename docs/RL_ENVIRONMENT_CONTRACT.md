@@ -27,9 +27,19 @@ roster. Typed actions expose research, shared production/research cancellation, 
 enemy rally points, repairs, additional construction workers, and queued worker orders. They act
 on explicit snapshot IDs and do not depend on the Pygame selection state.
 
-Observation schema v3 exposes each team's faction, completed and reserved upgrades, plus the full
+Observation schema v4 exposes each team's faction, completed and reserved upgrades, plus the full
 typed activity queue for every building. The legacy unit-only `production_queue` remains available
 for existing consumers.
+
+## Tactical action rules
+
+`CastAction` exposes unlocked Mage abilities with either entity or ground targeting. Caster
+snapshots include energy, maximum energy, canonical unlocked abilities, energy cost, target kind,
+and live cooldown state. Move, attack-move, patrol, target attack, gather, cargo return,
+build-assist, repair, and cast commands share the bounded 16-order Shift queue.
+
+The readable joint golden replay executes both factions' casts from one decision state, then moves
+both teams, and records accepted outcomes plus stable tactical checkpoints.
 
 ## Compatibility and single player
 

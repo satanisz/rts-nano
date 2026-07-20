@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from rts_nano.simulation.entities import TeamColor
 from rts_nano.simulation.entities.base import Building
+from rts_nano.simulation.entities.units import CasterUnit
 
 if TYPE_CHECKING:
     from rts_nano.application import GameSession
@@ -15,11 +16,12 @@ if TYPE_CHECKING:
 
 type EntityId = str
 
-OBSERVATION_SCHEMA_VERSION = 3
+OBSERVATION_SCHEMA_VERSION = 4
 """Version of the observation contract. Bump when fields change meaning.
 
 v2: added ``shield`` / ``shield_max`` to ``EntitySnapshot`` (AEGIS shield buffer).
 v3: added faction/upgrade state and typed building activity queues.
+v4: added Mage energy, cooldown, and unlocked-ability state.
 """
 
 
@@ -61,6 +63,18 @@ class ActivitySnapshot:
 
 
 @dataclass(frozen=True, slots=True)
+class AbilitySnapshot:
+    """Action-facing state for one currently unlocked caster ability."""
+
+    ability_id: str
+    target_kind: str
+    energy_cost: int
+    cooldown_frames: int
+    cooldown_remaining: int
+    energy_ready: bool
+
+
+@dataclass(frozen=True, slots=True)
 class EntitySnapshot:
     """Immutable public view of a game entity."""
 
@@ -83,6 +97,9 @@ class EntitySnapshot:
     is_under_construction: bool = False
     construction_progress: float | None = None
     order: str | None = None
+    energy: int | None = None
+    energy_max: int | None = None
+    abilities: tuple[AbilitySnapshot, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -165,6 +182,7 @@ def _snapshot_entity(manager: GameSession, entity: Entity, registry: EntityIdReg
     team = getattr(entity, "team", None)
     current_order = getattr(entity, "current_order", None)
     building = entity if isinstance(entity, Building) else None
+    caster = entity if isinstance(entity, CasterUnit) else None
     return EntitySnapshot(
         id=registry.id_for(entity),
         kind=type(entity).__name__,
@@ -185,6 +203,9 @@ def _snapshot_entity(manager: GameSession, entity: Entity, registry: EntityIdReg
         is_under_construction=building is not None and building.is_under_construction,
         construction_progress=building.construction_progress if building is not None else None,
         order=current_order.kind if current_order is not None else None,
+        energy=caster.energy if caster is not None else None,
+        energy_max=caster.energy_max if caster is not None else None,
+        abilities=_snapshot_abilities(manager, caster) if caster is not None else (),
     )
 
 
@@ -211,4 +232,18 @@ def _snapshot_activity_queue(manager: GameSession, building: Building) -> tuple[
             progress=item.progress,
         )
         for item in manager.production.queue_for(building)
+    )
+
+
+def _snapshot_abilities(manager: GameSession, caster: CasterUnit) -> tuple[AbilitySnapshot, ...]:
+    return tuple(
+        AbilitySnapshot(
+            ability_id=str(ability.id),
+            target_kind=ability.target_kind.value,
+            energy_cost=ability.energy_cost,
+            cooldown_frames=ability.cooldown_frames,
+            cooldown_remaining=caster.ability_cooldowns.get(str(ability.id), 0),
+            energy_ready=caster.energy >= ability.energy_cost and caster.ability_cooldowns.get(str(ability.id), 0) == 0,
+        )
+        for ability in manager.abilities.available_abilities(caster)
     )

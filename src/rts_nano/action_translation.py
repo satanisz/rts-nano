@@ -13,6 +13,7 @@ from rts_nano.actions import (
     CancelActivityAction,
     CancelConstructionAction,
     CancelProductionAction,
+    CastAction,
     ConstructAction,
     DepositAction,
     GatherAction,
@@ -82,6 +83,8 @@ class ActionTranslator:
             return self._apply_repair(action)
         if isinstance(action, AssistConstructionAction):
             return self._apply_assist_construction(action)
+        if isinstance(action, CastAction):
+            return self._apply_cast(action)
         if isinstance(action, StopAction):
             return self._apply_stop(action)
         if isinstance(action, HoldAction):
@@ -164,6 +167,18 @@ class ActionTranslator:
                     bool(peasants) and building.is_under_construction and building.life > 0,
                     "no_peasant_or_unfinished_building",
                 )
+            if isinstance(action, CastAction):
+                caster = self._entity_by_id(action.caster_id)
+                if not isinstance(caster, Unit):
+                    return False, "invalid_caster"
+                target = self._entity_by_id(action.target_id) if action.target_id is not None else None
+                return self._manager.abilities.can_issue(
+                    action.team,
+                    caster,
+                    action.ability_id,
+                    target,
+                    action.destination,
+                )
             if isinstance(action, SelectAction):
                 entities = tuple(self._entity_by_id(entity_id) for entity_id in action.entity_ids)
                 return self._availability(
@@ -184,16 +199,16 @@ class ActionTranslator:
 
     def _apply_attack_move(self, action: AttackMoveAction) -> int:
         units = self._units_for_action(action.team, action.unit_ids)
-        return self._manager.orders.issue_attack_move_order(action.team, action.destination, units)
+        return self._manager.orders.issue_attack_move_order(action.team, action.destination, units, queue=action.queue)
 
     def _apply_patrol(self, action: PatrolAction) -> int:
         units = self._units_for_action(action.team, action.unit_ids)
-        return self._manager.orders.issue_patrol_order(action.team, action.destination, units)
+        return self._manager.orders.issue_patrol_order(action.team, action.destination, units, queue=action.queue)
 
     def _apply_attack(self, action: AttackAction) -> int:
         target = self._entity_by_id(action.target_id)
         units = self._units_for_action(action.team, action.unit_ids)
-        return self._manager.orders.issue_target_order(action.team, target, units)
+        return self._manager.orders.issue_target_order(action.team, target, units, queue=action.queue)
 
     def _apply_gather(self, action: GatherAction) -> int:
         resource = self._entity_by_id(action.resource_id)
@@ -207,14 +222,14 @@ class ActionTranslator:
         if base is None:
             return 0
         peasants = [unit for unit in self._units_for_action(action.team, action.unit_ids) if isinstance(unit, Peasant)]
-        return self._manager.orders.issue_target_order(action.team, base, peasants)
+        return self._manager.orders.issue_target_order(action.team, base, peasants, queue=action.queue)
 
     def _apply_return_cargo(self, action: ReturnCargoAction) -> int:
         base = self._base_for_action(action.team, action.base_id) if action.base_id is not None else None
         if action.base_id is not None and base is None:
             return 0
         peasants = [unit for unit in self._units_for_action(action.team, action.unit_ids) if isinstance(unit, Peasant)]
-        return self._manager.orders.issue_return_cargo_order(action.team, peasants, base)
+        return self._manager.orders.issue_return_cargo_order(action.team, peasants, base, queue=action.queue)
 
     def _apply_build(self, action: BuildAction) -> int:
         producer = self._producer_for_action(action.team, action.base_id, action.unit_type)
@@ -278,6 +293,20 @@ class ActionTranslator:
         building = self._owned_building(action.team, action.building_id)
         peasants = self._peasants_for_action(action.team, action.unit_ids)
         return self._manager.issue_build_order(action.team, building, peasants, queue=action.queue)
+
+    def _apply_cast(self, action: CastAction) -> int:
+        caster = self._entity_by_id(action.caster_id)
+        if not isinstance(caster, Unit):
+            return 0
+        target = self._entity_by_id(action.target_id) if action.target_id is not None else None
+        return self._manager.issue_cast_order(
+            action.team,
+            action.ability_id,
+            caster,
+            target=target,
+            destination=action.destination,
+            queue=action.queue,
+        )
 
     def _apply_stop(self, action: StopAction) -> int:
         units = self._units_for_action(action.team, action.unit_ids)

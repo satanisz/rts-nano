@@ -167,13 +167,14 @@ class OrderSystem:
         team: TeamColor,
         destination: tuple[float, float],
         units: Iterable[Unit] | None = None,
+        *,
+        queue: bool = False,
     ) -> int:
         """Move team units while allowing them to acquire hostile targets."""
         ordered_units = self._order_units_for_team(team, units)
         if not ordered_units:
             return 0
 
-        self._tag_order(ordered_units, "attack_move", destination)
         center = (int(destination[0]), int(destination[1]))
         clicked_target = next(
             (
@@ -188,6 +189,26 @@ class OrderSystem:
         )
         slots = self._movement.formation_destinations(center, len(ordered_units))
         remaining_slots = slots.copy()
+        if queue:
+            affected = 0
+            for unit in sorted(
+                ordered_units,
+                key=lambda selected_unit: distance_between_points(selected_unit.get_center(), center),
+            ):
+                slot = min(remaining_slots, key=lambda candidate: distance_between_points(unit.get_center(), candidate))
+                remaining_slots.remove(slot)
+                affected += self._queue_or_execute(
+                    unit,
+                    Order(
+                        "attack_move",
+                        slot,
+                        target_entity_id=clicked_target.entity_id if clicked_target is not None else None,
+                        target_content_id=clicked_target.content_id if clicked_target is not None else None,
+                    ),
+                    queue=True,
+                )
+            return affected
+        self._tag_order(ordered_units, "attack_move", destination)
         for unit in sorted(
             ordered_units,
             key=lambda selected_unit: distance_between_points(selected_unit.get_center(), center),
@@ -204,6 +225,8 @@ class OrderSystem:
         team: TeamColor,
         destination: tuple[float, float],
         units: Iterable[Unit] | None = None,
+        *,
+        queue: bool = False,
     ) -> int:
         """Patrol team units between their current position and a destination.
 
@@ -216,6 +239,8 @@ class OrderSystem:
             return 0
 
         dest = (int(destination[0]), int(destination[1]))
+        if queue:
+            return sum(self._queue_or_execute(unit, Order("patrol", dest), queue=True) for unit in ordered_units)
         self._tag_order(ordered_units, "patrol", dest)
         for unit in ordered_units:
             origin = unit.get_center()
@@ -231,11 +256,23 @@ class OrderSystem:
         team: TeamColor,
         target: Entity,
         units: Iterable[Unit] | None = None,
+        *,
+        queue: bool = False,
     ) -> int:
         """Assign a target interaction order and return the affected count."""
         ordered_units = self._order_units_for_team(team, units)
         target_center = target.get_center()
         hostile = getattr(target, "team", team) != team
+        if queue:
+            if target.entity_id is None:
+                return 0
+            order = Order(
+                "attack" if hostile else "move",
+                target_center,
+                target_entity_id=target.entity_id,
+                target_content_id=target.content_id,
+            )
+            return sum(self._queue_or_execute(unit, order, queue=True) for unit in ordered_units)
         self._tag_order(ordered_units, "attack" if hostile else "move", target_center)
         for unit in ordered_units:
             self._movement.assign_unit_target(unit, target_center, target)
@@ -343,6 +380,8 @@ class OrderSystem:
         team: TeamColor,
         units: Iterable[Unit] | None = None,
         base: Base | None = None,
+        *,
+        queue: bool = False,
     ) -> int:
         """Order carrying peasants to deposit resources at an allied base."""
         if base is not None:
@@ -359,14 +398,27 @@ class OrderSystem:
             for unit in self._order_units_for_team(team, units)
             if isinstance(unit, Peasant) and (unit.carry_wood > 0 or unit.carry_gold > 0)
         ]
-        self._tag_order(ordered_peasants, "return_cargo")
+        if not queue:
+            self._tag_order(ordered_peasants, "return_cargo")
         affected = 0
         for peasant in ordered_peasants:
             target_base = base if base is not None else nearest_entity(peasant, bases)
-            if target_base is None:
+            if target_base is None or target_base.entity_id is None:
                 continue
-            self._movement.assign_unit_target(peasant, target_base.get_center(), target_base)
-            affected += 1
+            if queue:
+                affected += self._queue_or_execute(
+                    peasant,
+                    Order(
+                        "return_cargo",
+                        target_base.get_center(),
+                        target_entity_id=target_base.entity_id,
+                        target_content_id=target_base.content_id,
+                    ),
+                    queue=True,
+                )
+            else:
+                self._movement.assign_unit_target(peasant, target_base.get_center(), target_base)
+                affected += 1
         return affected
 
     def issue_cast_order(
@@ -460,7 +512,33 @@ class OrderSystem:
         unit.current_order = order
         unit.patrol_points = None
         if order.kind == "move" and order.destination is not None:
-            return self._movement.assign_unit_target(unit, order.destination)
+            target = self._target_for_order(order)
+            return self._movement.assign_unit_target(unit, order.destination, target)
+        if order.kind == "attack_move" and order.destination is not None:
+            target = self._target_for_order(order)
+            destination = target.get_center() if target is not None else order.destination
+            if self._movement.assign_unit_target(unit, destination, target):
+                unit.attack_move_destination = order.destination
+                return True
+            return False
+        if order.kind == "patrol" and order.destination is not None:
+            origin = unit.get_center()
+            unit.patrol_points = (origin, order.destination)
+            if self._movement.assign_unit_target(unit, order.destination):
+                unit.attack_move_destination = order.destination
+                return True
+            unit.patrol_points = None
+            return False
+        if order.kind == "attack" and order.target_entity_id is not None:
+            target = self._target_for_order(order)
+            if target is None or getattr(target, "team", unit.team) == unit.team or target.life <= 0:
+                return False
+            return self._movement.assign_unit_target(unit, target.get_center(), target)
+        if order.kind == "return_cargo" and order.target_entity_id is not None and isinstance(unit, Peasant):
+            target = self._target_for_order(order)
+            if not isinstance(target, Base) or target.team != unit.team or target.life <= 0:
+                return False
+            return self._movement.assign_unit_target(unit, target.get_center(), target)
         if order.kind == "gather" and order.target_entity_id is not None and isinstance(unit, Peasant):
             try:
                 target = self._state.store.get(order.target_entity_id)
@@ -484,6 +562,14 @@ class OrderSystem:
         if order.kind == "cast" and self._abilities is not None:
             return self._abilities.start_order(unit, order)
         return False
+
+    def _target_for_order(self, order: Order) -> Entity | None:
+        if order.target_entity_id is None:
+            return None
+        try:
+            return self._state.store.get(order.target_entity_id)
+        except KeyError:
+            return None
 
     @staticmethod
     def _has_active_order(unit: Unit) -> bool:

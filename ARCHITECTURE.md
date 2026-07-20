@@ -19,6 +19,9 @@ headless wrapper ─────────────────────
 
 Core modules never import presentation modules or Pygame.
 
+The RL environment adds typed actions and serializable snapshots above the same `GameSession`,
+`OrderSystem`, and `SimulationRunner`; it is not a second simulation.
+
 ## Content
 
 `src/rts_nano/content/` is the single source of truth for unit, building, resource, faction, and
@@ -76,10 +79,24 @@ Presentation consumes the resulting state and attack events after the simulation
 
 `OrderSystem` is the single high-level command boundary for both Pygame and headless callers.
 Units hold one active order and a bounded queue of at most 16 deferred orders. A normal command
-replaces the active intent and clears that queue; a Shift command appends move or gather work.
+replaces the active intent and clears that queue; a Shift command appends movement, attack-move,
+patrol, target attack, gather, return-cargo, build/repair, or Mage cast work.
 Construction is an active `build` order, so queued gathering starts only after the worker finishes
 or the unfinished building is canceled. Only units with non-empty queues are tracked for per-tick
 advancement.
+
+## Headless RL boundary
+
+`env.py` owns episode lifecycle, scalar legacy stepping, simultaneous joint stepping, action masks,
+and team reward calls. `action_translation.py` validates snapshot IDs and delegates commands to the
+same `OrderSystem`, `ProductionSystem`, `ConstructionSystem`, `UpgradeSystem`, and `AbilitySystem`
+used by the playable game. `joint_actions.py` normalizes both teams against one pre-step state and
+reserves bounded resource, research, and placement claims before mutation.
+
+`game/observations.py` is a serializable read boundary, not a second state store. Schema v4 exposes
+stable entity IDs, factions, upgrade/activity state, Mage energy/cooldowns/abilities, and current
+orders. The environment does not import Pygame, load assets, select entities, or require a tensor
+framework. The windowed `ScriptedAI -> GameSession.update()` path remains independent of it.
 
 Bases store a simulation-owned move or gather rally order. `ProductionSystem` reports newly spawned
 units to `SimulationRunner`, which asks `OrderSystem` to apply the producing Base's rally. A missing

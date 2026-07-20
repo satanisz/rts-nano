@@ -5,6 +5,7 @@ from __future__ import annotations
 __all__ = [
     "Action",
     "ActionSpec",
+    "AbilitySnapshot",
     "ActivitySnapshot",
     "AssistConstructionAction",
     "AttackMoveAction",
@@ -14,6 +15,7 @@ __all__ = [
     "CancelConstructionAction",
     "CancelActivityAction",
     "CancelProductionAction",
+    "CastAction",
     "ConstructAction",
     "DepositAction",
     "EntitySnapshot",
