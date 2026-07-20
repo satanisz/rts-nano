@@ -13,28 +13,10 @@ if TYPE_CHECKING:
 type WorldPoint = tuple[float, float]
 type ActionBatch = tuple[Action, ...]
 type JointAction = Mapping[TeamColor, ActionBatch]
-type UnitType = Literal[
-    "peasant",
-    # AEGIS
-    "marksman",
-    "guardian",
-    "arclight",
-    # RUST
-    "ripper",
-    "spitter",
-    "brute",
-]
-type BuildingType = Literal[
-    "house",
-    # AEGIS
-    "arsenal",
-    "spire",
-    "bastion",
-    # RUST
-    "pit",
-    "chem_vat",
-    "spiker",
-]
+# Content IDs are deliberately registry-derived at runtime.  Keeping a second
+# Literal roster here previously made the public API silently omit valid units.
+type UnitType = str
+type BuildingType = str
 type ActionKind = Literal[
     "no_op",
     "move",
@@ -48,6 +30,11 @@ type ActionKind = Literal[
     "construct",
     "cancel_construction",
     "cancel_production",
+    "cancel_activity",
+    "research",
+    "set_rally",
+    "repair",
+    "assist_construction",
     "stop",
     "hold",
     "select",
@@ -69,6 +56,7 @@ class MoveAction:
     destination: WorldPoint
     unit_ids: tuple[EntityId, ...] = ()
     frames: int = 1
+    queue: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,6 +67,7 @@ class AttackMoveAction:
     destination: WorldPoint
     unit_ids: tuple[EntityId, ...] = ()
     frames: int = 1
+    queue: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -89,6 +78,7 @@ class PatrolAction:
     destination: WorldPoint
     unit_ids: tuple[EntityId, ...] = ()
     frames: int = 1
+    queue: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -99,6 +89,7 @@ class AttackAction:
     target_id: EntityId
     unit_ids: tuple[EntityId, ...] = ()
     frames: int = 1
+    queue: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -109,6 +100,7 @@ class GatherAction:
     resource_id: EntityId
     unit_ids: tuple[EntityId, ...] = ()
     frames: int = 1
+    queue: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -119,6 +111,7 @@ class DepositAction:
     base_id: EntityId | None = None
     unit_ids: tuple[EntityId, ...] = ()
     frames: int = 1
+    queue: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -129,6 +122,7 @@ class ReturnCargoAction:
     base_id: EntityId | None = None
     unit_ids: tuple[EntityId, ...] = ()
     frames: int = 1
+    queue: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -175,6 +169,58 @@ class CancelProductionAction:
 
 
 @dataclass(frozen=True, slots=True)
+class CancelActivityAction:
+    """Cancel the active unit-production or research activity."""
+
+    team: TeamColor
+    producer_id: EntityId
+    frames: int = 1
+
+
+@dataclass(frozen=True, slots=True)
+class ResearchAction:
+    """Queue an upgrade at an allied research-capable building."""
+
+    team: TeamColor
+    producer_id: EntityId
+    upgrade_id: str
+    frames: int = 1
+
+
+@dataclass(frozen=True, slots=True)
+class SetRallyAction:
+    """Set a producer rally to ground, a resource, or a hostile entity."""
+
+    team: TeamColor
+    producer_id: EntityId
+    destination: WorldPoint | None = None
+    target_id: EntityId | None = None
+    frames: int = 1
+
+
+@dataclass(frozen=True, slots=True)
+class RepairAction:
+    """Assign one or more peasants to a completed damaged building."""
+
+    team: TeamColor
+    building_id: EntityId
+    unit_ids: tuple[EntityId, ...] = ()
+    frames: int = 1
+    queue: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class AssistConstructionAction:
+    """Assign additional peasants to an unfinished allied building."""
+
+    team: TeamColor
+    building_id: EntityId
+    unit_ids: tuple[EntityId, ...] = ()
+    frames: int = 1
+    queue: bool = False
+
+
+@dataclass(frozen=True, slots=True)
 class StopAction:
     """Stop a team's units and clear their current unit orders."""
 
@@ -214,6 +260,11 @@ type Action = (
     | ConstructAction
     | CancelConstructionAction
     | CancelProductionAction
+    | CancelActivityAction
+    | ResearchAction
+    | SetRallyAction
+    | RepairAction
+    | AssistConstructionAction
     | StopAction
     | HoldAction
     | SelectAction
@@ -231,3 +282,4 @@ class ActionSpec:
     reason: str | None = None
     unit_type: str | None = None
     building_type: str | None = None
+    upgrade_id: str | None = None

@@ -6,9 +6,11 @@ from typing import TYPE_CHECKING
 
 from rts_nano.actions import (
     Action,
+    AssistConstructionAction,
     AttackAction,
     AttackMoveAction,
     BuildAction,
+    CancelActivityAction,
     CancelConstructionAction,
     CancelProductionAction,
     ConstructAction,
@@ -18,8 +20,11 @@ from rts_nano.actions import (
     MoveAction,
     NoOpAction,
     PatrolAction,
+    RepairAction,
+    ResearchAction,
     ReturnCargoAction,
     SelectAction,
+    SetRallyAction,
     StopAction,
 )
 from rts_nano.simulation.entities.base import Building, Resource, Unit
@@ -67,6 +72,16 @@ class ActionTranslator:
             return self._apply_cancel_construction(action)
         if isinstance(action, CancelProductionAction):
             return self._apply_cancel_production(action)
+        if isinstance(action, CancelActivityAction):
+            return self._apply_cancel_activity(action)
+        if isinstance(action, ResearchAction):
+            return self._apply_research(action)
+        if isinstance(action, SetRallyAction):
+            return self._apply_set_rally(action)
+        if isinstance(action, RepairAction):
+            return self._apply_repair(action)
+        if isinstance(action, AssistConstructionAction):
+            return self._apply_assist_construction(action)
         if isinstance(action, StopAction):
             return self._apply_stop(action)
         if isinstance(action, HoldAction):
@@ -120,6 +135,35 @@ class ActionTranslator:
             if isinstance(action, CancelProductionAction):
                 producer = self._producer_for_action(action.team, action.base_id)
                 return self._availability(producer is not None, "empty_queue")
+            if isinstance(action, CancelActivityAction):
+                producer = self._owned_building(action.team, action.producer_id)
+                return self._availability(bool(self._manager.production.queue_for(producer)), "empty_queue")
+            if isinstance(action, ResearchAction):
+                producer = self._owned_building(action.team, action.producer_id)
+                return self._manager.can_research(producer, action.upgrade_id)
+            if isinstance(action, SetRallyAction):
+                producer = self._owned_building(action.team, action.producer_id)
+                if not producer.definition.produces or producer.is_under_construction:
+                    return False, "inactive_producer"
+                if action.target_id is None:
+                    return self._availability(action.destination is not None, "missing_rally_target")
+                target = self._entity_by_id(action.target_id)
+                valid_target = (isinstance(target, Resource) and target.amount > 0) or (
+                    isinstance(target, (Unit, Building)) and target.team != action.team and target.life > 0
+                )
+                return self._availability(valid_target, "invalid_rally_target")
+            if isinstance(action, RepairAction):
+                building = self._owned_building(action.team, action.building_id)
+                peasants = self._peasants_for_action(action.team, action.unit_ids)
+                valid = bool(peasants) and not building.is_under_construction and 0 < building.life < building.max_life
+                return self._availability(valid, "no_peasant_or_damaged_building")
+            if isinstance(action, AssistConstructionAction):
+                building = self._owned_building(action.team, action.building_id)
+                peasants = self._peasants_for_action(action.team, action.unit_ids)
+                return self._availability(
+                    bool(peasants) and building.is_under_construction and building.life > 0,
+                    "no_peasant_or_unfinished_building",
+                )
             if isinstance(action, SelectAction):
                 entities = tuple(self._entity_by_id(entity_id) for entity_id in action.entity_ids)
                 return self._availability(
@@ -136,7 +180,7 @@ class ActionTranslator:
 
     def _apply_move(self, action: MoveAction) -> int:
         units = self._units_for_action(action.team, action.unit_ids)
-        return self._manager.orders.issue_move_order(action.team, action.destination, units)
+        return self._manager.orders.issue_move_order(action.team, action.destination, units, queue=action.queue)
 
     def _apply_attack_move(self, action: AttackMoveAction) -> int:
         units = self._units_for_action(action.team, action.unit_ids)
@@ -156,7 +200,7 @@ class ActionTranslator:
         if not isinstance(resource, Resource):
             raise ValueError(f"Entity is not a resource: {action.resource_id}")
         peasants = [unit for unit in self._units_for_action(action.team, action.unit_ids) if isinstance(unit, Peasant)]
-        return self._manager.orders.issue_gather_order(action.team, resource, peasants)
+        return self._manager.orders.issue_gather_order(action.team, resource, peasants, queue=action.queue)
 
     def _apply_deposit(self, action: DepositAction) -> int:
         base = self._base_for_action(action.team, action.base_id)
@@ -196,6 +240,45 @@ class ActionTranslator:
             return 0
         return int(self._manager.orders.cancel_production(producer))
 
+    def _apply_cancel_activity(self, action: CancelActivityAction) -> int:
+        return int(self._manager.cancel_production(self._owned_building(action.team, action.producer_id)))
+
+    def _apply_research(self, action: ResearchAction) -> int:
+        producer = self._owned_building(action.team, action.producer_id)
+        return int(self._manager.research_upgrade(producer, action.upgrade_id))
+
+    def _apply_set_rally(self, action: SetRallyAction) -> int:
+        producer = self._owned_building(action.team, action.producer_id)
+        destination = action.destination
+        resource: Resource | None = None
+        attack_move = False
+        if action.target_id is not None:
+            target = self._entity_by_id(action.target_id)
+            destination = target.get_center()
+            if isinstance(target, Resource):
+                resource = target
+            else:
+                attack_move = True
+        if destination is None:
+            return 0
+        return self._manager.set_producer_rally(
+            action.team,
+            destination,
+            [producer],
+            resource=resource,
+            attack_move=attack_move,
+        )
+
+    def _apply_repair(self, action: RepairAction) -> int:
+        building = self._owned_building(action.team, action.building_id)
+        peasants = self._peasants_for_action(action.team, action.unit_ids)
+        return self._manager.issue_repair_order(action.team, building, peasants, queue=action.queue)
+
+    def _apply_assist_construction(self, action: AssistConstructionAction) -> int:
+        building = self._owned_building(action.team, action.building_id)
+        peasants = self._peasants_for_action(action.team, action.unit_ids)
+        return self._manager.issue_build_order(action.team, building, peasants, queue=action.queue)
+
     def _apply_stop(self, action: StopAction) -> int:
         units = self._units_for_action(action.team, action.unit_ids)
         return self._manager.orders.issue_stop_order(action.team, units)
@@ -217,6 +300,15 @@ class ActionTranslator:
                     units.append(entity)
             return units
         return self._manager.orders.units_for_team(team)
+
+    def _peasants_for_action(self, team: TeamColor, unit_ids: tuple[EntityId, ...]) -> list[Peasant]:
+        return [unit for unit in self._units_for_action(team, unit_ids) if isinstance(unit, Peasant)]
+
+    def _owned_building(self, team: TeamColor, building_id: EntityId) -> Building:
+        building = self._entity_by_id(building_id)
+        if not isinstance(building, Building) or building.team != team:
+            raise ValueError(f"Entity is not an allied building: {building_id}")
+        return building
 
     def _base_for_action(self, team: TeamColor, base_id: EntityId | None) -> Base | None:
         if base_id is not None:

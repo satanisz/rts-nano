@@ -15,10 +15,11 @@ if TYPE_CHECKING:
 
 type EntityId = str
 
-OBSERVATION_SCHEMA_VERSION = 2
+OBSERVATION_SCHEMA_VERSION = 3
 """Version of the observation contract. Bump when fields change meaning.
 
 v2: added ``shield`` / ``shield_max`` to ``EntitySnapshot`` (AEGIS shield buffer).
+v3: added faction/upgrade state and typed building activity queues.
 """
 
 
@@ -33,6 +34,9 @@ class TeamSnapshot:
     buildings: int
     population_cap: int
     queued_units: int
+    faction_id: str = ""
+    completed_upgrades: tuple[str, ...] = ()
+    reserved_upgrades: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,6 +44,17 @@ class ProductionSnapshot:
     """Serializable view of one queued production job."""
 
     unit_type: str
+    remaining_frames: int
+    total_frames: int
+    progress: float
+
+
+@dataclass(frozen=True, slots=True)
+class ActivitySnapshot:
+    """Serializable view of one unit-production or research activity."""
+
+    kind: str
+    content_id: str
     remaining_frames: int
     total_frames: int
     progress: float
@@ -64,6 +79,7 @@ class EntitySnapshot:
     carry_gold: int
     selected: bool
     production_queue: tuple[ProductionSnapshot, ...]
+    activity_queue: tuple[ActivitySnapshot, ...] = ()
     is_under_construction: bool = False
     construction_progress: float | None = None
     order: str | None = None
@@ -139,6 +155,9 @@ def _snapshot_team(manager: GameSession, team: TeamColor, team_state: TeamState)
         buildings=len(manager.state.buildings_for_team(team)),
         population_cap=manager.population_cap_for_team(team),
         queued_units=manager.production.queued_units_for_team(team),
+        faction_id=str(team_state.faction_id),
+        completed_upgrades=tuple(str(item) for item in team_state.completed_upgrades),
+        reserved_upgrades=tuple(str(item) for item in team_state.reserved_upgrades),
     )
 
 
@@ -162,6 +181,7 @@ def _snapshot_entity(manager: GameSession, entity: Entity, registry: EntityIdReg
         carry_gold=getattr(entity, "carry_gold", 0),
         selected=entity in manager.selected_entities,
         production_queue=_snapshot_production_queue(manager, building) if building is not None else (),
+        activity_queue=_snapshot_activity_queue(manager, building) if building is not None else (),
         is_under_construction=building is not None and building.is_under_construction,
         construction_progress=building.construction_progress if building is not None else None,
         order=current_order.kind if current_order is not None else None,
@@ -178,4 +198,17 @@ def _snapshot_production_queue(manager: GameSession, building: Building) -> tupl
         )
         for item in manager.production.queue_for(building)
         if item.kind == "unit"
+    )
+
+
+def _snapshot_activity_queue(manager: GameSession, building: Building) -> tuple[ActivitySnapshot, ...]:
+    return tuple(
+        ActivitySnapshot(
+            kind=item.kind,
+            content_id=item.content_id,
+            remaining_frames=item.remaining_frames,
+            total_frames=item.total_frames,
+            progress=item.progress,
+        )
+        for item in manager.production.queue_for(building)
     )

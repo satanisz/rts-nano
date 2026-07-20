@@ -13,10 +13,12 @@ from rts_nano.action_translation import ActionTranslator
 from rts_nano.actions import (
     Action,
     ActionSpec,
+    AssistConstructionAction,
     AttackAction,
     AttackMoveAction,
     BuildAction,
     BuildingType,
+    CancelActivityAction,
     CancelConstructionAction,
     CancelProductionAction,
     ConstructAction,
@@ -26,8 +28,11 @@ from rts_nano.actions import (
     MoveAction,
     NoOpAction,
     PatrolAction,
+    RepairAction,
+    ResearchAction,
     ReturnCargoAction,
     SelectAction,
+    SetRallyAction,
     StopAction,
     WorldPoint,
 )
@@ -37,6 +42,7 @@ from rts_nano.actions import (
 from rts_nano.content import CONTENT
 from rts_nano.game.fog import FogOfWar
 from rts_nano.game.observations import (
+    ActivitySnapshot,
     EntityId,
     EntityIdRegistry,
     EntitySnapshot,
@@ -62,11 +68,14 @@ __all__ = [
     "Action",
     "ActionSpec",
     "ActionOutcome",
+    "ActivitySnapshot",
+    "AssistConstructionAction",
     "AttackMoveAction",
     "AttackAction",
     "BuildingType",
     "BuildAction",
     "CancelConstructionAction",
+    "CancelActivityAction",
     "CancelProductionAction",
     "ConstructAction",
     "DepositAction",
@@ -79,11 +88,14 @@ __all__ = [
     "Observation",
     "PatrolAction",
     "ProductionSnapshot",
+    "RepairAction",
+    "ResearchAction",
     "ReturnCargoAction",
     "RtsNanoEnv",
     "JointStepResult",
     "EpisodeEndReason",
     "SelectAction",
+    "SetRallyAction",
     "StepResult",
     "StopAction",
     "TeamSnapshot",
@@ -467,7 +479,24 @@ class RtsNanoEnv:
             for can_construct, reason in (manager.construction.can_team_construct(team, building_type),)
         )
         unfinished_buildings = manager.construction.unfinished_buildings_for_team(team)
+        damaged_buildings = [
+            building
+            for building in manager.state.buildings_for_team(team)
+            if not building.is_under_construction and 0 < building.life < building.max_life
+        ]
         can_cancel = any(manager.production.queue_for(producer) for producer in production_buildings)
+        research_specs = tuple(
+            ActionSpec(
+                "research",
+                team_name,
+                "producer_id",
+                enabled=can_research,
+                reason=reason,
+                upgrade_id=upgrade_id,
+            )
+            for upgrade_id in CONTENT.upgrades
+            for can_research, reason in (self._can_research(team, production_buildings, upgrade_id),)
+        )
         return (
             ActionSpec("move", team_name, "world_point", enabled=bool(units), reason=None if units else "no_units"),
             ActionSpec(
@@ -516,6 +545,28 @@ class RtsNanoEnv:
             ),
             *build_specs,
             *construct_specs,
+            *research_specs,
+            ActionSpec(
+                "set_rally",
+                team_name,
+                "producer_id",
+                enabled=bool(production_buildings),
+                reason=None if production_buildings else "no_producer",
+            ),
+            ActionSpec(
+                "repair",
+                team_name,
+                "building_id",
+                enabled=bool(peasants and damaged_buildings),
+                reason=None if peasants and damaged_buildings else "no_peasant_or_damaged_building",
+            ),
+            ActionSpec(
+                "assist_construction",
+                team_name,
+                "building_id",
+                enabled=bool(peasants and unfinished_buildings),
+                reason=None if peasants and unfinished_buildings else "no_peasant_or_unfinished_building",
+            ),
             ActionSpec(
                 "cancel_construction",
                 team_name,
@@ -525,6 +576,13 @@ class RtsNanoEnv:
             ),
             ActionSpec(
                 "cancel_production",
+                team_name,
+                "producer_id",
+                enabled=can_cancel,
+                reason=None if can_cancel else "empty_queue",
+            ),
+            ActionSpec(
+                "cancel_activity",
                 team_name,
                 "producer_id",
                 enabled=can_cancel,
@@ -553,6 +611,24 @@ class RtsNanoEnv:
                 continue
             can_build, reason = self._require_simulation().manager.production.can_enqueue_unit(producer, unit_type)
             if can_build:
+                return True, None
+            last_reason = reason
+        return False, last_reason
+
+    def _can_research(
+        self,
+        team: TeamColor,
+        producers: list[Building],
+        upgrade_id: str,
+    ) -> tuple[bool, str | None]:
+        if not producers:
+            return False, "no_producer"
+        last_reason: str | None = None
+        for producer in producers:
+            if producer.team != team:
+                continue
+            can_research, reason = self._require_simulation().manager.can_research(producer, upgrade_id)
+            if can_research:
                 return True, None
             last_reason = reason
         return False, last_reason
