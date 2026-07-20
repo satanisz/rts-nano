@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from rts_nano.content import CONTENT
 from rts_nano.game.data import (
     BUILDING_SPECS,
     CONSTRUCTION_REFUND_RATIO,
@@ -21,7 +22,7 @@ def test_game_data_defines_current_worker_production() -> None:
     assert CONSTRUCTION_REFUND_RATIO == 0.75
     assert peasant.cost.wood == 50
     assert peasant.production_frames == 60
-    assert peasant.produced_at == "base"
+    assert tuple(str(item.id) for item in CONTENT.producers_for_unit("peasant")) == ("base",)
     assert base.provides_population == 10
     assert "peasant" in base.produces
 
@@ -31,8 +32,8 @@ def test_game_data_defines_basic_military_production() -> None:
     arsenal = BUILDING_SPECS["arsenal"]
     pit = BUILDING_SPECS["pit"]
 
-    assert UNIT_SPECS["guardian"].produced_at == "arsenal"
-    assert UNIT_SPECS["marksman"].produced_at == "arsenal"
+    assert tuple(str(item.id) for item in CONTENT.producers_for_unit("guardian")) == ("arsenal",)
+    assert tuple(str(item.id) for item in CONTENT.producers_for_unit("marksman")) == ("arsenal",)
     assert UNIT_SPECS["guardian"].cost.wood == 110
     assert UNIT_SPECS["guardian"].cost.gold == 55
     assert arsenal.produces == ("marksman", "guardian")
@@ -45,8 +46,8 @@ def test_game_data_defines_faction_tech_gates() -> None:
     """Advanced production buildings require their faction's tier-1 building."""
     assert BUILDING_SPECS["spire"].requires == ("arsenal",)
     assert BUILDING_SPECS["chem_vat"].requires == ("pit",)
-    assert UNIT_SPECS["arclight"].produced_at == "spire"
-    assert UNIT_SPECS["brute"].produced_at == "chem_vat"
+    assert tuple(str(item.id) for item in CONTENT.producers_for_unit("arclight")) == ("spire",)
+    assert tuple(str(item.id) for item in CONTENT.producers_for_unit("brute")) == ("chem_vat",)
 
 
 def test_game_data_sketches_minimal_full_rts_roster() -> None:

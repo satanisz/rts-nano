@@ -41,6 +41,7 @@ class ContentRegistry:
         self.resources = self._unique_by_id(resources, "resource")
         self.factions = self._unique_by_id(factions, "faction")
         self._validate()
+        self._producers_by_unit = self._build_producer_index()
 
     @staticmethod
     def _unique_by_id[T: UnitDefinition | BuildingDefinition | ResourceDefinition | FactionDefinition](
@@ -75,6 +76,13 @@ class ContentRegistry:
         except KeyError as exc:
             raise ValueError(f"Unsupported resource type: {content_id}") from exc
 
+    def producers_for_unit(self, content_id: str | ContentId) -> tuple[BuildingDefinition, ...]:
+        """Return valid producers in canonical building-ID order."""
+        unit_id = str(content_id)
+        if unit_id not in self.units:
+            raise ValueError(f"Unsupported unit type: {content_id}")
+        return self._producers_by_unit[unit_id]
+
     def units_for_faction(self, faction_id: str | FactionId) -> dict[str, UnitDefinition]:
         """Return shared and faction-specific unit definitions."""
         faction = self._get_faction(faction_id)
@@ -105,11 +113,6 @@ class ContentRegistry:
                 raise ValueError(f"Unit {unit.id} has negative costs or combat values")
             if min(unit.build_rate, unit.repair_rate) < 0:
                 raise ValueError(f"Unit {unit.id} has negative worker rates")
-            producer = self.buildings.get(str(unit.produced_at))
-            if producer is None:
-                raise ValueError(f"Unit {unit.id} references missing producer {unit.produced_at}")
-            if unit.id not in producer.produces:
-                raise ValueError(f"Producer {producer.id} does not list unit {unit.id}")
             for required in unit.requires:
                 if str(required) not in self.buildings:
                     raise ValueError(f"Unit {unit.id} requires missing building {required}")
@@ -129,9 +132,19 @@ class ContentRegistry:
             for required in building.requires:
                 if str(required) not in self.buildings:
                     raise ValueError(f"Building {building.id} requires missing building {required}")
+            if len(building.produces) != len(set(building.produces)):
+                raise ValueError(f"Building {building.id} contains duplicate production links")
             for produced in building.produces:
-                if str(produced) not in self.units:
+                unit = self.units.get(str(produced))
+                if unit is None:
                     raise ValueError(f"Building {building.id} produces missing unit {produced}")
+                if unit.faction is not None and building.faction != unit.faction:
+                    raise ValueError(f"Building {building.id} cannot produce foreign unit {produced}")
+
+        produced_unit_ids = {str(unit_id) for building in self.buildings.values() for unit_id in building.produces}
+        missing_producers = sorted(set(self.units) - produced_unit_ids)
+        if missing_producers:
+            raise ValueError(f"Units have no producer: {missing_producers}")
 
         self._validate_tech_cycles()
         self._validate_factions()
@@ -157,6 +170,14 @@ class ContentRegistry:
 
         for building_id in self.buildings:
             visit(building_id)
+
+    def _build_producer_index(self) -> MappingProxyType[str, tuple[BuildingDefinition, ...]]:
+        """Derive the reverse graph once; building definitions remain authoritative."""
+        result: dict[str, list[BuildingDefinition]] = {unit_id: [] for unit_id in self.units}
+        for building in sorted(self.buildings.values(), key=lambda definition: str(definition.id)):
+            for unit_id in building.produces:
+                result[str(unit_id)].append(building)
+        return MappingProxyType({unit_id: tuple(producers) for unit_id, producers in result.items()})
 
     def _validate_factions(self) -> None:
         assigned_units: set[str] = set()
@@ -198,7 +219,6 @@ UNIT_DEFINITIONS = (
         cost=ResourceCost(wood=50),
         production_frames=60,
         population=1,
-        produced_at=ContentId("base"),
         requires=(),
         size=30,
         radius=10.0,
@@ -224,7 +244,6 @@ UNIT_DEFINITIONS = (
         cost=ResourceCost(wood=90, gold=35),
         production_frames=120,
         population=2,
-        produced_at=ContentId("arsenal"),
         requires=(),
         size=40,
         radius=13.0,
@@ -255,7 +274,6 @@ UNIT_DEFINITIONS = (
         cost=ResourceCost(wood=110, gold=55),
         production_frames=150,
         population=3,
-        produced_at=ContentId("arsenal"),
         requires=(),
         size=40,
         radius=13.0,
@@ -283,7 +301,6 @@ UNIT_DEFINITIONS = (
         cost=ResourceCost(wood=80, gold=130),
         production_frames=180,
         population=3,
-        produced_at=ContentId("spire"),
         requires=(),
         size=40,
         radius=13.0,
@@ -311,7 +328,6 @@ UNIT_DEFINITIONS = (
         cost=ResourceCost(wood=55, gold=10),
         production_frames=90,
         population=1,
-        produced_at=ContentId("pit"),
         requires=(),
         size=40,
         radius=13.0,
@@ -336,7 +352,6 @@ UNIT_DEFINITIONS = (
         cost=ResourceCost(wood=60, gold=20),
         production_frames=100,
         population=1,
-        produced_at=ContentId("pit"),
         requires=(),
         size=40,
         radius=13.0,
@@ -365,7 +380,6 @@ UNIT_DEFINITIONS = (
         cost=ResourceCost(wood=120, gold=40),
         production_frames=180,
         population=3,
-        produced_at=ContentId("chem_vat"),
         requires=(),
         size=40,
         radius=13.0,

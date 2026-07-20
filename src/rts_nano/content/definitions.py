@@ -28,7 +28,6 @@ class UnitDefinition:
     cost: ResourceCost
     production_frames: int
     population: int
-    produced_at: ContentId
     requires: tuple[ContentId, ...]
     size: int
     radius: float

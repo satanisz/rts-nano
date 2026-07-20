@@ -7,13 +7,15 @@ tables, faction rosters, factory branches, or UI price tables.
 ## Add a unit
 
 1. Add one immutable `UnitDefinition` in `src/rts_nano/content/registry.py` with its ID, faction,
-   visual key, behavior key, cost, production building, requirements, and every gameplay stat.
+   visual key, behavior key, cost, requirements, and every gameplay stat.
 2. Reuse an existing behavior in `simulation/entities/` when the unit follows existing rules.
    Create a new concrete behavior class only for a genuinely new mechanic, then register that
    behavior once in `game/entity_factory.py`.
 3. Add the sprite and portrait files addressed by `visual_key`. Presentation asset lookup is
    optional to simulation construction and must never alter stats or rules.
-4. Add the unit ID to the producing building's `produces` definition and to its faction definition.
+4. Add the unit ID to every producing building's `produces` tuple and to each faction roster that
+   can use it. Building tuples are the only authoritative producer graph; use
+   `CONTENT.producers_for_unit(...)` for deterministic reverse lookup.
 5. Add a table-driven definition/runtime parity test and an asset-completeness case. Add a focused
    behavior test only when the mechanic is new.
 

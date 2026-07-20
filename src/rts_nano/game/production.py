@@ -72,7 +72,7 @@ class ProductionSystem:
         except ValueError:
             return False, "unsupported_building"
 
-        if spec.produced_at != producer_key or spec.key not in producer_spec.produces:
+        if spec.key not in producer_spec.produces:
             return False, "wrong_production_building"
         if producer.life <= 0 or producer.is_under_construction:
             return False, "inactive_building"

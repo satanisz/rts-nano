@@ -143,9 +143,7 @@ def test_registry_indexes_are_read_only() -> None:
     [
         lambda: _registry(units=(*UNIT_DEFINITIONS, UNIT_DEFINITIONS[0])),
         lambda: _registry(resources=(replace(RESOURCE_DEFINITIONS[0], id=ContentId("peasant")),)),
-        lambda: _registry(
-            units=(replace(UNIT_DEFINITIONS[0], produced_at=ContentId("missing")), *UNIT_DEFINITIONS[1:])
-        ),
+        lambda: _registry(buildings=(replace(BUILDING_DEFINITIONS[0], produces=()), *BUILDING_DEFINITIONS[1:])),
         lambda: _registry(resources=(replace(RESOURCE_DEFINITIONS[0], amount=0), RESOURCE_DEFINITIONS[1])),
         lambda: _registry(
             buildings=(
@@ -167,3 +165,56 @@ def test_registry_rejects_invalid_content_graphs(broken_registry: Callable[[], C
     """Invalid IDs, values, links, cycles, and faction rosters fail at startup."""
     with pytest.raises(ValueError, match="."):
         broken_registry()
+
+
+def test_registry_derives_one_canonical_producer() -> None:
+    """Existing production links have a stable reverse lookup."""
+    assert tuple(str(item.id) for item in CONTENT.producers_for_unit("peasant")) == ("base",)
+
+
+def test_shared_unit_can_have_multiple_faction_producers() -> None:
+    """A shared definition can be trained by multiple valid buildings."""
+    arsenal = BUILDING_DEFINITIONS[2]
+    registry = _registry(
+        buildings=(
+            *BUILDING_DEFINITIONS[:2],
+            replace(arsenal, produces=(*arsenal.produces, ContentId("peasant"))),
+            *BUILDING_DEFINITIONS[3:],
+        )
+    )
+
+    assert tuple(str(item.id) for item in registry.producers_for_unit("peasant")) == ("arsenal", "base")
+
+
+@pytest.mark.parametrize(
+    "buildings",
+    [
+        (
+            replace(
+                BUILDING_DEFINITIONS[0],
+                produces=(ContentId("peasant"), ContentId("peasant")),
+            ),
+            *BUILDING_DEFINITIONS[1:],
+        ),
+        (
+            *BUILDING_DEFINITIONS[:5],
+            replace(
+                BUILDING_DEFINITIONS[5],
+                produces=(*BUILDING_DEFINITIONS[5].produces, ContentId("guardian")),
+            ),
+            *BUILDING_DEFINITIONS[6:],
+        ),
+    ],
+)
+def test_registry_rejects_duplicate_and_wrong_faction_producers(
+    buildings: tuple[BuildingDefinition, ...],
+) -> None:
+    """The building-owned graph rejects ambiguous and foreign links."""
+    with pytest.raises(ValueError, match="duplicate production links|foreign unit"):
+        _registry(buildings=buildings)
+
+
+def test_registry_rejects_unknown_reverse_lookup() -> None:
+    """Reverse lookup reports unsupported unit IDs clearly."""
+    with pytest.raises(ValueError, match="Unsupported unit type"):
+        CONTENT.producers_for_unit("missing")
