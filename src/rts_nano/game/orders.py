@@ -69,29 +69,54 @@ class OrderSystem:
     ) -> int:
         """Set a move or gather rally on living completed team bases."""
         candidates = self.bases_for_team(team) if bases is None else bases
-        valid_bases = [
-            base for base in candidates if base.team == team and base.life > 0 and not base.is_under_construction
+        return self.set_producer_rally(team, destination, candidates, resource=resource)
+
+    def set_producer_rally(
+        self,
+        team: TeamColor,
+        destination: tuple[float, float],
+        producers: Iterable[Building] | None = None,
+        *,
+        resource: Resource | None = None,
+        attack_move: bool = False,
+    ) -> int:
+        """Set move, gather, or attack-move rally for completed producers."""
+        candidates = self.production_buildings_for_team(team) if producers is None else producers
+        valid_producers = [
+            producer
+            for producer in candidates
+            if producer.team == team
+            and producer.life > 0
+            and not producer.is_under_construction
+            and bool(producer.definition.produces)
         ]
         if resource is not None:
             if resource.amount <= 0 or resource.entity_id is None:
                 return 0
-            rally = Order(
-                "gather",
-                resource.get_center(),
-                target_entity_id=resource.entity_id,
-                target_content_id=resource.content_id,
-            )
+            for producer in valid_producers:
+                if isinstance(producer, Base):
+                    producer.rally_order = Order(
+                        "gather",
+                        resource.get_center(),
+                        target_entity_id=resource.entity_id,
+                        target_content_id=resource.content_id,
+                    )
+                else:
+                    producer.rally_order = Order("move", self._state.clamp_to_world(destination))
         else:
-            rally = Order("move", self._state.clamp_to_world(destination))
-        for base in valid_bases:
-            base.rally_order = rally
-        return len(valid_bases)
+            kind: OrderKind = "attack_move" if attack_move else "move"
+            rally = Order(kind, self._state.clamp_to_world(destination))
+            for producer in valid_producers:
+                producer.rally_order = rally
+        return len(valid_producers)
 
     def apply_producer_rally(self, producer: Building, unit: Unit) -> bool:
         """Apply a producer's rally to one newly spawned unit."""
-        if not isinstance(producer, Base) or producer.rally_order is None or unit.team != producer.team:
+        if producer.rally_order is None or unit.team != producer.team:
             return False
         rally = producer.rally_order
+        if rally.kind == "attack_move" and rally.destination is not None:
+            return self.issue_attack_move_order(unit.team, rally.destination, [unit]) == 1
         if rally.kind == "gather" and rally.target_content_id is not None:
             target: Resource | None = None
             if rally.target_entity_id is not None:

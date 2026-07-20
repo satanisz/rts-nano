@@ -233,6 +233,7 @@ class Building(Entity):
         self.construction_remaining_frames = 0
         self.is_under_construction = False
         self.repair_credit = 0
+        self.rally_order: Order | None = None
 
     @property
     def construction_progress(self) -> float:

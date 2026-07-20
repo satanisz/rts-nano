@@ -227,13 +227,19 @@ class InputController:
             ClickMarker(order_pos[0], order_pos[1], marker_color, pygame.time.get_ticks())
         )
 
-        selected_bases = [entity for entity in manager.selected_entities if isinstance(entity, Base)]
-        if selected_bases and (target_entity is None or isinstance(target_entity, Resource)):
-            manager.set_base_rally(
+        selected_producers = [
+            entity
+            for entity in manager.selected_entities
+            if isinstance(entity, Building) and bool(entity.definition.produces)
+        ]
+        hostile_target = isinstance(target_entity, (Unit, Building)) and target_entity.team != manager.current_team
+        if selected_producers and (target_entity is None or isinstance(target_entity, Resource) or hostile_target):
+            manager.set_producer_rally(
                 manager.current_team,
                 order_pos,
-                selected_bases,
+                selected_producers,
                 resource=target_entity if isinstance(target_entity, Resource) else None,
+                attack_move=hostile_target,
             )
             return
 

@@ -74,6 +74,8 @@ without importing Pygame, configuring SDL, loading images, or creating presentat
   current move or construction order.
 - Right-click ground with a selected Base to set its Peasant rally point. Right-click wood or gold
   to make newly produced Peasants harvest automatically.
+- Right-click ground with any selected production building to rally new units there. Right-click a
+  visible enemy to set an attack-move rally at its last known position.
 - Place a building with a Peasant, then Shift-right-click a resource to finish construction before
   harvesting. The selection panel shows the active order and up to three queued orders.
 - Right-click an unfinished allied building with additional Peasants to accelerate construction.

@@ -428,6 +428,64 @@ def test_right_click_with_selected_base_sets_move_and_gather_rallies() -> None:
     simulation.close()
 
 
+def test_military_producer_rally_moves_new_unit() -> None:
+    simulation = HeadlessSimulation.from_settings(_settings_with_arsenal())
+    manager = simulation.manager
+    arsenal = manager.state.entities_by_content_id("arsenal", team=TeamColor.BLUE)[0]
+    group = manager.teams[TeamColor.BLUE]
+    group.resources.update({"wood": 110, "gold": 55})
+
+    assert manager.set_producer_rally(TeamColor.BLUE, (240, 100), [arsenal]) == 1
+    assert manager.produce_unit(arsenal, "guardian") is True
+    simulation.step(151)
+    guardian = manager.state.entities_by_content_id("guardian", team=TeamColor.BLUE)[0]
+
+    assert guardian.current_order is not None
+    assert guardian.current_order.kind == "move"
+    assert guardian.current_order.destination == (240, 100)
+    simulation.close()
+
+
+def test_enemy_click_sets_last_known_attack_move_rally() -> None:
+    simulation = HeadlessSimulation.from_settings(_settings_with_arsenal())
+    manager = simulation.manager
+    arsenal = manager.state.entities_by_content_id("arsenal", team=TeamColor.BLUE)[0]
+    enemy_base = manager.state.entities_by_content_id("base", team=TeamColor.RED)[0]
+    group = manager.teams[TeamColor.BLUE]
+    group.resources.update({"wood": 90, "gold": 35})
+    manager.select_entities_for_team(TeamColor.BLUE, [arsenal])
+
+    InputController()._handle_right_click(manager, enemy_base.get_center())
+
+    assert arsenal.rally_order is not None
+    assert arsenal.rally_order.kind == "attack_move"
+    assert arsenal.rally_order.destination == (250, 250)
+    enemy_base.x, enemy_base.y = 350, 250
+    assert manager.produce_unit(arsenal, "marksman") is True
+    simulation.step(121)
+    marksman = manager.state.entities_by_content_id("marksman", team=TeamColor.BLUE)[0]
+
+    assert marksman.current_order is not None
+    assert marksman.current_order.kind == "attack_move"
+    assert marksman.attack_move_destination == (250, 250)
+    simulation.close()
+
+
+def test_resource_click_on_military_producer_sets_move_rally() -> None:
+    settings = _settings_with_arsenal()
+    settings["Resources"]["wood"] = [[200, 20]]
+    simulation = HeadlessSimulation.from_settings(settings)
+    manager = simulation.manager
+    arsenal = manager.state.entities_by_content_id("arsenal", team=TeamColor.BLUE)[0]
+    wood = manager.state.resources_by_content("wood")[0]
+
+    assert manager.set_producer_rally(TeamColor.BLUE, wood.get_center(), [arsenal], resource=wood) == 1
+    assert arsenal.rally_order is not None
+    assert arsenal.rally_order.kind == "move"
+    assert arsenal.rally_order.destination == wood.get_center()
+    simulation.close()
+
+
 def test_collision_keeps_crowded_units_on_map_and_off_terrain() -> None:
     """Collision separation never pushes a unit off-map or into blocked terrain."""
     settings: MapSettings = {

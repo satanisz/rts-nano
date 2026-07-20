@@ -285,6 +285,24 @@ class GameSession:
         """Set a ground or resource rally for selected team bases."""
         return self.orders.set_base_rally(team, destination, bases, resource=resource)
 
+    def set_producer_rally(
+        self,
+        team: TeamColor,
+        destination: tuple[float, float],
+        producers: Iterable[Building] | None = None,
+        *,
+        resource: Resource | None = None,
+        attack_move: bool = False,
+    ) -> int:
+        """Set a move, gather, or attack-move rally on production buildings."""
+        return self.orders.set_producer_rally(
+            team,
+            destination,
+            producers,
+            resource=resource,
+            attack_move=attack_move,
+        )
+
     def issue_move_order(
         self,
         team: TeamColor,
