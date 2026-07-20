@@ -53,6 +53,9 @@ events but does not change gameplay state.
 
 `main.py` owns Pygame startup, window/fullscreen creation, the outer event loop, and presentation
 composition. `headless.py` constructs the same `GameSession` without importing Pygame or SDL.
+Match restart is also an application-shell responsibility: a fresh `GameSession` is created from a
+deep copy of the original map settings, while renderer-owned asset caches are retained and only
+match-local presentation effects are cleared.
 
 ## Tick order
 

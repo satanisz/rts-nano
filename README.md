@@ -80,6 +80,8 @@ without importing Pygame, configuring SDL, loading images, or creating presentat
   harvesting. The selection panel shows the active order and up to three queued orders.
 - Right-click an unfinished allied building with additional Peasants to accelerate construction.
   Right-click a damaged completed allied building to repair it using Wood.
+- After Victory, Defeat, or Draw, choose `RESTART MATCH` or press `R` to recreate the same map from
+  clean deterministic state without reloading cached art.
 
 ## Quality gate
 

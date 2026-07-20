@@ -18,6 +18,7 @@ import pygame
 from rts_nano.content import CONTENT
 from rts_nano.game.rules import distance_between_points
 from rts_nano.game.ui.effects import ClickMarker
+from rts_nano.game.ui.match_result import match_result_buttons
 from rts_nano.game.ui.selection_panel import build_selection_panel_layout
 from rts_nano.game.ui.state import PresentationState
 from rts_nano.simulation.entities import Base, TeamColor
@@ -28,6 +29,7 @@ if TYPE_CHECKING:
     from rts_nano.game.ui.command_panel import CommandButton
 
 FULLSCREEN_TOGGLE_EVENT = pygame.USEREVENT + 1
+RESTART_MATCH_EVENT = pygame.USEREVENT + 2
 CAMERA_SPEED = 12
 EDGE_SCROLL_MARGIN = 24
 DOUBLE_CLICK_MS = 350
@@ -85,7 +87,20 @@ class InputController:
         elif event.type == pygame.MOUSEMOTION:
             self._handle_mouse_motion(manager, event)
 
+    def reset_match(self) -> None:
+        """Clear click history that must not cross a match boundary."""
+        self._last_click_ms = 0
+        self._last_click_pos = (0, 0)
+
     def _handle_keydown(self, manager: GameSession, event: pygame.event.Event) -> None:
+        if manager.game_over_message is not None:
+            if event.key == pygame.K_r:
+                pygame.event.post(pygame.event.Event(RESTART_MATCH_EVENT))
+            elif event.key == pygame.K_q:
+                pygame.event.post(pygame.event.Event(pygame.QUIT))
+            elif event.key == pygame.K_F11 or (event.key == pygame.K_RETURN and event.mod & pygame.KMOD_ALT):
+                self._request_fullscreen_toggle(manager)
+            return
         if event.key == pygame.K_TAB:
             manager.cancel_pending_construction_placement()
             manager.cancel_pending_unit_command()
@@ -136,6 +151,11 @@ class InputController:
         mouse_pos = event.pos
         manager.set_mouse_pos(mouse_pos)
 
+        if manager.game_over_message is not None:
+            if event.button == 1:
+                self._handle_match_result_click(manager, mouse_pos)
+            return
+
         if manager.menu_active:
             if event.button == 1:
                 self._handle_menu_click(manager, mouse_pos)
@@ -145,6 +165,15 @@ class InputController:
             self._handle_left_click(manager, mouse_pos)
         elif event.button == 3:
             self._handle_right_click(manager, mouse_pos)
+
+    @staticmethod
+    def _handle_match_result_click(manager: GameSession, mouse_pos: tuple[int, int]) -> None:
+        for label, rect in match_result_buttons(manager.screen_width, manager.screen_height):
+            if not rect.collidepoint(mouse_pos):
+                continue
+            event_type = RESTART_MATCH_EVENT if label == "RESTART MATCH" else pygame.QUIT
+            pygame.event.post(pygame.event.Event(event_type))
+            return
 
     def _handle_left_click(self, manager: GameSession, mouse_pos: tuple[int, int]) -> None:
         minimap_rect = manager._minimap_rect()

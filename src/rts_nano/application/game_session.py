@@ -29,6 +29,7 @@ cross-entity systems.
 
 from __future__ import annotations
 
+from copy import deepcopy
 from typing import TYPE_CHECKING, cast
 
 from rts_nano.content import CONTENT
@@ -92,7 +93,7 @@ class GameSession:
     def __init__(self, map_settings: MapSettings) -> None:
         """Initialize the object."""
         self.map_settings = map_settings
-        terrain = TerrainMap(map_settings.get("Terrain"))
+        terrain = TerrainMap(self.map_settings.get("Terrain"))
         map_width = terrain.width
         map_height = terrain.height
         self.state = GameState(
@@ -151,6 +152,13 @@ class GameSession:
         self.state.refresh_spatial_index()
         self._update_entity_height_levels()
         self.set_viewport_size(SCREEN_WIDTH, SCREEN_HEIGHT)
+
+    def restart(self) -> GameSession:
+        """Create a fresh deterministic match with the same map and display state."""
+        restarted = type(self)(deepcopy(self.map_settings))
+        restarted.set_viewport_size(self.screen_width, self.screen_height)
+        restarted.set_fullscreen_enabled(self.fullscreen_enabled)
+        return restarted
 
     # --- GameState-backed data (single source of truth lives in self.state) ---
 

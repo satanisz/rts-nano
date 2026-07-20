@@ -17,3 +17,7 @@ class PresentationState:
 
     command_panel: CommandPanel = field(default_factory=CommandPanel)
     click_markers: list[ClickMarker] = field(default_factory=list)
+
+    def reset_match(self) -> None:
+        """Discard transient objects while retaining reusable UI helpers."""
+        self.click_markers.clear()

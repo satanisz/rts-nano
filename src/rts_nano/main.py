@@ -22,7 +22,7 @@ import pygame
 from rts_nano.ai import ScriptedAI
 from rts_nano.application import GameSession
 from rts_nano.game.constants import FPS, GRAY, SCREEN_HEIGHT, SCREEN_WIDTH
-from rts_nano.game.ui.input_controller import FULLSCREEN_TOGGLE_EVENT, InputController
+from rts_nano.game.ui.input_controller import FULLSCREEN_TOGGLE_EVENT, RESTART_MATCH_EVENT, InputController
 from rts_nano.game.ui.renderer import GameRenderer
 from rts_nano.game.ui.state import PresentationState
 from rts_nano.map_schema import load_map_settings
@@ -156,6 +156,13 @@ def main() -> None:
                 display_screen, fullscreen_enabled = _create_display(fullscreen=event.enabled)
                 game_manager.set_fullscreen_enabled(fullscreen_enabled)
                 game_manager.set_viewport_size(*display_screen.get_size())
+            elif event.type == RESTART_MATCH_EVENT:
+                game_manager = game_manager.restart()
+                presentation.reset_match()
+                renderer.reset_match()
+                input_controller.reset_match()
+                opponent_ai = ScriptedAI(game_manager, TeamColor.RED)
+                continue
             input_controller.handle_event(game_manager, event)
 
         input_controller.update_camera(game_manager)

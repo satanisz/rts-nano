@@ -25,6 +25,7 @@ from rts_nano.game.constants import (
 )
 from rts_nano.game.fog import FogOfWar
 from rts_nano.game.ui.effects import ArcherShot, MagicMissile
+from rts_nano.game.ui.match_result import match_result_buttons, match_result_title
 from rts_nano.game.ui.order_display import unit_order_lines
 from rts_nano.game.ui.pygame_assets import PygameAssets, building_glyph
 from rts_nano.game.ui.selection_panel import PORTRAIT_SIZE, build_selection_panel_layout
@@ -208,6 +209,16 @@ class GameRenderer:
 
         if manager.menu_active:
             self._draw_main_menu(screen, manager)
+        elif manager.game_over_message is not None:
+            self._draw_match_result(screen, manager)
+
+    def reset_match(self) -> None:
+        """Clear match-local effects while preserving cached presentation assets."""
+        self._unit_facing.clear()
+        self._hit_flash_until_tick.clear()
+        self._magic_missiles.clear()
+        self._archer_shots.clear()
+        self._last_effect_tick = -1
 
     @staticmethod
     def _draw_rally_points(
@@ -593,3 +604,20 @@ class GameRenderer:
             status_surf = status_font.render(manager.menu_status, True, WHITE)
             status_rect = status_surf.get_rect(center=(screen_width // 2, start_y + total_height + 30))
             screen.blit(status_surf, status_rect)
+
+    @staticmethod
+    def _draw_match_result(screen: pygame.Surface, manager: GameSession) -> None:
+        """Draw a terminal result overlay with restart and quit actions."""
+        overlay = pygame.Surface((manager.screen_width, manager.screen_height), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 190))
+        screen.blit(overlay, (0, 0))
+        title_font = pygame.font.SysFont(None, 72)
+        button_font = pygame.font.SysFont(None, 34)
+        title = title_font.render(match_result_title(manager), True, WHITE)
+        screen.blit(title, title.get_rect(center=(manager.screen_width // 2, manager.screen_height // 2 - 40)))
+        for label, rect in match_result_buttons(manager.screen_width, manager.screen_height):
+            color = (80, 80, 80) if rect.collidepoint(manager.mouse_pos) else (40, 40, 40)
+            pygame.draw.rect(screen, color, rect)
+            pygame.draw.rect(screen, WHITE, rect, 2)
+            text_surface = button_font.render(label, True, WHITE)
+            screen.blit(text_surface, text_surface.get_rect(center=rect.center))

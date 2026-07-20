@@ -79,6 +79,30 @@ def test_viewport_size_never_changes_declared_world_bounds() -> None:
         simulation.close()
 
 
+def test_restart_creates_fresh_deterministic_match_with_same_map() -> None:
+    simulation = HeadlessSimulation.from_settings(_settings())
+    manager = simulation.manager
+    manager.set_viewport_size(900, 640)
+    manager.set_fullscreen_enabled(True)
+    manager.issue_move_order(TeamColor.BLUE, (180, 120))
+    simulation.step(12)
+    manager.teams[TeamColor.BLUE].resources["wood"] = 999
+    original_ids = [entity.entity_id for entity in manager.all_entities]
+
+    restarted = manager.restart()
+
+    assert restarted is not manager
+    assert restarted.map_settings == manager.map_settings
+    assert restarted.map_settings is not manager.map_settings
+    assert [entity.entity_id for entity in restarted.all_entities] == original_ids
+    assert restarted.state.tick_count == 0
+    assert restarted.teams[TeamColor.BLUE].resources["wood"] == 0
+    assert restarted.selected_entities == []
+    assert (restarted.screen_width, restarted.screen_height) == (900, 640)
+    assert restarted.fullscreen_enabled is True
+    simulation.close()
+
+
 def test_headless_entities_have_no_visual_state() -> None:
     """Pure entities never allocate or retain presentation surfaces."""
     settings = _settings()
