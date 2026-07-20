@@ -105,6 +105,7 @@ runs rendering with SDL's dummy video driver, and reports a fast benchmark smoke
 - [Determinism contract](docs/DETERMINISM.md)
 - [Sprint S5 performance report](benchmarks/SPRINT_S5_REPORT.md)
 - [Game-core readiness plan](EXECUTIVE_PLAN_05_CORE_READINESS.md)
+- [Expanded faction tech-tree plan](EXECUTIVE_PLAN_06_EXPANDED_FACTION_TECH_TREES.md)
 
 AI policies, automated balance work, reward design, environment lifecycle changes, and RL training
-adapters intentionally belong to the next stage after this game-core milestone.
+adapters remain deferred until the expanded faction tech-tree milestone is complete.
