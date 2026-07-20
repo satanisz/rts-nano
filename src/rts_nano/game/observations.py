@@ -177,4 +177,5 @@ def _snapshot_production_queue(manager: GameSession, building: Building) -> tupl
             progress=item.progress,
         )
         for item in manager.production.queue_for(building)
+        if item.kind == "unit"
     )

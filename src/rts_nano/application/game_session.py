@@ -409,6 +409,14 @@ class GameSession:
         """Attempt to queue a unit at a production building."""
         return self.orders.produce_unit(producer, unit_type)
 
+    def can_research(self, producer: Building, upgrade_id: str) -> tuple[bool, str | None]:
+        """Return whether a building can queue one team upgrade."""
+        return self.production.can_research(producer, upgrade_id)
+
+    def research_upgrade(self, producer: Building, upgrade_id: str) -> bool:
+        """Attempt to reserve and queue a team upgrade."""
+        return self.production.enqueue_research(producer, upgrade_id)
+
     def construct_building(self, builder: Peasant, building_type: str, position: tuple[float, float]) -> bool:
         """Attempt to place a new building and assign a worker to construct it."""
         return self.orders.construct_building(builder, building_type, position)
@@ -504,7 +512,7 @@ class GameSession:
         return True
 
     def cancel_production(self, producer: Building) -> bool:
-        """Attempt to cancel active production at a production building."""
+        """Cancel the active unit or research activity at a building."""
         return self.orders.cancel_production(producer)
 
     def cancel_peasant_production(self, base: Base) -> bool:

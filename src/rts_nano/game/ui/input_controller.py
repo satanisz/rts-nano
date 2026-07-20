@@ -337,6 +337,8 @@ class InputController:
         action = button.action
         if action == "produce" and button.producer is not None and button.unit_type:
             manager.produce_unit(button.producer, button.unit_type)
+        elif action == "research" and button.producer is not None and button.upgrade_id:
+            manager.research_upgrade(button.producer, button.upgrade_id)
         elif action == "cancel" and button.producer is not None:
             manager.cancel_production(button.producer)
         elif action == "construct" and button.building_type:

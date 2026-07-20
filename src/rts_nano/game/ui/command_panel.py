@@ -48,6 +48,7 @@ class CommandButton:
     producer: Building | None = None
     building_type: str | None = None
     unit_type: str | None = None
+    upgrade_id: str | None = None
 
 
 # A raw command before layout: (label, enabled, action, type_argument).
@@ -110,6 +111,8 @@ class CommandPanel:
             return CommandButton(rect, label, enabled, action, producer=producer, unit_type=type_arg)
         if action == "construct":
             return CommandButton(rect, label, enabled, action, building_type=type_arg)
+        if action == "research":
+            return CommandButton(rect, label, enabled, action, producer=producer, upgrade_id=type_arg)
         if action in {"cancel", "cancel_construction"}:
             return CommandButton(rect, label, enabled, action, producer=producer)
         return CommandButton(rect, label, enabled, action)
@@ -148,11 +151,15 @@ class CommandPanel:
             if selected_producer.is_under_construction:
                 commands.append((f"Build {selected_producer.construction_progress:.0%}", False, None, None))
                 commands.append(("Cancel Build", True, "cancel_construction", None))
-            elif building_spec is not None and building_spec.produces:
+            elif building_spec is not None:
                 queue = manager.production.queue_for(selected_producer)
                 if queue:
-                    active_unit = CONTENT.get_unit(queue[0].unit_type).display_name
-                    commands.append((f"{active_unit} {queue[0].progress:.0%}", False, None, None))
+                    active = queue[0]
+                    if active.kind == "unit":
+                        activity_name = CONTENT.get_unit(active.content_id).display_name
+                    else:
+                        activity_name = CONTENT.get_upgrade(active.content_id).display_name
+                    commands.append((f"{activity_name} {active.progress:.0%}", False, None, None))
                     commands.append(("Cancel", True, "cancel", None))
 
                 for unit_type in building_spec.produces:
@@ -166,6 +173,22 @@ class CommandPanel:
                         commands.append((f"Need {format_cost(CONTENT.get_unit(unit_type).cost)}", False, None, None))
                     else:
                         commands.append(("Unavailable", False, None, None))
+
+                faction = manager.state.faction_for_team(manager.current_team)
+                for upgrade in CONTENT.upgrades.values():
+                    if upgrade.faction != faction or building_spec.id not in upgrade.research_at:
+                        continue
+                    can_research, reason = manager.can_research(selected_producer, str(upgrade.id))
+                    if can_research:
+                        commands.append((f"Research {upgrade.display_name}", True, "research", str(upgrade.id)))
+                    elif reason == "insufficient_resources":
+                        commands.append((f"Need {format_cost(upgrade.cost)}", False, None, None))
+                    elif reason in {"already_completed", "exclusive_choice_completed"}:
+                        commands.append((f"Complete: {upgrade.display_name}", False, None, None))
+                    elif reason in {"already_reserved", "exclusive_choice_reserved"}:
+                        commands.append((f"Queued: {upgrade.display_name}", False, None, None))
+                    else:
+                        commands.append((f"Locked: {upgrade.display_name}", False, None, None))
         elif isinstance(primary_entity, Peasant) and primary_entity.team == manager.current_team:
             faction = manager.state.faction_for_team(manager.current_team)
             for building_type in manager.construction.supported_building_types():

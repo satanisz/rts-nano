@@ -26,6 +26,7 @@ class TeamState:
     faction_id: FactionId
     resources: dict[str, int] = field(default_factory=lambda: {"wood": 0, "gold": 0})
     completed_upgrades: list[UpgradeId] = field(default_factory=list)
+    reserved_upgrades: list[UpgradeId] = field(default_factory=list)
 
     def has_upgrade(self, upgrade_id: str) -> bool:
         """Return whether this team completed a canonical upgrade."""
@@ -38,6 +39,22 @@ class TeamState:
         self.completed_upgrades.append(upgrade_id)
         self.completed_upgrades.sort(key=str)
         return True
+
+    def reserve_upgrade(self, upgrade_id: UpgradeId) -> bool:
+        """Reserve one queued research choice in canonical order."""
+        if self.has_upgrade(str(upgrade_id)) or any(str(item) == str(upgrade_id) for item in self.reserved_upgrades):
+            return False
+        self.reserved_upgrades.append(upgrade_id)
+        self.reserved_upgrades.sort(key=str)
+        return True
+
+    def release_upgrade(self, upgrade_id: str) -> bool:
+        """Release a canceled, destroyed, or completed research reservation."""
+        for index, item in enumerate(self.reserved_upgrades):
+            if str(item) == upgrade_id:
+                self.reserved_upgrades.pop(index)
+                return True
+        return False
 
 
 @dataclass

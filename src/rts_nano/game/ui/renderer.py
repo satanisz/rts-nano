@@ -435,6 +435,17 @@ class GameRenderer:
                 elif primary_entity.life < primary_entity.max_life:
                     stats_texts.append(f"Repairers: {manager.construction.active_repairer_count(primary_entity)}")
                 stats_texts.append(f"SHIELD: {primary_entity.shield_modifier}")
+                activity = manager.production.queue_for(primary_entity)
+                if activity and activity[0].kind == "research":
+                    upgrade = CONTENT.get_upgrade(activity[0].content_id)
+                    stats_texts.append(f"Research: {upgrade.display_name} {activity[0].progress:.0%}")
+                team_state = manager.state.team(primary_entity.team)
+                if team_state is not None and team_state.completed_upgrades:
+                    completed_names = [
+                        CONTENT.get_upgrade(str(upgrade_id)).display_name
+                        for upgrade_id in team_state.completed_upgrades
+                    ]
+                    stats_texts.append(f"Completed: {', '.join(completed_names)}")
             elif isinstance(primary_entity, Resource):
                 stats_texts.append(f"Amount: {primary_entity.amount}")
 
