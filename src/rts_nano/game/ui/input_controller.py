@@ -23,6 +23,7 @@ from rts_nano.game.ui.selection_panel import build_selection_panel_layout
 from rts_nano.game.ui.state import PresentationState
 from rts_nano.simulation.entities import Base, TeamColor
 from rts_nano.simulation.entities.base import Building, Resource, Unit
+from rts_nano.simulation.entities.units import CasterUnit
 
 if TYPE_CHECKING:
     from rts_nano.application import GameSession
@@ -212,6 +213,34 @@ class InputController:
             manager.issue_gather_order(manager.current_team, resource, selected_units)
             manager.cancel_pending_unit_command()
             return
+        if manager.pending_unit_command is not None and manager.pending_unit_command.startswith("cast:"):
+            ability_id = manager.pending_unit_command.removeprefix("cast:")
+            ability = CONTENT.get_ability(ability_id)
+            caster = next(
+                (entity for entity in manager.selected_entities if isinstance(entity, CasterUnit)),
+                None,
+            )
+            target = next((entity for entity in manager.all_entities if entity.contains_point(world_pos)), None)
+            queue = bool(pygame.key.get_mods() & pygame.KMOD_SHIFT)
+            if caster is not None:
+                if ability.target_kind.value in {"ground", "area"}:
+                    manager.issue_cast_order(
+                        manager.current_team,
+                        ability_id,
+                        caster,
+                        destination=world_pos,
+                        queue=queue,
+                    )
+                else:
+                    manager.issue_cast_order(
+                        manager.current_team,
+                        ability_id,
+                        caster,
+                        target=target,
+                        queue=queue,
+                    )
+            manager.cancel_pending_unit_command()
+            return
 
         clicked_unit = manager._unit_at_world_pos(world_pos)
         now_ms = pygame.time.get_ticks()
@@ -339,6 +368,8 @@ class InputController:
             manager.produce_unit(button.producer, button.unit_type)
         elif action == "research" and button.producer is not None and button.upgrade_id:
             manager.research_upgrade(button.producer, button.upgrade_id)
+        elif action == "cast" and button.ability_id:
+            manager.begin_cast_targeting(button.ability_id)
         elif action == "cancel" and button.producer is not None:
             manager.cancel_production(button.producer)
         elif action == "construct" and button.building_type:

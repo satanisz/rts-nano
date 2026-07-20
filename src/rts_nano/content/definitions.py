@@ -5,6 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from rts_nano.game.types import (
+    AbilityEffectKind,
+    AbilityId,
+    AbilityTargetKind,
     AttackKind,
     ContentId,
     EntityCategory,
@@ -63,6 +66,9 @@ class UnitDefinition:
     splash_radius: int = 0
     build_rate: int = 0
     repair_rate: int = 0
+    energy_max: int = 0
+    energy_regen_numerator: int = 0
+    energy_regen_denominator: int = 1
 
     @property
     def key(self) -> str:
@@ -180,3 +186,22 @@ class UpgradeDefinition:
     affected_content: tuple[ContentId, ...] = ()
     modifiers: tuple[StatModifier, ...] = ()
     granted_behaviors: tuple[str, ...] = ()
+    granted_abilities: tuple[AbilityId, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class AbilityDefinition:
+    """Immutable deterministic active-ability definition."""
+
+    id: AbilityId
+    display_name: str
+    description: str
+    target_kind: AbilityTargetKind
+    effect_kind: AbilityEffectKind
+    energy_cost: int
+    cooldown_frames: int
+    cast_range: int
+    duration_frames: int = 0
+    radius: int = 0
+    max_targets: int = 1
+    magnitude: int = 0

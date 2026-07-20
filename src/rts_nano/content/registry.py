@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
 
 from rts_nano.content.definitions import (
+    AbilityDefinition,
     AttackKind,
     BuildingDefinition,
     FactionDefinition,
@@ -36,6 +37,7 @@ class ContentRegistry:
         resources: Iterable[ResourceDefinition],
         factions: Iterable[FactionDefinition],
         upgrades: Iterable[UpgradeDefinition] = (),
+        abilities: Iterable[AbilityDefinition] = (),
     ) -> None:
         """Build indexes and reject inconsistent content graphs."""
         self.units = self._unique_by_id(units, "unit")
@@ -43,12 +45,18 @@ class ContentRegistry:
         self.resources = self._unique_by_id(resources, "resource")
         self.factions = self._unique_by_id(factions, "faction")
         self.upgrades = self._unique_by_id(upgrades, "upgrade")
+        self.abilities = self._unique_by_id(abilities, "ability")
         self._validate()
         self._producers_by_unit = self._build_producer_index()
 
     @staticmethod
     def _unique_by_id[
-        T: UnitDefinition | BuildingDefinition | ResourceDefinition | FactionDefinition | UpgradeDefinition
+        T: UnitDefinition
+        | BuildingDefinition
+        | ResourceDefinition
+        | FactionDefinition
+        | UpgradeDefinition
+        | AbilityDefinition
     ](definitions: Iterable[T], label: str) -> MappingProxyType[str, T]:
         result: dict[str, T] = {}
         for definition in definitions:
@@ -92,6 +100,13 @@ class ContentRegistry:
             return self.upgrades[upgrade_id]
         except KeyError as exc:
             raise ValueError(f"Unsupported upgrade: {upgrade_id}") from exc
+
+    def get_ability(self, ability_id: str) -> AbilityDefinition:
+        """Return an active ability definition or raise a clear error."""
+        try:
+            return self.abilities[ability_id]
+        except KeyError as exc:
+            raise ValueError(f"Unsupported ability: {ability_id}") from exc
 
     def units_for_faction(self, faction_id: str | FactionId) -> dict[str, UnitDefinition]:
         """Return shared and faction-specific unit definitions."""
@@ -159,6 +174,7 @@ class ContentRegistry:
         self._validate_tech_cycles()
         self._validate_factions()
         self._validate_upgrades()
+        self._validate_abilities()
 
         for resource in self.resources.values():
             if resource.amount <= 0 or resource.size <= 0 or resource.radius <= 0:
@@ -257,6 +273,9 @@ class ContentRegistry:
             for conflict_id in upgrade.conflicts:
                 if upgrade.id not in self.upgrades[str(conflict_id)].conflicts:
                     raise ValueError(f"Upgrade conflict {upgrade.id}/{conflict_id} must be symmetric")
+            for ability_id in upgrade.granted_abilities:
+                if str(ability_id) not in self.abilities:
+                    raise ValueError(f"Upgrade {upgrade.id} grants missing ability {ability_id}")
 
         visiting: set[str] = set()
         visited: set[str] = set()
@@ -281,6 +300,23 @@ class ContentRegistry:
                 groups.setdefault(str(upgrade.exclusive_group), set()).add(str(upgrade.faction))
         if any(len(factions) != 1 for factions in groups.values()):
             raise ValueError("Upgrade exclusivity groups cannot span factions")
+
+    def _validate_abilities(self) -> None:
+        for ability in self.abilities.values():
+            if (
+                min(
+                    ability.energy_cost,
+                    ability.cooldown_frames,
+                    ability.cast_range,
+                    ability.duration_frames,
+                    ability.radius,
+                    ability.magnitude,
+                )
+                < 0
+            ):
+                raise ValueError(f"Ability {ability.id} has negative values")
+            if ability.max_targets <= 0:
+                raise ValueError(f"Ability {ability.id} has no valid targets")
 
 
 UNIT_DEFINITIONS = (
@@ -380,6 +416,9 @@ UNIT_DEFINITIONS = (
         attack_range=220,
         attack_speed=1.2,
         attack_kinds=(AttackKind.RANGED,),
+        energy_max=100,
+        energy_regen_numerator=1,
+        energy_regen_denominator=6,
     ),
     UnitDefinition(
         id=ContentId("marksman"),
@@ -748,6 +787,7 @@ FACTION_DEFINITIONS = (
 )
 
 UPGRADE_DEFINITIONS: tuple[UpgradeDefinition, ...] = ()
+ABILITY_DEFINITIONS: tuple[AbilityDefinition, ...] = ()
 
 CONTENT = ContentRegistry(
     units=UNIT_DEFINITIONS,
@@ -755,4 +795,5 @@ CONTENT = ContentRegistry(
     resources=RESOURCE_DEFINITIONS,
     factions=FACTION_DEFINITIONS,
     upgrades=UPGRADE_DEFINITIONS,
+    abilities=ABILITY_DEFINITIONS,
 )

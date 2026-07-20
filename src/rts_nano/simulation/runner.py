@@ -9,6 +9,7 @@ from rts_nano.simulation.entities.base import Resource, Unit
 from rts_nano.simulation.events import AttackLanded
 
 if TYPE_CHECKING:
+    from rts_nano.game.abilities import AbilitySystem
     from rts_nano.game.combat import CombatSystem
     from rts_nano.game.construction import ConstructionSystem
     from rts_nano.game.effects import EffectsSystem
@@ -35,6 +36,7 @@ class SimulationRunner:
         gather: GatherSystem,
         construction: ConstructionSystem,
         orders: OrderSystem,
+        abilities: AbilitySystem,
     ) -> None:
         """Bind one state to its deterministic gameplay systems."""
         self.state = state
@@ -46,6 +48,7 @@ class SimulationRunner:
         self.gather = gather
         self.construction = construction
         self.orders = orders
+        self.abilities = abilities
         self.events: list[AttackLanded] = []
 
     def step(self) -> set[Entity]:
@@ -59,6 +62,8 @@ class SimulationRunner:
                 continue
             if isinstance(entity, Unit):
                 self._update_unit(entity)
+                if entity.current_order is not None and entity.current_order.kind == "cast":
+                    self.abilities.update_cast(entity)
                 self.state.spatial_index.update(entity)
             if isinstance(entity, Peasant):
                 self.gather.update_peasant(entity, all_entities)

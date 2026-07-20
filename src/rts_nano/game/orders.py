@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from rts_nano.game.order import MAX_QUEUED_ORDERS, Order, OrderKind
 from rts_nano.game.rules import distance_between_points, nearest_entity
+from rts_nano.game.types import AbilityId
 from rts_nano.simulation.entities.base import Building, Resource, Unit
 from rts_nano.simulation.entities.buildings import Base
 from rts_nano.simulation.entities.units import Peasant
@@ -13,6 +14,7 @@ from rts_nano.simulation.entities.units import Peasant
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
+    from rts_nano.game.abilities import AbilitySystem
     from rts_nano.game.construction import ConstructionSystem
     from rts_nano.game.movement import MovementSystem
     from rts_nano.game.production import ProductionSystem
@@ -31,12 +33,14 @@ class OrderSystem:
         movement: MovementSystem,
         production: ProductionSystem,
         construction: ConstructionSystem,
+        abilities: AbilitySystem | None = None,
     ) -> None:
         """Initialize the order system with the state and collaborator systems."""
         self._state = state
         self._movement = movement
         self._production = production
         self._construction = construction
+        self._abilities = abilities
         self._queued_units: dict[EntityId, Unit] = {}
 
     def units_for_team(self, team: TeamColor) -> list[Unit]:
@@ -365,6 +369,31 @@ class OrderSystem:
             affected += 1
         return affected
 
+    def issue_cast_order(
+        self,
+        team: TeamColor,
+        ability_id: str,
+        caster: Unit,
+        *,
+        target: Entity | None = None,
+        destination: tuple[float, float] | None = None,
+        queue: bool = False,
+    ) -> int:
+        """Issue or Shift-queue one first-class caster order."""
+        if self._abilities is None or caster.entity_id is None:
+            return 0
+        can_issue, _ = self._abilities.can_issue(team, caster, ability_id, target, destination)
+        if not can_issue:
+            return 0
+        order = Order(
+            "cast",
+            destination,
+            target_entity_id=target.entity_id if target is not None else None,
+            target_content_id=target.content_id if target is not None else None,
+            ability_id=AbilityId(ability_id),
+        )
+        return self._queue_or_execute(caster, order, queue=queue)
+
     def build_peasant(self, base: Base) -> bool:
         """Attempt to queue a Peasant at the given base."""
         return self.produce_unit(base, "peasant")
@@ -452,6 +481,8 @@ class OrderSystem:
             if order.kind == "repair" and (target.is_under_construction or target.life >= target.max_life):
                 return False
             return self._movement.assign_unit_target(unit, target.get_center(), target)
+        if order.kind == "cast" and self._abilities is not None:
+            return self._abilities.start_order(unit, order)
         return False
 
     @staticmethod
@@ -466,6 +497,8 @@ class OrderSystem:
                 or unit.carry_wood > 0
                 or unit.carry_gold > 0
             )
+        if unit.current_order.kind == "cast":
+            return True
         return unit.state in {"MOVING", "ATTACKING", "BUILDING", "REPAIRING", "GATHERING", "DEPOSITING"}
 
     def _order_units_for_team(self, team: TeamColor, units: Iterable[Unit] | None = None) -> list[Unit]:

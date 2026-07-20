@@ -33,6 +33,7 @@ from rts_nano.game.ui.state import PresentationState
 from rts_nano.game.ui.terrain_renderer import TerrainRenderer
 from rts_nano.simulation.entities import TeamColor, Wood
 from rts_nano.simulation.entities.base import Building, Entity, Resource, Unit
+from rts_nano.simulation.entities.units import CasterUnit
 
 if TYPE_CHECKING:
     from rts_nano.application import GameSession
@@ -426,6 +427,8 @@ class GameRenderer:
                 stats_texts.append(f"ATTACK: {primary_entity.attack_damage}")
                 stats_texts.append(f"RANGE: {primary_entity.attack_range}")
                 stats_texts.append(f"SHIELD: {primary_entity.shield_modifier}")
+                if isinstance(primary_entity, CasterUnit):
+                    stats_texts.append(f"ENERGY: {primary_entity.energy}/{primary_entity.energy_max}")
                 stats_texts.extend(unit_order_lines(primary_entity))
             elif isinstance(primary_entity, Building):
                 stats_texts.append(f"HP: {primary_entity.life}/{primary_entity.max_life}")

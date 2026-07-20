@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
-    from rts_nano.game.types import ContentId, EntityId
+    from rts_nano.game.types import AbilityId, ContentId, EntityId
 
 MAX_QUEUED_ORDERS = 16
 
@@ -32,6 +32,7 @@ type OrderKind = Literal[
     "stop",
     "hold",
     "patrol",
+    "cast",
 ]
 
 
@@ -49,3 +50,4 @@ class Order:
     destination: tuple[float, float] | None = None
     target_entity_id: EntityId | None = None
     target_content_id: ContentId | None = None
+    ability_id: AbilityId | None = None

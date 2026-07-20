@@ -21,7 +21,7 @@ import pygame
 from rts_nano.content import CONTENT
 from rts_nano.game.constants import BOTTOM_MENU_HEIGHT
 from rts_nano.simulation.entities.base import Building, Unit
-from rts_nano.simulation.entities.units import Peasant
+from rts_nano.simulation.entities.units import CasterUnit, Peasant
 
 if TYPE_CHECKING:
     from rts_nano.application import GameSession
@@ -49,6 +49,7 @@ class CommandButton:
     building_type: str | None = None
     unit_type: str | None = None
     upgrade_id: str | None = None
+    ability_id: str | None = None
 
 
 # A raw command before layout: (label, enabled, action, type_argument).
@@ -113,6 +114,8 @@ class CommandPanel:
             return CommandButton(rect, label, enabled, action, building_type=type_arg)
         if action == "research":
             return CommandButton(rect, label, enabled, action, producer=producer, upgrade_id=type_arg)
+        if action == "cast":
+            return CommandButton(rect, label, enabled, action, ability_id=type_arg)
         if action in {"cancel", "cancel_construction"}:
             return CommandButton(rect, label, enabled, action, producer=producer)
         return CommandButton(rect, label, enabled, action)
@@ -138,6 +141,15 @@ class CommandPanel:
                 for entity in selected_units
             ):
                 commands.append(("Return Cargo", True, "return_cargo", None))
+            if isinstance(primary_entity, CasterUnit):
+                for ability in manager.abilities.available_abilities(primary_entity):
+                    cooldown = primary_entity.ability_cooldowns.get(str(ability.id), 0)
+                    if cooldown > 0:
+                        commands.append((f"{ability.display_name} {cooldown}", False, None, None))
+                    elif primary_entity.energy < ability.energy_cost:
+                        commands.append((f"Need {ability.energy_cost} Energy", False, None, None))
+                    else:
+                        commands.append((ability.display_name, True, "cast", str(ability.id)))
 
         selected_producer: Building | None = None
         if isinstance(primary_entity, Building) and getattr(primary_entity, "team", None) == manager.current_team:

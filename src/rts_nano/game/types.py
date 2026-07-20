@@ -66,3 +66,27 @@ class ModifierStat(StrEnum):
     POISON_DAMAGE = "poison_damage"
     POISON_DURATION = "poison_duration"
     SPLASH_RADIUS = "splash_radius"
+
+
+AbilityId = NewType("AbilityId", str)
+"""Stable identifier of an active unit ability."""
+
+
+class AbilityTargetKind(StrEnum):
+    """Closed targeting modes for deterministic casts."""
+
+    SELF = "self"
+    ALLY = "ally"
+    ENEMY = "enemy"
+    GROUND = "ground"
+    AREA = "area"
+
+
+class AbilityEffectKind(StrEnum):
+    """Closed effect handlers interpreted by the pure ability system."""
+
+    DIRECT_DAMAGE = "direct_damage"
+    BARRIER_PULSE = "barrier_pulse"
+    ARC_BIND = "arc_bind"
+    TOXIC_CLOUD = "toxic_cloud"
+    MUTAGENIC_SURGE = "mutagenic_surge"

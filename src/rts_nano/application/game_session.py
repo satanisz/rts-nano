@@ -33,6 +33,7 @@ from copy import deepcopy
 from typing import TYPE_CHECKING, cast
 
 from rts_nano.content import CONTENT
+from rts_nano.game.abilities import AbilitySystem
 from rts_nano.game.combat import CombatSystem
 from rts_nano.game.constants import (
     BOTTOM_MENU_HEIGHT,
@@ -59,6 +60,7 @@ from rts_nano.game.upgrades import UpgradeSystem
 from rts_nano.game.victory import VictorySystem
 from rts_nano.simulation.entities import (
     Base,
+    CasterUnit,
     Peasant,
     TeamColor,
 )
@@ -126,6 +128,7 @@ class GameSession:
         self.pending_construction_builder: Peasant | None = None
         self.pending_unit_command: str | None = None
         self.movement = MovementSystem(self.state)
+        self.abilities = AbilitySystem(self.state, self.movement)
         self.upgrades = UpgradeSystem(self.state)
         self.production = ProductionSystem(self.state, self.upgrades)
         self.combat = CombatSystem(self.state)
@@ -133,7 +136,7 @@ class GameSession:
         self.victory = VictorySystem(self.state)
         self.gather = GatherSystem(self.state, self.movement)
         self.construction = ConstructionSystem(self.state, self.movement)
-        self.orders = OrderSystem(self.state, self.movement, self.production, self.construction)
+        self.orders = OrderSystem(self.state, self.movement, self.production, self.construction, self.abilities)
         self.simulation = SimulationRunner(
             self.state,
             self.movement,
@@ -144,6 +147,7 @@ class GameSession:
             self.gather,
             self.construction,
             self.orders,
+            self.abilities,
         )
         self.menu_status: str | None = None
         self.mouse_pos: tuple[int, int] = (0, 0)
@@ -401,6 +405,26 @@ class GameSession:
         """Order carrying peasants to return resources to an allied base."""
         return self.orders.issue_return_cargo_order(team, units, base)
 
+    def issue_cast_order(
+        self,
+        team: TeamColor,
+        ability_id: str,
+        caster: Unit,
+        *,
+        target: Entity | None = None,
+        destination: tuple[float, float] | None = None,
+        queue: bool = False,
+    ) -> int:
+        """Issue or queue a deterministic active-ability order."""
+        return self.orders.issue_cast_order(
+            team,
+            ability_id,
+            caster,
+            target=target,
+            destination=destination,
+            queue=queue,
+        )
+
     def build_peasant(self, base: Base) -> bool:
         """Attempt to queue a Peasant at the given base."""
         return self.orders.build_peasant(base)
@@ -484,10 +508,26 @@ class GameSession:
         self.menu_status = "Choose resource"
         return True
 
+    def begin_cast_targeting(self, ability_id: str) -> bool:
+        """Enter one-click targeting mode for an unlocked selected caster ability."""
+        caster = next((entity for entity in self.selected_entities if isinstance(entity, CasterUnit)), None)
+        if caster is None or ability_id not in {str(item.id) for item in self.abilities.available_abilities(caster)}:
+            self.menu_status = "Select an eligible caster"
+            return False
+        ability = CONTENT.get_ability(ability_id)
+        if ability.target_kind.value == "self":
+            return bool(self.issue_cast_order(self.current_team, ability_id, caster, target=caster))
+        self.cancel_pending_construction_placement()
+        self.pending_unit_command = f"cast:{ability_id}"
+        self.menu_status = f"Choose target for {ability.display_name}"
+        return True
+
     def cancel_pending_unit_command(self) -> None:
         """Leave pending selected-unit command mode."""
         self.pending_unit_command = None
-        if self.menu_status in {"Choose attack-move target", "Choose resource", "Choose patrol point"}:
+        if self.menu_status in {"Choose attack-move target", "Choose resource", "Choose patrol point"} or (
+            self.menu_status is not None and self.menu_status.startswith("Choose target for ")
+        ):
             self.menu_status = None
 
     def place_pending_construction(self, position: tuple[float, float]) -> bool:

@@ -121,6 +121,31 @@ class CasterUnit(Unit):
     def __init__(self, x: int, y: int, team: TeamColor, definition: UnitDefinition) -> None:
         """Initialize the object."""
         super().__init__(x, y, team, definition)
+        self.energy_max = definition.energy_max
+        self.energy = definition.energy_max
+        self.energy_regen_numerator = definition.energy_regen_numerator
+        self.energy_regen_denominator = definition.energy_regen_denominator
+        self.energy_regen_accumulator = 0
+        self.ability_cooldowns: dict[str, int] = {}
+
+    def update(
+        self,
+        entities: Iterable[Entity],
+        can_move_to: Callable[[Unit, tuple[float, float]], bool] | None = None,
+    ) -> None:
+        """Advance local energy/cooldowns, then normal unit behavior."""
+        if self.energy < self.energy_max and self.energy_regen_numerator > 0:
+            self.energy_regen_accumulator += self.energy_regen_numerator
+            while self.energy_regen_accumulator >= self.energy_regen_denominator and self.energy < self.energy_max:
+                self.energy += 1
+                self.energy_regen_accumulator -= self.energy_regen_denominator
+        for ability_id in tuple(self.ability_cooldowns):
+            remaining = self.ability_cooldowns[ability_id] - 1
+            if remaining <= 0:
+                del self.ability_cooldowns[ability_id]
+            else:
+                self.ability_cooldowns[ability_id] = remaining
+        super().update(entities, can_move_to)
 
 
 class ArtilleryUnit(Unit):
