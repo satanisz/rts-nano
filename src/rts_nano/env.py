@@ -51,6 +51,8 @@ from rts_nano.simulation.entities.base import Building, Unit
 from rts_nano.simulation.entities.units import Peasant
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from rts_nano.map_schema import MapSettings
 
 DEFAULT_MAP_ID = "map_settings_01.json"
@@ -156,13 +158,17 @@ class RtsNanoEnv:
         settings: MapSettings | None = None,
         frame_skip: int = 1,
         reward_fn: RewardFunction | None = None,
+        reward_fns: Mapping[TeamColor | str, RewardFunction] | None = None,
         max_episode_frames: int | None = DEFAULT_MAX_EPISODE_FRAMES,
     ) -> None:
         """Initialize an environment and load the initial simulation."""
         self._map_id = map_id
         self._settings = settings
         self._frame_skip = max(1, frame_skip)
+        if reward_fn is not None and reward_fns is not None:
+            raise ValueError("reward_fn and reward_fns are mutually exclusive")
         self._reward_fn = reward_fn
+        self._reward_fns = self._normalize_reward_fns(reward_fns)
         if max_episode_frames is not None and max_episode_frames <= 0:
             raise ValueError("max_episode_frames must be positive or None")
         self._max_episode_frames = max_episode_frames
@@ -207,6 +213,10 @@ class RtsNanoEnv:
         reset_reward = getattr(self._reward_fn, "reset", None)
         if callable(reset_reward):
             reset_reward()
+        for reward in self._reward_fns.values():
+            reset_team_reward = getattr(reward, "reset", None)
+            if callable(reset_team_reward):
+                reset_team_reward()
 
         if self._settings is not None:
             settings_copy = copy.deepcopy(self._settings)
@@ -241,6 +251,60 @@ class RtsNanoEnv:
     def observe(self) -> Observation:
         """Return a serializable snapshot of the current simulation state."""
         return build_observation(self._require_simulation().manager, self._tick, self._entity_ids)
+
+    def step_joint(
+        self,
+        actions: Mapping[TeamColor | str, tuple[Action, ...]],
+    ) -> JointStepResult:
+        """Apply both teams' prevalidated batches, then advance simulation exactly once."""
+        from rts_nano.joint_actions import prepare_joint_actions
+
+        self._ensure_can_step()
+        simulation = self._require_simulation()
+        translator = self._require_action_translator()
+        prepared = prepare_joint_actions(simulation.manager, translator, actions)
+        outcomes: list[ActionOutcome] = []
+        for item in prepared:
+            affected = 0
+            if item.accepted:
+                try:
+                    affected = translator.apply(item.action)
+                except KeyError, ValueError:
+                    item.accepted = False
+                    item.reason = "invalid_entity"
+                if item.accepted and not isinstance(item.action, NoOpAction) and affected <= 0:
+                    item.accepted = False
+                    item.reason = "not_applied"
+            outcomes.append(
+                ActionOutcome(
+                    item.index,
+                    item.team.value,
+                    item.kind,
+                    item.accepted,
+                    affected,
+                    item.reason,
+                )
+            )
+        requested_frames = self._frame_skip
+        remaining = self._remaining_episode_frames()
+        frames = requested_frames if remaining is None else min(requested_frames, remaining)
+        advanced = simulation.step(frames)
+        self._tick += advanced
+        self._decision_count += 1
+        self._update_episode_end()
+        observation = self.observe()
+        rewards = {
+            team.value: self._reward_fns[team](observation) if team in self._reward_fns else 0.0
+            for team in (TeamColor.BLUE, TeamColor.RED)
+        }
+        return JointStepResult(
+            observation=observation,
+            rewards=rewards,
+            terminated=self._terminated,
+            truncated=self._truncated,
+            action_outcomes=tuple(outcomes),
+            info=self._step_info(advanced, requested_frames),
+        )
 
     def fog_state(self, team: TeamColor | str | None = None) -> tuple[tuple[int, ...], ...]:
         """Return a per-team fog visibility grid as an immutable row-major grid.
@@ -337,6 +401,23 @@ class RtsNanoEnv:
             "game_result": manager.game_over_message,
             "end_reason": self._end_reason.value if self._end_reason is not None else None,
         }
+
+    @staticmethod
+    def _normalize_reward_fns(
+        reward_fns: Mapping[TeamColor | str, RewardFunction] | None,
+    ) -> dict[TeamColor, RewardFunction]:
+        normalized: dict[TeamColor, RewardFunction] = {}
+        for key, reward in (reward_fns or {}).items():
+            try:
+                team = key if isinstance(key, TeamColor) else TeamColor(key)
+            except ValueError as exc:
+                raise ValueError(f"Unknown reward team: {key}") from exc
+            if team not in {TeamColor.BLUE, TeamColor.RED}:
+                raise ValueError(f"Unsupported reward team: {team.value}")
+            if team in normalized:
+                raise ValueError(f"Duplicate reward team: {team.value}")
+            normalized[team] = reward
+        return normalized
 
     @staticmethod
     def _frames_for(action: Action) -> int:

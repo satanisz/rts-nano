@@ -75,6 +75,65 @@ class ActionTranslator:
             return self._apply_select(action)
         return 0
 
+    def validate(self, action: Action) -> tuple[bool, str | None]:
+        """Validate an existing public action without mutating simulation state."""
+        try:
+            if isinstance(action, NoOpAction):
+                return True, None
+            if isinstance(action, (MoveAction, AttackMoveAction, PatrolAction, StopAction, HoldAction)):
+                return self._availability(bool(self._units_for_action(action.team, action.unit_ids)), "no_units")
+            if isinstance(action, AttackAction):
+                target = self._entity_by_id(action.target_id)
+                units = self._units_for_action(action.team, action.unit_ids)
+                return self._availability(bool(units and getattr(target, "life", 0) > 0), "no_units_or_target")
+            if isinstance(action, GatherAction):
+                target = self._entity_by_id(action.resource_id)
+                units = self._units_for_action(action.team, action.unit_ids)
+                valid = (
+                    isinstance(target, Resource)
+                    and target.amount > 0
+                    and any(isinstance(unit, Peasant) for unit in units)
+                )
+                return self._availability(valid, "no_peasant_or_resource")
+            if isinstance(action, (DepositAction, ReturnCargoAction)):
+                base_id = action.base_id
+                base = self._base_for_action(action.team, base_id) if base_id is not None else None
+                bases_exist = base is not None or bool(self._manager.orders.bases_for_team(action.team))
+                units = self._units_for_action(action.team, action.unit_ids)
+                return self._availability(
+                    bases_exist and any(isinstance(unit, Peasant) for unit in units),
+                    "no_peasant_or_base",
+                )
+            if isinstance(action, BuildAction):
+                producer = self._producer_for_action(action.team, action.base_id, action.unit_type)
+                if producer is None:
+                    return False, "no_producer"
+                return self._manager.production.can_enqueue_unit(producer, action.unit_type)
+            if isinstance(action, ConstructAction):
+                builder = self._builder_for_action(
+                    action.team, action.builder_id, action.building_type, action.position
+                )
+                return self._availability(builder is not None, "cannot_construct")
+            if isinstance(action, CancelConstructionAction):
+                building = self._unfinished_building_for_action(action.team, action.building_id)
+                return self._availability(building is not None, "no_unfinished_building")
+            if isinstance(action, CancelProductionAction):
+                producer = self._producer_for_action(action.team, action.base_id)
+                return self._availability(producer is not None, "empty_queue")
+            if isinstance(action, SelectAction):
+                entities = tuple(self._entity_by_id(entity_id) for entity_id in action.entity_ids)
+                return self._availability(
+                    bool(entities) and all(getattr(entity, "team", None) == action.team for entity in entities),
+                    "invalid_selection",
+                )
+        except KeyError, ValueError:
+            return False, "invalid_entity"
+        return False, "unsupported_action"
+
+    @staticmethod
+    def _availability(condition: bool, reason: str) -> tuple[bool, str | None]:
+        return condition, None if condition else reason
+
     def _apply_move(self, action: MoveAction) -> int:
         units = self._units_for_action(action.team, action.unit_ids)
         return self._manager.orders.issue_move_order(action.team, action.destination, units)
