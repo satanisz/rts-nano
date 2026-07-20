@@ -54,6 +54,7 @@ class ModifierStat(StrEnum):
     MAX_LIFE = "max_life"
     SHIELD_MAX = "shield_max"
     SHIELD_REGEN = "shield_regen"
+    SHIELD_MODIFIER = "shield_modifier"
     ATTACK_DAMAGE = "attack_damage"
     ATTACK_MODIFIER = "attack_modifier"
     ATTACK_RANGE = "attack_range"

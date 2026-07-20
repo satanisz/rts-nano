@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from rts_nano.content import CONTENT, ContentRegistry
 from rts_nano.game.rules import apply_damage, distance_between_points
 from rts_nano.game.types import AbilityEffectKind, AbilityTargetKind
+from rts_nano.simulation.entities.base import Building, Unit
 from rts_nano.simulation.entities.units import CasterUnit
 
 if TYPE_CHECKING:
@@ -15,7 +16,7 @@ if TYPE_CHECKING:
     from rts_nano.game.order import Order
     from rts_nano.game.state import GameState
     from rts_nano.simulation.entities import TeamColor
-    from rts_nano.simulation.entities.base import Entity, Unit
+    from rts_nano.simulation.entities.base import Entity
 
 
 class AbilitySystem:
@@ -172,9 +173,39 @@ class AbilitySystem:
         target: Entity | None,
         position: tuple[float, float],
     ) -> bool:
-        del caster, position
         if ability.effect_kind == AbilityEffectKind.DIRECT_DAMAGE and target is not None:
             apply_damage(target, ability.magnitude)
+            return True
+        if ability.effect_kind == AbilityEffectKind.BARRIER_PULSE:
+            candidates = self._state.spatial_index.query(
+                position, ability.radius + self._state.spatial_index.max_radius
+            )
+            eligible = sorted(
+                (
+                    entity
+                    for entity in candidates
+                    if isinstance(entity, (Unit, Building))
+                    and entity.team == caster.team
+                    and entity.life > 0
+                    and entity.shield_max > 0
+                    and entity.shield < entity.shield_max
+                    and distance_between_points(position, entity.get_center()) <= ability.radius + entity.radius
+                ),
+                key=lambda entity: int(entity.entity_id or 0),
+            )[: ability.max_targets]
+            if not eligible:
+                return False
+            for entity in eligible:
+                entity.shield = min(entity.shield_max, entity.shield + ability.magnitude)
+            return True
+        if ability.effect_kind == AbilityEffectKind.ARC_BIND and isinstance(target, Unit):
+            target.arc_mark_remaining_frames = max(target.arc_mark_remaining_frames, ability.duration_frames)
+            target.arc_mark_team = caster.team
+            target.slow_remaining_frames = max(target.slow_remaining_frames, ability.duration_frames)
+            if not hasattr(target, "slow_restore_speed"):
+                target.slow_restore_speed = target.speed
+            target.slow_multiplier = max(0, 100 - ability.magnitude) / 100
+            target.speed = round(target.slow_restore_speed * target.slow_multiplier, 6)
             return True
         return False
 

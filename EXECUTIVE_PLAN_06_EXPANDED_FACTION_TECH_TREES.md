@@ -2,7 +2,7 @@
 
 Last updated: 2026-07-20
 
-## STATUS: IN PROGRESS — S6 COMPLETED
+## STATUS: IN PROGRESS — S7 COMPLETED
 
 This plan expands the completed RTS game core with shared baseline and tier-two combat units,
 deterministic team-wide research, mutually exclusive faction doctrines, a deterministic caster

@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "tick": 2,
+  "completed_upgrades": [
+    "aegis_arc_targeting",
+    "aegis_archer_arcshot",
+    "aegis_mage_arcbinder"
+  ],
+  "mage": {
+    "energy": 65,
+    "cooldowns": {
+      "arc_bind": 150
+    },
+    "order": null
+  },
+  "enemy": {
+    "life": 93,
+    "arc_mark_frames": 119,
+    "arc_mark_team": "Blue",
+    "slow_frames": 119,
+    "speed": 1.43
+  }
+}

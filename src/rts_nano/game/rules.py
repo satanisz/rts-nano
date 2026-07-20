@@ -54,6 +54,24 @@ def calculate_damage(attack_damage: int, attack_modifier: int, shield_modifier: 
     return max(0, attack_damage + attack_modifier - shield_modifier)
 
 
+def combat_shield_modifier(target: object) -> int:
+    """Return definition armor plus explicit positional doctrine protection."""
+    modifier = int(getattr(target, "shield_modifier", 0))
+    behaviors = getattr(target, "active_behaviors", ())
+    if "bulwark_hold" in behaviors and getattr(target, "state", None) == "HOLDING":
+        modifier += 2
+    return modifier
+
+
+def combat_attack_bonus(attacker: object, target: object) -> int:
+    """Return bounded combined-arms damage against a live allied arc mark."""
+    if getattr(target, "arc_mark_remaining_frames", 0) <= 0:
+        return 0
+    if getattr(target, "arc_mark_team", None) != getattr(attacker, "team", None):
+        return 0
+    return 4 if "arc_targeting" in getattr(attacker, "active_behaviors", ()) else 2
+
+
 def apply_damage(target: Entity, amount: int) -> int:
     """Apply post-armor damage to a target, draining a shield buffer before life.
 

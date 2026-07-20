@@ -77,6 +77,15 @@ class UpgradeSystem:
         if team_state is None:
             return
         stats = self.effective_stats(entity.definition, team_state.completed_upgrades)
+        entity.active_behaviors = frozenset(
+            sorted(
+                behavior
+                for upgrade_id in team_state.completed_upgrades
+                for upgrade in (self._registry.get_upgrade(str(upgrade_id)),)
+                if entity.definition.id in upgrade.affected_content
+                for behavior in upgrade.granted_behaviors
+            )
+        )
         old_max_life = entity.max_life
         entity.max_life = int(stats[ModifierStat.MAX_LIFE])
         entity.life = min(entity.max_life, max(0, entity.life + entity.max_life - old_max_life))
@@ -88,6 +97,13 @@ class UpgradeSystem:
             if attribute in {"max_life", "shield_max"} or not hasattr(entity, attribute):
                 continue
             setattr(entity, attribute, value)
+        if isinstance(entity, Unit):
+            base_speed = float(stats[ModifierStat.SPEED])
+            if entity.slow_remaining_frames > 0:
+                entity.slow_restore_speed = base_speed
+                entity.speed = base_speed * getattr(entity, "slow_multiplier", 1.0)
+            else:
+                entity.speed = base_speed
 
     def effective_stats(
         self,

@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 
 from rts_nano.game.constants import FPS, POISON_INTERVAL
 from rts_nano.game.rules import apply_damage
+from rts_nano.simulation.entities.base import Unit
 
 if TYPE_CHECKING:
     from rts_nano.game.state import GameState
@@ -32,7 +33,28 @@ class EffectsSystem:
             if entity.life <= 0:
                 continue
             self._tick_poison(entity)
+            self._tick_temporary_effects(entity)
             self._regen_shield(entity)
+
+    @staticmethod
+    def _tick_temporary_effects(entity: Entity) -> None:
+        """Expire marks, slows, and stuns without stacking permanent state."""
+        if entity.arc_mark_remaining_frames > 0:
+            entity.arc_mark_remaining_frames -= 1
+            if entity.arc_mark_remaining_frames == 0:
+                entity.arc_mark_team = None
+        if entity.stun_remaining_frames > 0:
+            entity.stun_remaining_frames -= 1
+            if entity.stun_remaining_frames == 0 and isinstance(entity, Unit) and entity.state == "STUNNED":
+                entity.state = "MOVING" if getattr(entity, "current_order", None) is not None else "IDLE"
+        if entity.slow_remaining_frames > 0:
+            entity.slow_remaining_frames -= 1
+            if entity.slow_remaining_frames == 0 and isinstance(entity, Unit):
+                entity.speed = getattr(entity, "slow_restore_speed", entity.definition.speed)
+                if hasattr(entity, "slow_restore_speed"):
+                    del entity.slow_restore_speed
+                if hasattr(entity, "slow_multiplier"):
+                    del entity.slow_multiplier
 
     @staticmethod
     def _tick_poison(entity: Entity) -> None:

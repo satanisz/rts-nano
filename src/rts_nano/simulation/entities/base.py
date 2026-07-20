@@ -36,6 +36,7 @@ from rts_nano.game.rules import (
     calculate_height_damage_modifier,
     calculate_height_range_bonus,
     distance_between,
+    distance_between_points,
 )
 
 
@@ -106,6 +107,11 @@ class Entity:
     poison_tick_damage: int = 0
     poison_remaining_frames: int = 0
     poison_interval_counter: int = 0
+    arc_mark_remaining_frames: int = 0
+    arc_mark_team: TeamColor | None = None
+    slow_remaining_frames: int = 0
+    stun_remaining_frames: int = 0
+    active_behaviors: frozenset[str] = frozenset()
 
     def __init__(
         self, x: float, y: float, color: tuple[int, int, int], size: int, radius: float, class_name: str
@@ -283,6 +289,10 @@ class Unit(Entity):
     """
 
     definition: UnitDefinition
+    charge_distance: float = 0.0
+    _charge_position: tuple[float, float]
+    slow_restore_speed: float
+    slow_multiplier: float
 
     def __init__(self, x: int, y: int, team: TeamColor, definition: UnitDefinition) -> None:
         """Initialize the object."""
@@ -464,12 +474,22 @@ class Unit(Entity):
             getattr(target, "height_level", 0),
             self.attack_type,
         )
+        from rts_nano.game.rules import combat_attack_bonus, combat_shield_modifier
+
         damage = calculate_damage(
             self.attack_damage,
-            self.attack_modifier + height_modifier,
-            getattr(target, "shield_modifier", 0),
+            self.attack_modifier + height_modifier + combat_attack_bonus(self, target),
+            combat_shield_modifier(target),
         )
         apply_damage(target, damage)
+        if "arcshot_mark" in self.active_behaviors and self.attack_type == AttackType.RANGED:
+            target.arc_mark_remaining_frames = max(target.arc_mark_remaining_frames, 90)
+            target.arc_mark_team = self.team
+        if "vanguard_charge" in self.active_behaviors and getattr(self, "charge_distance", 0.0) >= 120:
+            apply_damage(target, 6)
+            if isinstance(target, Unit):
+                target.stun_remaining_frames = max(target.stun_remaining_frames, 24)
+            self.charge_distance = 0.0
         apply_poison(target, self.poison_damage, self.poison_duration)
         self.attack_cooldown = self._attack_cooldown_frames()
         self.last_attack_event = ((self.x, self.y), target.get_center(), self.attack_type, target)
@@ -516,6 +536,17 @@ class Unit(Entity):
                 resolution.
             can_move_to: Optional terrain movement validator.
         """
+        if "vanguard_charge" in self.active_behaviors:
+            previous = getattr(self, "_charge_position", self.get_center())
+            traveled = distance_between_points(previous, self.get_center())
+            self._charge_position = self.get_center()
+            if self.state in {"MOVING", "ATTACKING"}:
+                self.charge_distance = min(120.0, getattr(self, "charge_distance", 0.0) + traveled)
+            elif traveled <= 0:
+                self.charge_distance = 0.0
+        if self.stun_remaining_frames > 0:
+            self.state = "STUNNED"
+            return
         if self.attack_cooldown > 0:
             self.attack_cooldown -= 1
 

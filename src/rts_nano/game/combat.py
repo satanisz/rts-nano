@@ -16,7 +16,15 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from rts_nano.game.constants import FPS
-from rts_nano.game.rules import apply_damage, apply_poison, calculate_damage, distance_between, nearest_entity
+from rts_nano.game.rules import (
+    apply_damage,
+    apply_poison,
+    calculate_damage,
+    combat_attack_bonus,
+    combat_shield_modifier,
+    distance_between,
+    nearest_entity,
+)
 from rts_nano.game.types import EntityCategory
 from rts_nano.simulation.entities.base import Building, Unit
 from rts_nano.simulation.entities.buildings import Tower
@@ -79,8 +87,8 @@ class CombatSystem:
         """Apply deterministic damage and return a projectile description."""
         damage = calculate_damage(
             attacker.attack_damage,
-            attacker.attack_modifier,
-            getattr(target, "shield_modifier", 0),
+            attacker.attack_modifier + combat_attack_bonus(attacker, target),
+            combat_shield_modifier(target),
         )
         apply_damage(target, damage)
         apply_poison(target, attacker.poison_damage, attacker.poison_duration)
