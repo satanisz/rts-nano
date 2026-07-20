@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from rts_nano.game.constants import SCREEN_HEIGHT, SCREEN_WIDTH
 from rts_nano.game.ui.command_panel import CommandPanel
 from rts_nano.game.ui.input_controller import InputController
 from rts_nano.game.ui.selection_panel import build_selection_panel_layout
@@ -48,7 +47,7 @@ def test_command_panel_peasant_shows_build_buttons() -> None:
     manager.teams[TeamColor.BLUE].resources.update({"wood": 1000, "gold": 1000})
     manager.select_entities_for_team(TeamColor.BLUE, [peasant])
 
-    buttons = CommandPanel().build(manager, SCREEN_WIDTH, SCREEN_HEIGHT)
+    buttons = CommandPanel().build(manager, manager.screen_width, manager.screen_height)
     construct_types = {button.building_type for button in buttons if button.action == "construct"}
 
     # House plus the AEGIS tier-1 buildings are immediately buildable; the
@@ -69,7 +68,7 @@ def test_command_panel_base_shows_train_button() -> None:
     manager.teams[TeamColor.BLUE].resources.update({"wood": 50, "gold": 0})
     manager.select_entities_for_team(TeamColor.BLUE, [base])
 
-    buttons = CommandPanel().build(manager, SCREEN_WIDTH, SCREEN_HEIGHT)
+    buttons = CommandPanel().build(manager, manager.screen_width, manager.screen_height)
     train = [button for button in buttons if button.action == "produce"]
 
     assert any(button.unit_type == "peasant" and button.enabled for button in train)
@@ -84,7 +83,7 @@ def test_command_panel_base_denies_train_without_resources() -> None:
     manager.teams[TeamColor.BLUE].resources.update({"wood": 0, "gold": 0})
     manager.select_entities_for_team(TeamColor.BLUE, [base])
 
-    buttons = CommandPanel().build(manager, SCREEN_WIDTH, SCREEN_HEIGHT)
+    buttons = CommandPanel().build(manager, manager.screen_width, manager.screen_height)
 
     assert not any(button.action == "produce" for button in buttons)
     assert any(button.label.startswith("Need") and not button.enabled for button in buttons)
@@ -98,7 +97,7 @@ def test_command_panel_unit_shows_unit_commands() -> None:
     guardian = manager.state.entities_by_content_id("guardian", team=TeamColor.BLUE)[0]
     manager.select_entities_for_team(TeamColor.BLUE, [guardian])
 
-    buttons = CommandPanel().build(manager, SCREEN_WIDTH, SCREEN_HEIGHT)
+    buttons = CommandPanel().build(manager, manager.screen_width, manager.screen_height)
 
     assert {"stop", "hold", "attack_move", "patrol"} <= {button.action for button in buttons}
     simulation.close()
@@ -112,7 +111,7 @@ def test_command_panel_click_dispatch_queues_production() -> None:
     manager.teams[TeamColor.BLUE].resources.update({"wood": 50, "gold": 0})
     manager.select_entities_for_team(TeamColor.BLUE, [base])
 
-    buttons = CommandPanel().build(manager, SCREEN_WIDTH, SCREEN_HEIGHT)
+    buttons = CommandPanel().build(manager, manager.screen_width, manager.screen_height)
     train = next(button for button in buttons if button.action == "produce" and button.unit_type == "peasant")
     handled = InputController()._handle_command_panel_click(manager, train.rect.center)
 

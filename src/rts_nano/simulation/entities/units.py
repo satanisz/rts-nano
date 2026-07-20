@@ -54,8 +54,8 @@ class Peasant(Unit):
         self.state = "IDLE"
 
 
-class Knight(Unit):
-    """Frontline melee unit."""
+class MeleeUnit(Unit):
+    """Reusable behavior for units restricted to melee attacks."""
 
     def __init__(self, x: int, y: int, team: TeamColor, definition: UnitDefinition) -> None:
         """Initialize the object."""
@@ -69,10 +69,10 @@ class Knight(Unit):
         return super()._attack(target)
 
 
-class Archer(Unit):
-    """Ranged unit with a dead-zone and melee fallback.
+class DeadZoneRangedUnit(Unit):
+    """Reusable ranged behavior with a dead-zone and melee fallback.
 
-    The archer switches between melee and ranged attacks based on current target
+    The unit switches between melee and ranged attacks based on current target
     distance. This gives it a simple micro-management profile: it wants to keep
     enemies beyond ``RANGED_MIN_ATTACK_RANGE`` to use its stronger range.
     """
@@ -82,7 +82,7 @@ class Archer(Unit):
         super().__init__(x, y, team, definition)
 
     def _get_attack_distance(self, target: Entity) -> float:
-        """Pick interaction distance based on archer dead-zone rules."""
+        """Pick interaction distance based on dead-zone rules."""
         dist = distance_between(self, target)
         radius_sum = self.radius + getattr(target, "radius", 0)
         ranged_min = self.ranged_min_attack_range + radius_sum
@@ -111,12 +111,20 @@ class Archer(Unit):
         return super()._attack(target)
 
 
-class Mage(Unit):
-    """Fragile long-range caster unit.
+class CasterUnit(Unit):
+    """Base for units that use deterministic energy-powered abilities.
 
-    Mages use ranged attacks only and emit ``MagicMissile`` VFX through the
-    manager's attack-event pipeline.
+    Energy and cast orders arrive with the shared Mage in Sprint S6. Keeping a
+    separate semantic base now prevents artillery from inheriting caster state.
     """
+
+    def __init__(self, x: int, y: int, team: TeamColor, definition: UnitDefinition) -> None:
+        """Initialize the object."""
+        super().__init__(x, y, team, definition)
+
+
+class ArtilleryUnit(Unit):
+    """Reusable ranged-only behavior for long-range artillery units."""
 
     def __init__(self, x: int, y: int, team: TeamColor, definition: UnitDefinition) -> None:
         """Initialize the object."""
@@ -128,15 +136,15 @@ class Mage(Unit):
 # and reuse the base melee/ranged/missile behaviors via subclassing. ---
 
 
-class Marksman(Archer):
-    """AEGIS ranged core: hextech rifle with longer reach than a basic archer."""
+class Marksman(DeadZoneRangedUnit):
+    """AEGIS ranged core: hextech rifle with long reach and a dead-zone."""
 
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
         """Initialize from the Marksman content definition."""
         super().__init__(x, y, team, CONTENT.get_unit("marksman"))
 
 
-class Guardian(Knight):
+class Guardian(MeleeUnit):
     """AEGIS shield tank: durable, armored frontline that protects ranged units."""
 
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.BLUE) -> None:
@@ -144,7 +152,7 @@ class Guardian(Knight):
         super().__init__(x, y, team, CONTENT.get_unit("guardian"))
 
 
-class Arclight(Mage):
+class Arclight(ArtilleryUnit):
     """AEGIS artillery: very long range, high single-shot damage, fragile.
 
     Signature mechanic: its shots splash. The post-armor damage dealt to the
@@ -195,7 +203,7 @@ class Arclight(Mage):
 # in later phases. ---
 
 
-class Ripper(Knight):
+class Ripper(MeleeUnit):
     """RUST swarm melee: very fast and cheap, weak alone, terrifying in numbers.
 
     Frenzy: once wounded below half life it lashes out faster, so a swarm only
@@ -207,7 +215,7 @@ class Ripper(Knight):
         super().__init__(x, y, team, CONTENT.get_unit("ripper"))
 
 
-class Spitter(Archer):
+class Spitter(DeadZoneRangedUnit):
     """RUST chem thrower: cheap short-range ranged poke that poisons on hit."""
 
     def __init__(self, x: int, y: int, team: TeamColor = TeamColor.RED) -> None:
@@ -215,7 +223,7 @@ class Spitter(Archer):
         super().__init__(x, y, team, CONTENT.get_unit("spitter"))
 
 
-class Brute(Knight):
+class Brute(MeleeUnit):
     """RUST heavy melee: a slow, tanky wrecking ball whose hits poison hard.
 
     Frenzy: like the Ripper, it speeds up once below half life, making a wounded
