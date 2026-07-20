@@ -15,6 +15,12 @@ TeamId = NewType("TeamId", str)
 FactionId = NewType("FactionId", str)
 """Stable faction identity assigned explicitly to a team."""
 
+UpgradeId = NewType("UpgradeId", str)
+"""Stable identifier of a team-wide technology."""
+
+ExclusivityGroupId = NewType("ExclusivityGroupId", str)
+"""Stable identifier of a mutually exclusive technology choice."""
+
 
 class AttackKind(StrEnum):
     """Supported deterministic attack categories."""
@@ -40,3 +46,23 @@ class CombatRole(StrEnum):
     RANGED = "ranged"
     ARTILLERY = "artillery"
     DEFENSE = "defense"
+
+
+class ModifierStat(StrEnum):
+    """Closed set of definition-backed stats that research may modify."""
+
+    MAX_LIFE = "max_life"
+    SHIELD_MAX = "shield_max"
+    SHIELD_REGEN = "shield_regen"
+    ATTACK_DAMAGE = "attack_damage"
+    ATTACK_MODIFIER = "attack_modifier"
+    ATTACK_RANGE = "attack_range"
+    ATTACK_SPEED = "attack_speed"
+    SPEED = "speed"
+    VISION_RANGE = "vision_range"
+    MELEE_ATTACK_RANGE = "melee_attack_range"
+    RANGED_MIN_ATTACK_RANGE = "ranged_min_attack_range"
+    RANGED_ATTACK_RANGE = "ranged_attack_range"
+    POISON_DAMAGE = "poison_damage"
+    POISON_DURATION = "poison_duration"
+    SPLASH_RADIUS = "splash_radius"

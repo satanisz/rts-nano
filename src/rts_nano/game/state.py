@@ -9,7 +9,7 @@ from rts_nano.content import CONTENT
 from rts_nano.game.entity_store import EntityStore
 from rts_nano.game.rules import clamp_point
 from rts_nano.game.spatial import SpatialIndex
-from rts_nano.game.types import EntityCategory, FactionId, TeamId
+from rts_nano.game.types import EntityCategory, FactionId, TeamId, UpgradeId
 from rts_nano.simulation.entities import TeamColor
 
 if TYPE_CHECKING:
@@ -25,6 +25,19 @@ class TeamState:
     team_id: TeamId
     faction_id: FactionId
     resources: dict[str, int] = field(default_factory=lambda: {"wood": 0, "gold": 0})
+    completed_upgrades: list[UpgradeId] = field(default_factory=list)
+
+    def has_upgrade(self, upgrade_id: str) -> bool:
+        """Return whether this team completed a canonical upgrade."""
+        return any(str(item) == upgrade_id for item in self.completed_upgrades)
+
+    def complete_upgrade(self, upgrade_id: UpgradeId) -> bool:
+        """Insert one completed ID in canonical order without duplicates."""
+        if self.has_upgrade(str(upgrade_id)):
+            return False
+        self.completed_upgrades.append(upgrade_id)
+        self.completed_upgrades.sort(key=str)
+        return True
 
 
 @dataclass

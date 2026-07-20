@@ -4,7 +4,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from rts_nano.game.types import AttackKind, ContentId, EntityCategory, FactionId
+from rts_nano.game.types import (
+    AttackKind,
+    ContentId,
+    EntityCategory,
+    ExclusivityGroupId,
+    FactionId,
+    ModifierStat,
+    UpgradeId,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -142,3 +150,33 @@ class FactionDefinition:
     display_name: str
     unit_ids: tuple[ContentId, ...]
     building_ids: tuple[ContentId, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class StatModifier:
+    """One canonical flat and rational modification of a definition stat."""
+
+    stat: ModifierStat
+    add: int = 0
+    numerator: int = 1
+    denominator: int = 1
+
+
+@dataclass(frozen=True, slots=True)
+class UpgradeDefinition:
+    """Immutable team-wide research definition."""
+
+    id: UpgradeId
+    display_name: str
+    description: str
+    faction: FactionId
+    research_at: tuple[ContentId, ...]
+    cost: ResourceCost
+    research_frames: int
+    required_buildings: tuple[ContentId, ...] = ()
+    required_upgrades: tuple[UpgradeId, ...] = ()
+    exclusive_group: ExclusivityGroupId | None = None
+    conflicts: tuple[UpgradeId, ...] = ()
+    affected_content: tuple[ContentId, ...] = ()
+    modifiers: tuple[StatModifier, ...] = ()
+    granted_behaviors: tuple[str, ...] = ()

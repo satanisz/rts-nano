@@ -11,6 +11,7 @@ from rts_nano.game.spawning import find_spawn_point
 
 if TYPE_CHECKING:
     from rts_nano.game.state import GameState
+    from rts_nano.game.upgrades import UpgradeSystem
     from rts_nano.simulation.entities.base import Building, TeamColor, Unit
 
 
@@ -34,10 +35,11 @@ class ProductionItem:
 class ProductionSystem:
     """Own production queues and spawn completed units through the manager."""
 
-    def __init__(self, state: GameState) -> None:
+    def __init__(self, state: GameState, upgrades: UpgradeSystem | None = None) -> None:
         """Initialize production state for one game state."""
         self._state = state
         self._queues: dict[Building, list[ProductionItem]] = {}
+        self._upgrades = upgrades
 
     def queue_for(self, producer: Building) -> tuple[ProductionItem, ...]:
         """Return the immutable production queue for a production building."""
@@ -176,6 +178,8 @@ class ProductionSystem:
         spawn_x, spawn_y = spawn_point
         unit = cast("Unit", EntityFactory.create(spec.key, int(spawn_x), int(spawn_y), producer.team))
         self._state.add_runtime_entity(unit)
+        if self._upgrades is not None:
+            self._upgrades.apply_to_entity(unit)
         return unit
 
     @staticmethod

@@ -15,8 +15,9 @@ from rts_nano.content.definitions import (
     ResourceCost,
     ResourceDefinition,
     UnitDefinition,
+    UpgradeDefinition,
 )
-from rts_nano.game.types import ContentId, FactionId
+from rts_nano.game.types import ContentId, FactionId, ModifierStat
 
 AEGIS_SHIELD_REGEN = 8
 AEGIS_SHIELD_REGEN_DELAY = 240
@@ -34,19 +35,21 @@ class ContentRegistry:
         buildings: Iterable[BuildingDefinition],
         resources: Iterable[ResourceDefinition],
         factions: Iterable[FactionDefinition],
+        upgrades: Iterable[UpgradeDefinition] = (),
     ) -> None:
         """Build indexes and reject inconsistent content graphs."""
         self.units = self._unique_by_id(units, "unit")
         self.buildings = self._unique_by_id(buildings, "building")
         self.resources = self._unique_by_id(resources, "resource")
         self.factions = self._unique_by_id(factions, "faction")
+        self.upgrades = self._unique_by_id(upgrades, "upgrade")
         self._validate()
         self._producers_by_unit = self._build_producer_index()
 
     @staticmethod
-    def _unique_by_id[T: UnitDefinition | BuildingDefinition | ResourceDefinition | FactionDefinition](
-        definitions: Iterable[T], label: str
-    ) -> MappingProxyType[str, T]:
+    def _unique_by_id[
+        T: UnitDefinition | BuildingDefinition | ResourceDefinition | FactionDefinition | UpgradeDefinition
+    ](definitions: Iterable[T], label: str) -> MappingProxyType[str, T]:
         result: dict[str, T] = {}
         for definition in definitions:
             key = str(definition.id)
@@ -82,6 +85,13 @@ class ContentRegistry:
         if unit_id not in self.units:
             raise ValueError(f"Unsupported unit type: {content_id}")
         return self._producers_by_unit[unit_id]
+
+    def get_upgrade(self, upgrade_id: str) -> UpgradeDefinition:
+        """Return an upgrade definition or raise a clear unsupported-tech error."""
+        try:
+            return self.upgrades[upgrade_id]
+        except KeyError as exc:
+            raise ValueError(f"Unsupported upgrade: {upgrade_id}") from exc
 
     def units_for_faction(self, faction_id: str | FactionId) -> dict[str, UnitDefinition]:
         """Return shared and faction-specific unit definitions."""
@@ -148,6 +158,7 @@ class ContentRegistry:
 
         self._validate_tech_cycles()
         self._validate_factions()
+        self._validate_upgrades()
 
         for resource in self.resources.values():
             if resource.amount <= 0 or resource.size <= 0 or resource.radius <= 0:
@@ -206,6 +217,70 @@ class ContentRegistry:
             raise ValueError(
                 f"Faction buildings missing from rosters: {sorted(faction_buildings - assigned_buildings)}"
             )
+
+    def _validate_upgrades(self) -> None:
+        """Reject invalid ownership, modifier, conflict, and prerequisite graphs."""
+        valid_stats = set(ModifierStat)
+        for upgrade in self.upgrades.values():
+            if str(upgrade.faction) not in self.factions:
+                raise ValueError(f"Upgrade {upgrade.id} references missing faction {upgrade.faction}")
+            if upgrade.research_frames <= 0 or min(upgrade.cost.wood, upgrade.cost.gold) < 0:
+                raise ValueError(f"Upgrade {upgrade.id} has invalid cost or duration")
+            if not upgrade.research_at or len(upgrade.research_at) != len(set(upgrade.research_at)):
+                raise ValueError(f"Upgrade {upgrade.id} requires unique research buildings")
+            for building_id in (*upgrade.research_at, *upgrade.required_buildings):
+                building = self.buildings.get(str(building_id))
+                if building is None:
+                    raise ValueError(f"Upgrade {upgrade.id} references missing building {building_id}")
+                if building.faction not in {None, upgrade.faction}:
+                    raise ValueError(f"Upgrade {upgrade.id} references foreign building {building_id}")
+            for content_id in upgrade.affected_content:
+                definition = self.units.get(str(content_id)) or self.buildings.get(str(content_id))
+                if definition is None:
+                    raise ValueError(f"Upgrade {upgrade.id} affects missing content {content_id}")
+                if definition.faction not in {None, upgrade.faction}:
+                    raise ValueError(f"Upgrade {upgrade.id} affects foreign content {content_id}")
+            if len(upgrade.affected_content) != len(set(upgrade.affected_content)):
+                raise ValueError(f"Upgrade {upgrade.id} contains duplicate affected content")
+            modifier_stats = [modifier.stat for modifier in upgrade.modifiers]
+            if len(modifier_stats) != len(set(modifier_stats)):
+                raise ValueError(f"Upgrade {upgrade.id} modifies one stat more than once")
+            for modifier in upgrade.modifiers:
+                if modifier.stat not in valid_stats or modifier.denominator <= 0 or modifier.numerator < 0:
+                    raise ValueError(f"Upgrade {upgrade.id} has invalid modifier for {modifier.stat}")
+            for related_id in (*upgrade.required_upgrades, *upgrade.conflicts):
+                related = self.upgrades.get(str(related_id))
+                if related is None:
+                    raise ValueError(f"Upgrade {upgrade.id} references missing upgrade {related_id}")
+                if related.faction != upgrade.faction:
+                    raise ValueError(f"Upgrade {upgrade.id} references foreign upgrade {related_id}")
+            for conflict_id in upgrade.conflicts:
+                if upgrade.id not in self.upgrades[str(conflict_id)].conflicts:
+                    raise ValueError(f"Upgrade conflict {upgrade.id}/{conflict_id} must be symmetric")
+
+        visiting: set[str] = set()
+        visited: set[str] = set()
+
+        def visit(upgrade_id: str) -> None:
+            if upgrade_id in visiting:
+                raise ValueError(f"Upgrade tree contains a cycle at {upgrade_id}")
+            if upgrade_id in visited:
+                return
+            visiting.add(upgrade_id)
+            for requirement in self.upgrades[upgrade_id].required_upgrades:
+                visit(str(requirement))
+            visiting.remove(upgrade_id)
+            visited.add(upgrade_id)
+
+        for upgrade_id in self.upgrades:
+            visit(upgrade_id)
+
+        groups: dict[str, set[str]] = {}
+        for upgrade in self.upgrades.values():
+            if upgrade.exclusive_group is not None:
+                groups.setdefault(str(upgrade.exclusive_group), set()).add(str(upgrade.faction))
+        if any(len(factions) != 1 for factions in groups.values()):
+            raise ValueError("Upgrade exclusivity groups cannot span factions")
 
 
 UNIT_DEFINITIONS = (
@@ -672,9 +747,12 @@ FACTION_DEFINITIONS = (
     ),
 )
 
+UPGRADE_DEFINITIONS: tuple[UpgradeDefinition, ...] = ()
+
 CONTENT = ContentRegistry(
     units=UNIT_DEFINITIONS,
     buildings=BUILDING_DEFINITIONS,
     resources=RESOURCE_DEFINITIONS,
     factions=FACTION_DEFINITIONS,
+    upgrades=UPGRADE_DEFINITIONS,
 )

@@ -6,7 +6,9 @@ from rts_nano.content.definitions import (
     FactionDefinition,
     ResourceCost,
     ResourceDefinition,
+    StatModifier,
     UnitDefinition,
+    UpgradeDefinition,
 )
 from rts_nano.content.registry import (
     BUILDING_DEFINITIONS,
@@ -16,6 +18,7 @@ from rts_nano.content.registry import (
     PRODUCTION_REFUND_RATIO,
     RESOURCE_DEFINITIONS,
     UNIT_DEFINITIONS,
+    UPGRADE_DEFINITIONS,
     ContentRegistry,
 )
 
@@ -27,11 +30,14 @@ __all__ = [
     "PRODUCTION_REFUND_RATIO",
     "RESOURCE_DEFINITIONS",
     "UNIT_DEFINITIONS",
+    "UPGRADE_DEFINITIONS",
     "AttackKind",
     "BuildingDefinition",
     "ContentRegistry",
     "FactionDefinition",
     "ResourceCost",
     "ResourceDefinition",
+    "StatModifier",
     "UnitDefinition",
+    "UpgradeDefinition",
 ]

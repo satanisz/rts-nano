@@ -55,6 +55,7 @@ from rts_nano.game.rules import distance_between_points
 from rts_nano.game.state import GameState, TeamState
 from rts_nano.game.terrain import TerrainMap
 from rts_nano.game.types import FactionId, TeamId
+from rts_nano.game.upgrades import UpgradeSystem
 from rts_nano.game.victory import VictorySystem
 from rts_nano.simulation.entities import (
     Base,
@@ -125,7 +126,8 @@ class GameSession:
         self.pending_construction_builder: Peasant | None = None
         self.pending_unit_command: str | None = None
         self.movement = MovementSystem(self.state)
-        self.production = ProductionSystem(self.state)
+        self.upgrades = UpgradeSystem(self.state)
+        self.production = ProductionSystem(self.state, self.upgrades)
         self.combat = CombatSystem(self.state)
         self.effects = EffectsSystem(self.state)
         self.victory = VictorySystem(self.state)
