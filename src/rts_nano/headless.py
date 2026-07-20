@@ -44,10 +44,15 @@ class HeadlessSimulation:
         """Create a headless simulation from already parsed map settings."""
         return cls(GameSession(settings))
 
-    def step(self, frames: int = 1) -> None:
-        """Advance the simulation by a number of frames."""
+    def step(self, frames: int = 1) -> int:
+        """Advance until the frame budget or a natural result, returning actual frames."""
+        advanced = 0
         for _ in range(max(0, frames)):
+            if self.manager.paused:
+                break
             self.manager.update()
+            advanced += 1
+        return advanced
 
     def units_for_team(self, team: TeamColor) -> list[Unit]:
         """Return all living units for a team."""

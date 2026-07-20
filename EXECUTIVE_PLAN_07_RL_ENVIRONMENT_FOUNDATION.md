@@ -2,7 +2,7 @@
 
 Last updated: 2026-07-20
 
-## STATUS: IN PROGRESS — S0 COMPLETED
+## STATUS: IN PROGRESS — S1 COMPLETED
 
 This plan prepares the deterministic headless environment for later tensor, vector-environment,
 and PyTorch work without changing game rules, ScriptedAI, balance, maps, or the playable single

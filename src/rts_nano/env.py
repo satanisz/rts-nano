@@ -54,6 +54,7 @@ if TYPE_CHECKING:
     from rts_nano.map_schema import MapSettings
 
 DEFAULT_MAP_ID = "map_settings_01.json"
+DEFAULT_MAX_EPISODE_FRAMES = 36_000
 MAPS_DIR = Path(__file__).resolve().parent / "maps"
 __all__ = [
     "Action",
@@ -132,6 +133,8 @@ class StepResult:
     reward: float
     done: bool
     info: dict[str, object]
+    terminated: bool = False
+    truncated: bool = False
 
 
 type RewardFunction = Callable[[Observation], float]
@@ -153,17 +156,26 @@ class RtsNanoEnv:
         settings: MapSettings | None = None,
         frame_skip: int = 1,
         reward_fn: RewardFunction | None = None,
+        max_episode_frames: int | None = DEFAULT_MAX_EPISODE_FRAMES,
     ) -> None:
         """Initialize an environment and load the initial simulation."""
         self._map_id = map_id
         self._settings = settings
         self._frame_skip = max(1, frame_skip)
         self._reward_fn = reward_fn
+        if max_episode_frames is not None and max_episode_frames <= 0:
+            raise ValueError("max_episode_frames must be positive or None")
+        self._max_episode_frames = max_episode_frames
         self._seed: int | None = None
         self._simulation: HeadlessSimulation | None = None
         self._entity_ids = EntityIdRegistry()
         self._action_translator: ActionTranslator | None = None
         self._tick = 0
+        self._episode_id = 0
+        self._decision_count = 0
+        self._terminated = False
+        self._truncated = False
+        self._end_reason: EpisodeEndReason | None = None
         self.reset()
 
     def reset(self, seed: int | None = None, map_id: str | Path | None = None) -> Observation:
@@ -187,6 +199,14 @@ class RtsNanoEnv:
 
         self._entity_ids.reset()
         self._tick = 0
+        self._episode_id += 1
+        self._decision_count = 0
+        self._terminated = False
+        self._truncated = False
+        self._end_reason = None
+        reset_reward = getattr(self._reward_fn, "reset", None)
+        if callable(reset_reward):
+            reset_reward()
 
         if self._settings is not None:
             settings_copy = copy.deepcopy(self._settings)
@@ -198,17 +218,24 @@ class RtsNanoEnv:
 
     def step(self, action: Action) -> StepResult:
         """Apply an action, advance the simulation, and return the step result."""
+        self._ensure_can_step()
         simulation = self._require_simulation()
-        frames = max(0, self._frames_for(action) * self._frame_skip)
+        requested_frames = max(0, self._frames_for(action) * self._frame_skip)
+        remaining = self._remaining_episode_frames()
+        frames = requested_frames if remaining is None else min(requested_frames, remaining)
         self._apply_action(action)
-        simulation.step(frames)
-        self._tick += frames
+        advanced = simulation.step(frames)
+        self._tick += advanced
+        self._decision_count += 1
+        self._update_episode_end()
         observation = self.observe()
         return StepResult(
             observation=observation,
             reward=self.reward(observation),
             done=self.is_done(),
-            info={"tick": self._tick, "frames": frames, "seed": self._seed},
+            info=self._step_info(advanced, requested_frames),
+            terminated=self._terminated,
+            truncated=self._truncated,
         )
 
     def observe(self) -> Observation:
@@ -251,7 +278,7 @@ class RtsNanoEnv:
 
     def is_done(self) -> bool:
         """Return whether the current simulation has reached a terminal state."""
-        return self._require_simulation().manager.game_over_message is not None
+        return self._terminated or self._truncated
 
     def reward(self, observation: Observation | None = None) -> float:
         """Return the active reward value for the current observation."""
@@ -279,6 +306,37 @@ class RtsNanoEnv:
         if self._simulation is None:
             raise RuntimeError("The environment is closed. Call reset() before using it again.")
         return self._simulation
+
+    def _ensure_can_step(self) -> None:
+        self._require_simulation()
+        if self.is_done():
+            raise RuntimeError("Episode is complete. Call reset() before stepping again.")
+
+    def _remaining_episode_frames(self) -> int | None:
+        if self._max_episode_frames is None:
+            return None
+        return max(0, self._max_episode_frames - self._tick)
+
+    def _update_episode_end(self) -> None:
+        if self._require_simulation().manager.game_over_message is not None:
+            self._terminated = True
+            self._end_reason = EpisodeEndReason.GAME_RESULT
+        elif self._max_episode_frames is not None and self._tick >= self._max_episode_frames:
+            self._truncated = True
+            self._end_reason = EpisodeEndReason.TIME_LIMIT
+
+    def _step_info(self, advanced_frames: int, requested_frames: int) -> dict[str, object]:
+        manager = self._require_simulation().manager
+        return {
+            "tick": self._tick,
+            "frames": advanced_frames,
+            "requested_frames": requested_frames,
+            "decision_count": self._decision_count,
+            "episode_id": self._episode_id,
+            "seed": self._seed,
+            "game_result": manager.game_over_message,
+            "end_reason": self._end_reason.value if self._end_reason is not None else None,
+        }
 
     @staticmethod
     def _frames_for(action: Action) -> int:
