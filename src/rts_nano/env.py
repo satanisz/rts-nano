@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 from collections.abc import Callable
 from dataclasses import dataclass
+from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -57,6 +58,7 @@ MAPS_DIR = Path(__file__).resolve().parent / "maps"
 __all__ = [
     "Action",
     "ActionSpec",
+    "ActionOutcome",
     "AttackMoveAction",
     "AttackAction",
     "BuildingType",
@@ -76,12 +78,50 @@ __all__ = [
     "ProductionSnapshot",
     "ReturnCargoAction",
     "RtsNanoEnv",
+    "JointStepResult",
+    "EpisodeEndReason",
     "SelectAction",
     "StepResult",
     "StopAction",
     "TeamSnapshot",
     "WorldPoint",
 ]
+
+
+class EpisodeEndReason(StrEnum):
+    """Stable reasons why an RL episode stopped advancing."""
+
+    GAME_RESULT = "game_result"
+    TIME_LIMIT = "time_limit"
+
+
+@dataclass(frozen=True, slots=True)
+class ActionOutcome:
+    """Result of validating and applying one command from a joint batch."""
+
+    index: int
+    team: str
+    kind: str
+    accepted: bool
+    affected_count: int = 0
+    reason: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class JointStepResult:
+    """Multi-team result returned by the future simultaneous step contract."""
+
+    observation: Observation
+    rewards: dict[str, float]
+    terminated: bool
+    truncated: bool
+    action_outcomes: tuple[ActionOutcome, ...]
+    info: dict[str, object]
+
+    @property
+    def done(self) -> bool:
+        """Return whether the caller must reset before another step."""
+        return self.terminated or self.truncated
 
 
 @dataclass(frozen=True, slots=True)

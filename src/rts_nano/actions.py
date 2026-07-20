@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal
 
@@ -10,6 +11,8 @@ if TYPE_CHECKING:
     from rts_nano.simulation.entities import TeamColor
 
 type WorldPoint = tuple[float, float]
+type ActionBatch = tuple[Action, ...]
+type JointAction = Mapping[TeamColor, ActionBatch]
 type UnitType = Literal[
     "peasant",
     # AEGIS
