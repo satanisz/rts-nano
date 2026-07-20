@@ -116,9 +116,11 @@ v3 source from being destructively flattened on save.
 - Add cross-entity rules to a focused system in `game/`.
 - Add tick orchestration and pure output events to `simulation/`.
 - Add input, surfaces, sprites, VFX, camera, or HUD behavior to `game/ui/` or `application/`.
+- Add upgrades and abilities to `content/registry.py`; derive player-facing graph rows through
+  `game/ui/tech_tree.py` instead of maintaining a parallel presentation graph.
 - Add runtime schema validation to `map_schema.py`, semantic authoring rules to `map_spec.py`, and
   editor-only behavior to `map_editor.py`.
 - Never make simulation code conditional on whether a renderer exists.
 
-See [Adding Content](docs/ADDING_CONTENT.md) and [Determinism](docs/DETERMINISM.md) for extension
-contracts.
+See [Adding Content](docs/ADDING_CONTENT.md), [Technology and Ability Authoring](docs/TECH_TREE_AUTHORING.md),
+and [Determinism](docs/DETERMINISM.md) for extension contracts.

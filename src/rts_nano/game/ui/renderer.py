@@ -30,6 +30,7 @@ from rts_nano.game.ui.order_display import unit_order_lines
 from rts_nano.game.ui.pygame_assets import PygameAssets, building_glyph
 from rts_nano.game.ui.selection_panel import PORTRAIT_SIZE, build_selection_panel_layout
 from rts_nano.game.ui.state import PresentationState
+from rts_nano.game.ui.tech_tree import build_tech_tree
 from rts_nano.game.ui.terrain_renderer import TerrainRenderer
 from rts_nano.simulation.entities import TeamColor, Wood
 from rts_nano.simulation.entities.base import Building, Entity, Resource, Unit
@@ -208,7 +209,9 @@ class GameRenderer:
         self._draw_bottom_menu(screen, manager)
         self._draw_minimap(screen, manager)
 
-        if manager.menu_active:
+        if self.presentation.tech_tree_visible:
+            self._draw_tech_tree(screen, manager)
+        elif manager.menu_active:
             self._draw_main_menu(screen, manager)
         elif manager.game_over_message is not None:
             self._draw_match_result(screen, manager)
@@ -220,6 +223,52 @@ class GameRenderer:
         self._magic_missiles.clear()
         self._archer_shots.clear()
         self._last_effect_tick = -1
+
+    def _draw_tech_tree(self, screen: pygame.Surface, manager: GameSession) -> None:
+        """Draw the current faction tree from the canonical registry-derived view model."""
+        team = manager.teams.get(manager.current_team)
+        if team is None:
+            return
+        overlay = pygame.Surface((manager.screen_width, manager.screen_height), pygame.SRCALPHA)
+        overlay.fill((8, 12, 18, 238))
+        screen.blit(overlay, (0, 0))
+        title_font = pygame.font.SysFont(None, 42)
+        row_font = pygame.font.SysFont(None, 23)
+        small_font = pygame.font.SysFont(None, 18)
+        title = title_font.render(f"{team.faction_id} TECHNOLOGY TREE", True, WHITE)
+        screen.blit(title, (32, 24))
+        hint = row_font.render("F9: close  |  Research at the listed production building", True, (170, 190, 210))
+        screen.blit(hint, (32, 66))
+        entries = build_tech_tree(team)
+        column_width = max(360, (manager.screen_width - 96) // 2)
+        row_height = 112
+        for index, entry in enumerate(entries):
+            column = index % 2
+            row = index // 2
+            x = 32 + column * (column_width + 24)
+            y = 104 + row * row_height
+            rect = pygame.Rect(x, y, column_width, row_height - 12)
+            status_color = {
+                "COMPLETED": (90, 220, 130),
+                "AVAILABLE": (230, 205, 90),
+                "RESEARCHING": (90, 180, 245),
+            }.get(entry.status, (150, 155, 165))
+            pygame.draw.rect(screen, (25, 31, 40), rect)
+            pygame.draw.rect(screen, status_color, rect, 2)
+            screen.blit(row_font.render(entry.name, True, WHITE), (x + 10, y + 8))
+            status = small_font.render(entry.status, True, status_color)
+            screen.blit(status, (rect.right - status.get_width() - 10, y + 10))
+            screen.blit(
+                small_font.render(f"At: {entry.producer}  |  {entry.cost}", True, (190, 205, 220)),
+                (x + 10, y + 34),
+            )
+            screen.blit(
+                small_font.render(f"Requires: {entry.requirement}", True, (170, 180, 195)),
+                (x + 10, y + 54),
+            )
+            details = f"Affects/unlocks: {entry.unlocks} — {entry.description}"
+            details = details[:92] + ("..." if len(details) > 92 else "")
+            screen.blit(small_font.render(details, True, (210, 215, 220)), (x + 10, y + 75))
 
     @staticmethod
     def _draw_rally_points(

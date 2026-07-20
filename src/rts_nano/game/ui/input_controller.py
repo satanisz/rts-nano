@@ -47,7 +47,7 @@ class InputController:
 
     def update_camera(self, manager: GameSession) -> None:
         """Scroll the viewport with keyboard keys or screen-edge mouse position."""
-        if manager.menu_active:
+        if manager.menu_active or self.presentation.tech_tree_visible:
             return
 
         keys = pygame.key.get_pressed()
@@ -107,6 +107,10 @@ class InputController:
             manager.cancel_pending_unit_command()
             manager.current_team = TeamColor.RED if manager.current_team == TeamColor.BLUE else TeamColor.BLUE
             manager.selected_entities.clear()
+        elif event.key == pygame.K_F9:
+            self.presentation.tech_tree_visible = not self.presentation.tech_tree_visible
+            manager.cancel_pending_construction_placement()
+            manager.cancel_pending_unit_command()
         elif event.key == pygame.K_q:
             pygame.event.post(pygame.event.Event(pygame.QUIT))
         elif event.key == pygame.K_p:
@@ -155,6 +159,9 @@ class InputController:
         if manager.game_over_message is not None:
             if event.button == 1:
                 self._handle_match_result_click(manager, mouse_pos)
+            return
+
+        if self.presentation.tech_tree_visible:
             return
 
         if manager.menu_active:

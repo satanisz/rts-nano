@@ -24,6 +24,11 @@ fields in the sprint review, and prove repeated fresh runs remain equal.
 and checks the stored digest. To investigate a failure, diff `tests/golden/core_replay_v1.json`
 before considering a rebaseline. Never update the digest merely to make a failing test pass.
 
+`tests/test_technology_replay.py` independently protects doctrine completion, Mage energy and
+cooldowns, temporary effects, and cross-faction status application. Area abilities and pack
+bonuses use bounded spatial queries, stable entity-ID ordering, and explicit target/contributor
+caps. UI graph generation reads immutable definitions and never enters the simulation tick.
+
 ## Avoiding accidental nondeterminism
 
 - Do not derive gameplay order from sets, wall-clock time, rendering frames, or object addresses.

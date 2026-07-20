@@ -2,7 +2,7 @@
 
 Last updated: 2026-07-20
 
-## STATUS: IN PROGRESS — S8 COMPLETED
+## STATUS: COMPLETE — S0–S9 ACCEPTED
 
 This plan expands the completed RTS game core with shared baseline and tier-two combat units,
 deterministic team-wide research, mutually exclusive faction doctrines, a deterministic caster
@@ -669,6 +669,19 @@ Executive Plan 06 is complete only when:
 
 After acceptance, Executive Plan 07 may cover AI strategy, automated balance evaluation, RL action
 and observation integration, reward design, multi-environment lifecycle, and self-play.
+
+### Completion record
+
+The plan closed on 2026-07-20 with 292 passing tests and 74.87% coverage. Core replay digest
+`0b2cdca727b2b45b388fe026e7949dc53268bb12942d57667be69dcf8d1ec167` remains unchanged; the
+expanded technology replay digest is
+`0f5c00aeb392c44da98a41711128cd40a35396b227628dcc3b7469fab1671cda`.
+
+Sprint commits are `19814d6`, `3fbdaec`, `fd5c3a1`, `36598f6`, `dd3beef`, `bb70921`, `ce5740c`,
+`4674530`, `12d95cb`, followed by the S9 closure commit containing the generated UI and final docs.
+The final standard benchmark recorded 7,882.401 idle steps/s and 125.109 stress steps/s with
+0.217/1.028 MiB peak traced memory. The completed-tree scenario recorded 947.392 steps/s while both
+Mage effects were active and 1,974.598 steps/s across a further 5,000 upgraded match ticks.
 
 ---
 

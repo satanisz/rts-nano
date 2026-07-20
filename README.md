@@ -10,13 +10,15 @@ Two factions share the same economy and construction fundamentals but use distin
 
 | Faction | Units | Production and defense |
 |---|---|---|
-| AEGIS | Peasant, Guardian, Marksman, Arclight | Base, House, Arsenal, Spire, Bastion |
-| RUST | Peasant, Ripper, Spitter, Brute | Base, House, Pit, Chem Vat, Spiker |
+| AEGIS | Peasant, Knight, Archer, Mage, Guardian, Marksman, Arclight | Base, House, Arsenal, Spire, Bastion |
+| RUST | Peasant, Knight, Archer, Mage, Ripper, Spitter, Brute | Base, House, Pit, Chem Vat, Spiker |
 
 The game supports gathering wood and gold, population supply, construction, production queues,
 terrain height and ramps, water and rock obstacles, formation movement, attack-move, patrol,
 defensive towers, fog of war, shields, poison, frenzy, splash damage, and deterministic victory.
 Teams select factions explicitly in map data; Blue and Red do not imply a faction.
+Shared Knight, Archer, and Mage units branch into exclusive faction doctrines researched at the
+Arsenal/Pit and Spire/Chem Vat. Press `F9` to inspect the current team's registry-derived tree.
 
 ## Competitive maps
 
@@ -82,6 +84,8 @@ without importing Pygame, configuring SDL, loading images, or creating presentat
   Right-click a damaged completed allied building to repair it using Wood.
 - After Victory, Defeat, or Draw, choose `RESTART MATCH` or press `R` to recreate the same map from
   clean deterministic state without reloading cached art.
+- Press `F9` to open or close the current faction's technology tree. The view shows research
+  location, cost, prerequisites, exclusive choices, and live completion state.
 
 ## Quality gate
 
@@ -102,6 +106,7 @@ runs rendering with SDL's dummy video driver, and reports a fast benchmark smoke
 - [MapSpec v3 authoring](docs/MAP_AUTHORING.md)
 - [Competitive map review](docs/reviews/COMPETITIVE_MAPS_REVIEW.md)
 - [Adding units, buildings, resources, or factions](docs/ADDING_CONTENT.md)
+- [Technology and ability authoring](docs/TECH_TREE_AUTHORING.md)
 - [Determinism contract](docs/DETERMINISM.md)
 - [Sprint S5 performance report](benchmarks/SPRINT_S5_REPORT.md)
 - [Game-core readiness plan](EXECUTIVE_PLAN_05_CORE_READINESS.md)

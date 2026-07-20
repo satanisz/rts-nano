@@ -4,6 +4,10 @@ Gameplay content is definition-first. A normal new unit or building should requi
 definition, an asset mapping supplied by that definition, and tests. Do not add parallel stat
 tables, faction rosters, factory branches, or UI price tables.
 
+Upgrade and active-ability additions follow the separate
+[Technology and Ability Authoring](TECH_TREE_AUTHORING.md) contract. Their English F9 view is
+generated from the same registry definitions.
+
 ## Add a unit
 
 1. Add one immutable `UnitDefinition` in `src/rts_nano/content/registry.py` with its ID, faction,
