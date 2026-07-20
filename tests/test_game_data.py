@@ -36,8 +36,8 @@ def test_game_data_defines_basic_military_production() -> None:
     assert tuple(str(item.id) for item in CONTENT.producers_for_unit("marksman")) == ("arsenal",)
     assert UNIT_SPECS["guardian"].cost.wood == 110
     assert UNIT_SPECS["guardian"].cost.gold == 55
-    assert arsenal.produces == ("marksman", "guardian")
-    assert pit.produces == ("ripper", "spitter")
+    assert arsenal.produces == ("knight", "archer", "marksman", "guardian")
+    assert pit.produces == ("knight", "archer", "ripper", "spitter")
     assert arsenal.faction == "AEGIS"
     assert pit.faction == "RUST"
 
@@ -48,6 +48,7 @@ def test_game_data_defines_faction_tech_gates() -> None:
     assert BUILDING_SPECS["chem_vat"].requires == ("pit",)
     assert tuple(str(item.id) for item in CONTENT.producers_for_unit("arclight")) == ("spire",)
     assert tuple(str(item.id) for item in CONTENT.producers_for_unit("brute")) == ("chem_vat",)
+    assert tuple(str(item.id) for item in CONTENT.producers_for_unit("mage")) == ("chem_vat", "spire")
 
 
 def test_game_data_sketches_minimal_full_rts_roster() -> None:

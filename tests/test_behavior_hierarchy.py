@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import rts_nano.simulation.entities as entity_exports
 from rts_nano.simulation.entities import (
+    Archer,
     Arclight,
     ArtilleryUnit,
     Brute,
     CasterUnit,
     DeadZoneRangedUnit,
     Guardian,
+    Knight,
+    Mage,
     Marksman,
     MeleeUnit,
     Ripper,
@@ -36,8 +39,11 @@ def test_caster_and_artillery_are_independent_semantics() -> None:
     assert not issubclass(CasterUnit, ArtilleryUnit)
 
 
-def test_retired_content_named_bases_are_not_exported() -> None:
-    """Knight, Archer, and Mage return only as concrete content in Sprint S3."""
-    assert not hasattr(entity_exports, "Knight")
-    assert not hasattr(entity_exports, "Archer")
-    assert not hasattr(entity_exports, "Mage")
+def test_shared_content_classes_use_semantic_bases() -> None:
+    """Restored content names are concrete leaves, never behavior parents."""
+    assert entity_exports.Knight is Knight
+    assert entity_exports.Archer is Archer
+    assert entity_exports.Mage is Mage
+    assert Knight.__bases__ == (MeleeUnit,)
+    assert Archer.__bases__ == (DeadZoneRangedUnit,)
+    assert Mage.__bases__ == (CasterUnit,)

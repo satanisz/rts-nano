@@ -8,6 +8,7 @@ import pytest
 
 from rts_nano.game.ui.pygame_assets import PygameAssets
 from rts_nano.simulation.entities import (
+    Archer,
     Arclight,
     Arsenal,
     Base,
@@ -17,6 +18,8 @@ from rts_nano.simulation.entities import (
     Gold,
     Guardian,
     House,
+    Knight,
+    Mage,
     Marksman,
     Pit,
     Ripper,
@@ -40,6 +43,12 @@ if TYPE_CHECKING:
         (Ripper, TeamColor.RED),
         (Spitter, TeamColor.RED),
         (Brute, TeamColor.RED),
+        (Knight, TeamColor.BLUE),
+        (Knight, TeamColor.RED),
+        (Archer, TeamColor.BLUE),
+        (Archer, TeamColor.RED),
+        (Mage, TeamColor.BLUE),
+        (Mage, TeamColor.RED),
     ],
 )
 def test_faction_units_ship_runtime_art(unit_type: type[Unit], team: TeamColor) -> None:

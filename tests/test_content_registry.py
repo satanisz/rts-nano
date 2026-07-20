@@ -21,6 +21,7 @@ from rts_nano.content import (
 )
 from rts_nano.game.types import ContentId
 from rts_nano.simulation.entities import (
+    Archer,
     Arclight,
     Arsenal,
     Base,
@@ -30,6 +31,8 @@ from rts_nano.simulation.entities import (
     Gold,
     Guardian,
     House,
+    Knight,
+    Mage,
     Marksman,
     Peasant,
     Pit,
@@ -59,6 +62,9 @@ def _registry(
     ("content_id", "factory"),
     [
         ("peasant", Peasant),
+        ("knight", Knight),
+        ("archer", Archer),
+        ("mage", Mage),
         ("marksman", Marksman),
         ("guardian", Guardian),
         ("arclight", Arclight),

@@ -14,12 +14,15 @@ from rts_nano.simulation.entities.buildings import (
 )
 from rts_nano.simulation.entities.resources import Gold, Wood
 from rts_nano.simulation.entities.units import (
+    Archer,
     Arclight,
     ArtilleryUnit,
     Brute,
     CasterUnit,
     DeadZoneRangedUnit,
     Guardian,
+    Knight,
+    Mage,
     Marksman,
     MeleeUnit,
     Peasant,
@@ -34,6 +37,9 @@ __all__ = [
     "DeadZoneRangedUnit",
     "CasterUnit",
     "ArtilleryUnit",
+    "Knight",
+    "Archer",
+    "Mage",
     "Gold",
     "Wood",
     "Base",

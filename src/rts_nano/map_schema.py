@@ -51,6 +51,9 @@ class TeamSettings(TypedDict, total=False):
     faction_id: Required[str]
     # Shared
     peasant: list[Coordinate]
+    knight: list[Coordinate]
+    archer: list[Coordinate]
+    mage: list[Coordinate]
     base: list[Coordinate]
     house: list[Coordinate]
     # AEGIS

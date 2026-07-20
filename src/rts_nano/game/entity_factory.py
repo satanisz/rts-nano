@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, ClassVar
 
 from rts_nano.content import CONTENT
 from rts_nano.simulation.entities import (
+    Archer,
     Arclight,
     Arsenal,
     Base,
@@ -15,6 +16,8 @@ from rts_nano.simulation.entities import (
     Gold,
     Guardian,
     House,
+    Knight,
+    Mage,
     Marksman,
     Peasant,
     Pit,
@@ -35,6 +38,9 @@ class EntityFactory:
 
     _ENTITY_TYPES: ClassVar[dict[str, type]] = {
         "peasant": Peasant,
+        "knight": Knight,
+        "archer": Archer,
+        "mage": Mage,
         "base": Base,
         "house": House,
         "marksman": Marksman,

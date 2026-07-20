@@ -255,7 +255,7 @@ class GameRenderer:
         flash_duration = max(1, round(0.12 * FPS))
         for event in manager.recent_attacks:
             self._hit_flash_until_tick[int(event.attacker_id)] = tick + flash_duration
-            effect_type = MagicMissile if str(event.attacker_content_id) == "arclight" else ArcherShot
+            effect_type = MagicMissile if str(event.attacker_content_id) in {"arclight", "mage"} else ArcherShot
             effect = effect_type(
                 event.source[0],
                 event.source[1],

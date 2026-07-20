@@ -131,6 +131,30 @@ class ArtilleryUnit(Unit):
         super().__init__(x, y, team, definition)
 
 
+class Knight(MeleeUnit):
+    """Shared dependable melee unit available to both factions."""
+
+    def __init__(self, x: int, y: int, team: TeamColor) -> None:
+        """Initialize from the shared Knight definition."""
+        super().__init__(x, y, team, CONTENT.get_unit("knight"))
+
+
+class Archer(DeadZoneRangedUnit):
+    """Shared ranged unit with a readable dead-zone and melee fallback."""
+
+    def __init__(self, x: int, y: int, team: TeamColor) -> None:
+        """Initialize from the shared Archer definition."""
+        super().__init__(x, y, team, CONTENT.get_unit("archer"))
+
+
+class Mage(CasterUnit):
+    """Shared tier-two caster using a basic magic attack before doctrines."""
+
+    def __init__(self, x: int, y: int, team: TeamColor) -> None:
+        """Initialize from the shared Mage definition."""
+        super().__init__(x, y, team, CONTENT.get_unit("mage"))
+
+
 # --- AEGIS (Blue): precision / armored / ranged elite. Signature mechanics
 # (shields, splash) are layered on in later phases; here they carry their stats
 # and reuse the base melee/ranged/missile behaviors via subclassing. ---
