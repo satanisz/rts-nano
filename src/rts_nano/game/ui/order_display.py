@@ -16,6 +16,7 @@ _ORDER_NAMES = {
     "attack": "Attack",
     "gather": "Gather",
     "build": "Build",
+    "repair": "Repair",
     "return_cargo": "Return Cargo",
     "stop": "Stop",
     "hold": "Hold",

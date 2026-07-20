@@ -278,6 +278,78 @@ def test_cancelled_construction_advances_to_queued_gather() -> None:
     simulation.close()
 
 
+def test_multiple_peasants_contribute_construction_work() -> None:
+    settings = _settings()
+    settings["Blue"]["peasant"] = [[170, 130], [190, 130]]
+    simulation = HeadlessSimulation.from_settings(settings)
+    manager = simulation.manager
+    group = manager.teams[TeamColor.BLUE]
+    first, second = manager.state.entities_by_content_id("peasant", team=TeamColor.BLUE)
+    group.resources.update({"wood": 80, "gold": 0})
+
+    assert manager.construct_building(first, "house", (170, 80)) is True
+    house = manager.state.entities_by_content_id("house", team=TeamColor.BLUE)[0]
+    assert manager.issue_build_order(TeamColor.BLUE, house, [second]) == 1
+
+    simulation.step(20)
+    remaining_before = house.construction_remaining_frames
+    simulation.step(1)
+
+    assert manager.construction.active_builder_count(house) == 2
+    assert remaining_before - house.construction_remaining_frames == 2
+    simulation.step(80)
+    assert house.is_under_construction is False
+    assert first.state == second.state == "IDLE"
+    simulation.close()
+
+
+def test_peasants_repair_completed_allied_building_with_wood() -> None:
+    settings = _settings()
+    settings["Blue"]["peasant"] = [[60, 110], [80, 110]]
+    simulation = HeadlessSimulation.from_settings(settings)
+    manager = simulation.manager
+    group = manager.teams[TeamColor.BLUE]
+    peasants = manager.state.entities_by_content_id("peasant", team=TeamColor.BLUE)
+    base = manager.state.entities_by_content_id("base", team=TeamColor.BLUE)[0]
+    base.life = base.max_life - 10
+    group.resources["wood"] = 10
+
+    assert manager.issue_repair_order(TeamColor.BLUE, base, peasants) == 2
+    simulation.step(30)
+
+    assert base.life == base.max_life
+    assert group.resources["wood"] == 9
+    assert all(peasant.state == "IDLE" for peasant in peasants)
+    simulation.close()
+
+
+def test_right_click_assigns_additional_builder_and_repairer(monkeypatch: pytest.MonkeyPatch) -> None:
+    settings = _settings()
+    settings["Blue"]["peasant"] = [[170, 130], [190, 130]]
+    simulation = HeadlessSimulation.from_settings(settings)
+    manager = simulation.manager
+    group = manager.teams[TeamColor.BLUE]
+    first, second = manager.state.entities_by_content_id("peasant", team=TeamColor.BLUE)
+    group.resources.update({"wood": 90, "gold": 0})
+    assert manager.construct_building(first, "house", (170, 80)) is True
+    house = manager.state.entities_by_content_id("house", team=TeamColor.BLUE)[0]
+    manager.select_entities_for_team(TeamColor.BLUE, [second])
+    monkeypatch.setattr(pygame.key, "get_mods", lambda: 0)
+
+    InputController()._handle_right_click(manager, house.get_center())
+    assert second.current_order is not None
+    assert second.current_order.kind == "build"
+
+    simulation.step(200)
+    house.life -= 4
+    manager.select_entities_for_team(TeamColor.BLUE, [first, second])
+    InputController()._handle_right_click(manager, house.get_center())
+    assert all(
+        peasant.current_order is not None and peasant.current_order.kind == "repair" for peasant in (first, second)
+    )
+    simulation.close()
+
+
 def test_base_ground_rally_moves_new_peasant_to_destination() -> None:
     simulation = HeadlessSimulation.from_settings(_settings())
     manager = simulation.manager

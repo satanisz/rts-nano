@@ -334,6 +334,28 @@ class GameSession:
         """Order team peasants to gather from a resource node."""
         return self.orders.issue_gather_order(team, resource, units, queue=queue)
 
+    def issue_build_order(
+        self,
+        team: TeamColor,
+        building: Building,
+        units: Iterable[Unit] | None = None,
+        *,
+        queue: bool = False,
+    ) -> int:
+        """Assign Peasants to an unfinished allied building."""
+        return self.orders.issue_build_order(team, building, units, queue=queue)
+
+    def issue_repair_order(
+        self,
+        team: TeamColor,
+        building: Building,
+        units: Iterable[Unit] | None = None,
+        *,
+        queue: bool = False,
+    ) -> int:
+        """Assign Peasants to repair a completed damaged allied building."""
+        return self.orders.issue_repair_order(team, building, units, queue=queue)
+
     def issue_stop_order(self, team: TeamColor, units: Iterable[Unit] | None = None) -> int:
         """Stop team units and clear their active targets."""
         return self.orders.issue_stop_order(team, units)

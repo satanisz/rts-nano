@@ -103,6 +103,8 @@ class ContentRegistry:
                 raise ValueError(f"Unit {unit.id} has non-positive movement or combat values")
             if min(unit.cost.wood, unit.cost.gold, unit.attack_damage, unit.attack_modifier) < 0:
                 raise ValueError(f"Unit {unit.id} has negative costs or combat values")
+            if min(unit.build_rate, unit.repair_rate) < 0:
+                raise ValueError(f"Unit {unit.id} has negative worker rates")
             producer = self.buildings.get(str(unit.produced_at))
             if producer is None:
                 raise ValueError(f"Unit {unit.id} references missing producer {unit.produced_at}")
@@ -120,6 +122,8 @@ class ContentRegistry:
                 raise ValueError(f"Building {building.id} has non-positive core values")
             if building.radius <= 0:
                 raise ValueError(f"Building {building.id} has non-positive radius")
+            if building.repair_hp_per_wood <= 0:
+                raise ValueError(f"Building {building.id} has non-positive repair efficiency")
             if min(building.cost.wood, building.cost.gold, building.attack_damage, building.attack_modifier) < 0:
                 raise ValueError(f"Building {building.id} has negative costs or combat values")
             for required in building.requires:
@@ -207,6 +211,8 @@ UNIT_DEFINITIONS = (
         attack_range=0,
         attack_speed=1.0,
         attack_kinds=(AttackKind.MELEE,),
+        build_rate=1,
+        repair_rate=2,
     ),
     UnitDefinition(
         id=ContentId("marksman"),

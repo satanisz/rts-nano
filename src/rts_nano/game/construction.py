@@ -142,17 +142,71 @@ class ConstructionSystem:
         return True
 
     def update(self) -> None:
-        """Advance unfinished buildings when workers are actively building them."""
+        """Aggregate deterministic construction and repair work per building."""
+        build_work: dict[int, tuple[Building, int]] = {}
+        repair_work: dict[int, tuple[Building, int]] = {}
         for team in self._state.teams:
             for builder in self._builders_for_team(team):
                 target = builder.target_entity
                 constructable_target = self._constructable_target(builder, target)
-                if builder.state != "BUILDING" or constructable_target is None:
-                    continue
-                constructable_target.advance_construction()
-                if not constructable_target.is_under_construction:
-                    builder.state = "IDLE"
-                    builder.target_entity = None
+                if builder.state == "BUILDING" and constructable_target is not None:
+                    self._add_work(build_work, constructable_target, builder.definition.build_rate)
+                repairable_target = self._repairable_target(builder, target)
+                if builder.state == "REPAIRING" and repairable_target is not None:
+                    self._add_work(repair_work, repairable_target, builder.definition.repair_rate)
+
+        for entity_id in sorted(build_work):
+            building, work = build_work[entity_id]
+            building.advance_construction(work)
+            if not building.is_under_construction:
+                self._detach_builders(building.team, building)
+
+        for entity_id in sorted(repair_work):
+            building, work = repair_work[entity_id]
+            self._advance_repair(building, work)
+            if building.life >= building.max_life:
+                self._detach_builders(building.team, building)
+
+    def active_builder_count(self, building: Building) -> int:
+        """Return workers currently contributing construction work."""
+        return sum(
+            builder.state == "BUILDING" and builder.target_entity is building
+            for builder in self._builders_for_team(building.team)
+        )
+
+    def active_repairer_count(self, building: Building) -> int:
+        """Return workers currently contributing repair work."""
+        return sum(
+            builder.state == "REPAIRING" and builder.target_entity is building
+            for builder in self._builders_for_team(building.team)
+        )
+
+    @staticmethod
+    def _add_work(work_by_building: dict[int, tuple[Building, int]], building: Building, amount: int) -> None:
+        if amount <= 0 or building.entity_id is None:
+            return
+        entity_id = int(building.entity_id)
+        _, current = work_by_building.get(entity_id, (building, 0))
+        work_by_building[entity_id] = (building, current + amount)
+
+    def _advance_repair(self, building: Building, requested_hp: int) -> None:
+        missing_hp = max(0, building.max_life - building.life)
+        if requested_hp <= 0 or missing_hp <= 0:
+            return
+        team_state = self._state.team(building.team)
+        if team_state is None:
+            return
+        requested_hp = min(requested_hp, missing_hp)
+        missing_credit = max(0, requested_hp - building.repair_credit)
+        wood_needed = (
+            missing_credit + building.definition.repair_hp_per_wood - 1
+        ) // building.definition.repair_hp_per_wood
+        wood_spent = min(wood_needed, team_state.resources.get("wood", 0))
+        team_state.resources["wood"] -= wood_spent
+        building.repair_credit += wood_spent * building.definition.repair_hp_per_wood
+        repaired_hp = min(requested_hp, building.repair_credit)
+        building.life += repaired_hp
+        building.repair_credit -= repaired_hp
 
     def _is_valid_placement(self, building: Building, *, ignore: Entity | None = None) -> bool:
         center = building.get_center()
@@ -179,6 +233,17 @@ class ConstructionSystem:
             and target.team == builder.team
             and target.life > 0
             and target.is_under_construction
+        ):
+            return target
+        return None
+
+    @staticmethod
+    def _repairable_target(builder: Peasant, target: object) -> Building | None:
+        if (
+            isinstance(target, Building)
+            and target.team == builder.team
+            and 0 < target.life < target.max_life
+            and not target.is_under_construction
         ):
             return target
         return None

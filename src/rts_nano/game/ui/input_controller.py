@@ -21,7 +21,7 @@ from rts_nano.game.ui.effects import ClickMarker
 from rts_nano.game.ui.selection_panel import build_selection_panel_layout
 from rts_nano.game.ui.state import PresentationState
 from rts_nano.simulation.entities import Base, TeamColor
-from rts_nano.simulation.entities.base import Resource, Unit
+from rts_nano.simulation.entities.base import Building, Resource, Unit
 
 if TYPE_CHECKING:
     from rts_nano.application import GameSession
@@ -243,6 +243,18 @@ class InputController:
             manager.issue_move_order(manager.current_team, order_pos, selected_units, queue=queue_order)
         elif isinstance(target_entity, Resource):
             manager.issue_gather_order(manager.current_team, target_entity, selected_units, queue=queue_order)
+        elif (
+            isinstance(target_entity, Building)
+            and target_entity.team == manager.current_team
+            and target_entity.is_under_construction
+        ):
+            manager.issue_build_order(manager.current_team, target_entity, selected_units, queue=queue_order)
+        elif (
+            isinstance(target_entity, Building)
+            and target_entity.team == manager.current_team
+            and target_entity.life < target_entity.max_life
+        ):
+            manager.issue_repair_order(manager.current_team, target_entity, selected_units, queue=queue_order)
         else:
             manager.issue_target_order(manager.current_team, target_entity, selected_units)
 

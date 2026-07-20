@@ -54,6 +54,8 @@ class UnitDefinition:
     ranged_min_attack_range: int = 0
     ranged_attack_range: int = 0
     splash_radius: int = 0
+    build_rate: int = 0
+    repair_rate: int = 0
 
     @property
     def key(self) -> str:
@@ -98,6 +100,7 @@ class BuildingDefinition:
     shield_regen_delay: int = 0
     poison_damage: int = 0
     poison_duration: int = 0
+    repair_hp_per_wood: int = 10
 
     @property
     def key(self) -> str:

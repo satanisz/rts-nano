@@ -76,6 +76,8 @@ without importing Pygame, configuring SDL, loading images, or creating presentat
   to make newly produced Peasants harvest automatically.
 - Place a building with a Peasant, then Shift-right-click a resource to finish construction before
   harvesting. The selection panel shows the active order and up to three queued orders.
+- Right-click an unfinished allied building with additional Peasants to accelerate construction.
+  Right-click a damaged completed allied building to repair it using Wood.
 
 ## Quality gate
 

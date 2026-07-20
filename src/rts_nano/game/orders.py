@@ -234,6 +234,57 @@ class OrderSystem:
         )
         return sum(self._queue_or_execute(peasant, order, queue=queue) for peasant in ordered_peasants)
 
+    def issue_build_order(
+        self,
+        team: TeamColor,
+        building: Building,
+        units: Iterable[Unit] | None = None,
+        *,
+        queue: bool = False,
+    ) -> int:
+        """Assign Peasants to an unfinished allied building."""
+        if building.team != team or building.life <= 0 or not building.is_under_construction:
+            return 0
+        return self._issue_worker_building_order("build", team, building, units, queue=queue)
+
+    def issue_repair_order(
+        self,
+        team: TeamColor,
+        building: Building,
+        units: Iterable[Unit] | None = None,
+        *,
+        queue: bool = False,
+    ) -> int:
+        """Assign Peasants to repair a completed damaged allied building."""
+        if (
+            building.team != team
+            or building.life <= 0
+            or building.life >= building.max_life
+            or building.is_under_construction
+        ):
+            return 0
+        return self._issue_worker_building_order("repair", team, building, units, queue=queue)
+
+    def _issue_worker_building_order(
+        self,
+        kind: OrderKind,
+        team: TeamColor,
+        building: Building,
+        units: Iterable[Unit] | None,
+        *,
+        queue: bool,
+    ) -> int:
+        if building.entity_id is None:
+            return 0
+        peasants = [unit for unit in self._order_units_for_team(team, units) if isinstance(unit, Peasant)]
+        order = Order(
+            kind,
+            building.get_center(),
+            target_entity_id=building.entity_id,
+            target_content_id=building.content_id,
+        )
+        return sum(self._queue_or_execute(peasant, order, queue=queue) for peasant in peasants)
+
     def issue_stop_order(self, team: TeamColor, units: Iterable[Unit] | None = None) -> int:
         """Stop team units and clear their active targets."""
         ordered_units = self._order_units_for_team(team, units)
@@ -364,6 +415,18 @@ class OrderSystem:
             if not isinstance(target, Resource) or target.amount <= 0:
                 return False
             return self._movement.assign_unit_target(unit, target.get_center(), target)
+        if order.kind in {"build", "repair"} and order.target_entity_id is not None and isinstance(unit, Peasant):
+            try:
+                target = self._state.store.get(order.target_entity_id)
+            except KeyError:
+                return False
+            if not isinstance(target, Building) or target.team != unit.team or target.life <= 0:
+                return False
+            if order.kind == "build" and not target.is_under_construction:
+                return False
+            if order.kind == "repair" and (target.is_under_construction or target.life >= target.max_life):
+                return False
+            return self._movement.assign_unit_target(unit, target.get_center(), target)
         return False
 
     @staticmethod
@@ -378,7 +441,7 @@ class OrderSystem:
                 or unit.carry_wood > 0
                 or unit.carry_gold > 0
             )
-        return unit.state in {"MOVING", "ATTACKING", "BUILDING", "GATHERING", "DEPOSITING"}
+        return unit.state in {"MOVING", "ATTACKING", "BUILDING", "REPAIRING", "GATHERING", "DEPOSITING"}
 
     def _order_units_for_team(self, team: TeamColor, units: Iterable[Unit] | None = None) -> list[Unit]:
         """Normalize an optional unit iterable to units owned by a team."""

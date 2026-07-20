@@ -415,6 +415,9 @@ class GameRenderer:
                 stats_texts.append(f"HP: {primary_entity.life}/{primary_entity.max_life}")
                 if primary_entity.is_under_construction:
                     stats_texts.append(f"Build: {primary_entity.construction_progress:.0%}")
+                    stats_texts.append(f"Builders: {manager.construction.active_builder_count(primary_entity)}")
+                elif primary_entity.life < primary_entity.max_life:
+                    stats_texts.append(f"Repairers: {manager.construction.active_repairer_count(primary_entity)}")
                 stats_texts.append(f"SHIELD: {primary_entity.shield_modifier}")
             elif isinstance(primary_entity, Resource):
                 stats_texts.append(f"Amount: {primary_entity.amount}")

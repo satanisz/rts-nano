@@ -84,6 +84,10 @@ def test_runtime_units_get_all_stats_from_registry(content_id: str, factory: typ
         definition.poison_damage,
         definition.splash_radius,
     )
+    assert (unit.definition.build_rate, unit.definition.repair_rate) == (
+        definition.build_rate,
+        definition.repair_rate,
+    )
 
 
 @pytest.mark.parametrize(
@@ -112,6 +116,7 @@ def test_runtime_buildings_get_all_stats_from_registry(content_id: str, factory:
     )
     assert getattr(building, "attack_damage", 0) == definition.attack_damage
     assert building.shield_max == definition.shield_max
+    assert building.definition.repair_hp_per_wood == definition.repair_hp_per_wood
 
 
 @pytest.mark.parametrize(("content_id", "factory"), [("wood", Wood), ("gold", Gold)])

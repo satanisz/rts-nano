@@ -41,6 +41,9 @@ class Peasant(Unit):
                 if getattr(self.target_entity, "is_under_construction", False):
                     self.state = "BUILDING"
                     return
+                if self.current_order is not None and self.current_order.kind == "repair":
+                    self.state = "REPAIRING"
+                    return
                 self.state = "DEPOSITING"
             elif self._is_hostile_target(self.target_entity):
                 self.state = "ATTACKING"
