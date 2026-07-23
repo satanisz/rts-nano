@@ -494,6 +494,17 @@ class GameSession:
         self.menu_status = "Choose attack-move target"
         return True
 
+    def begin_move_targeting(self) -> bool:
+        """Enter a one-click targeting mode for the explicit Move command."""
+        selected_units = [entity for entity in self.selected_entities if isinstance(entity, Unit)]
+        if not selected_units:
+            self.menu_status = "Select units"
+            return False
+        self.cancel_pending_construction_placement()
+        self.pending_unit_command = "move"
+        self.menu_status = "Choose move target"
+        return True
+
     def begin_patrol_targeting(self) -> bool:
         """Enter a one-click targeting mode for the patrol command."""
         selected_units = [entity for entity in self.selected_entities if isinstance(entity, Unit)]
@@ -533,9 +544,12 @@ class GameSession:
     def cancel_pending_unit_command(self) -> None:
         """Leave pending selected-unit command mode."""
         self.pending_unit_command = None
-        if self.menu_status in {"Choose attack-move target", "Choose resource", "Choose patrol point"} or (
-            self.menu_status is not None and self.menu_status.startswith("Choose target for ")
-        ):
+        if self.menu_status in {
+            "Choose move target",
+            "Choose attack-move target",
+            "Choose resource",
+            "Choose patrol point",
+        } or (self.menu_status is not None and self.menu_status.startswith("Choose target for ")):
             self.menu_status = None
 
     def place_pending_construction(self, position: tuple[float, float]) -> bool:
@@ -600,7 +614,9 @@ class GameSession:
     def _handle_unit_command_button(self, command: str) -> None:
         """Apply a selected-unit command from the bottom command panel."""
         selected_units = [entity for entity in self.selected_entities if isinstance(entity, Unit)]
-        if command == "stop":
+        if command == "move":
+            self.begin_move_targeting()
+        elif command == "stop":
             self.issue_stop_order(self.current_team, selected_units)
         elif command == "hold":
             self.issue_hold_order(self.current_team, selected_units)

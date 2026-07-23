@@ -685,8 +685,8 @@ def test_manager_public_gather_order_sends_peasant_to_resource() -> None:
     simulation.close()
 
 
-def test_manager_build_hotkeys_enter_worker_placement_modes() -> None:
-    """Worker build hotkeys start construction placement for supported buildings."""
+def test_manager_build_hotkeys_open_submenu_then_enter_placement() -> None:
+    """B opens the RTS build card and its grid hotkeys start placement."""
     simulation = HeadlessSimulation.from_settings(_settings())
     manager = simulation.manager
     input_controller = InputController()
@@ -701,6 +701,11 @@ def test_manager_build_hotkeys_enter_worker_placement_modes() -> None:
 
     manager.cancel_pending_construction_placement()
     input_controller.handle_event(manager, pygame.event.Event(pygame.KEYDOWN, key=pygame.K_b))
+
+    assert input_controller.presentation.command_panel.page == "build"
+    assert manager.pending_construction_type is None
+
+    input_controller.handle_event(manager, pygame.event.Event(pygame.KEYDOWN, key=pygame.K_w))
 
     assert manager.pending_construction_type == "arsenal"
     simulation.close()

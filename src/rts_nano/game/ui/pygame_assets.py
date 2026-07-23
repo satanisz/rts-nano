@@ -4,10 +4,15 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pygame
 
+from rts_nano.content import CONTENT
 from rts_nano.simulation.entities.base import Building, Entity, Resource, Unit
+
+if TYPE_CHECKING:
+    from rts_nano.simulation.entities import TeamColor
 
 ASSET_ROOT = Path(__file__).resolve().parents[2] / "assets"
 SPRITES_DIR = ASSET_ROOT / "sprites"
@@ -59,6 +64,18 @@ class PygameAssets:
             if portrait is not None:
                 return portrait
         return self._load_fitted(sprite_path, size) if sprite_path is not None else None
+
+    def content_icon(self, content_id: str, team: TeamColor, size: int) -> pygame.Surface | None:
+        """Return a cached command-card icon from registry presentation keys."""
+        if content_id in CONTENT.units:
+            visual_key = CONTENT.get_unit(content_id).visual_key
+            path = SPRITES_DIR / f"{team.value.lower()}_{visual_key}.png"
+        elif content_id in CONTENT.buildings:
+            visual_key = CONTENT.get_building(content_id).visual_key
+            path = SPRITES_DIR / (f"{team.value.lower()}_base.png" if visual_key == "base" else f"{visual_key}.png")
+        else:
+            return None
+        return self._load_fitted(path, size)
 
     @staticmethod
     def paths_for(entity: Entity) -> tuple[Path | None, Path | None]:

@@ -102,6 +102,20 @@ class InputController:
             elif event.key == pygame.K_F11 or (event.key == pygame.K_RETURN and event.mod & pygame.KMOD_ALT):
                 self._request_fullscreen_toggle(manager)
             return
+        if event.key == pygame.K_ESCAPE:
+            if self.presentation.command_panel.page != "root":
+                self.presentation.command_panel.show_root()
+            else:
+                manager.cancel_pending_construction_placement()
+                manager.cancel_pending_unit_command()
+            return
+        command_button = self.presentation.command_panel.button_for_hotkey(manager, pygame.key.name(event.key))
+        if command_button is not None:
+            if command_button.enabled and command_button.action is not None:
+                self._dispatch_command_button(manager, command_button)
+            else:
+                manager.menu_status = command_button.status or "Unavailable"
+            return
         if event.key == pygame.K_TAB:
             manager.cancel_pending_construction_placement()
             manager.cancel_pending_unit_command()
@@ -200,6 +214,11 @@ class InputController:
         world_pos = manager._screen_to_world(mouse_pos)
         if manager.pending_construction_type is not None:
             manager.place_pending_construction(world_pos)
+            return
+        if manager.pending_unit_command == "move":
+            selected_units = [entity for entity in manager.selected_entities if isinstance(entity, Unit)]
+            manager.issue_move_order(manager.current_team, world_pos, selected_units)
+            manager.cancel_pending_unit_command()
             return
         if manager.pending_unit_command == "attack_move":
             selected_units = [entity for entity in manager.selected_entities if isinstance(entity, Unit)]
@@ -348,8 +367,11 @@ class InputController:
     def _handle_command_panel_click(self, manager: GameSession, mouse_pos: tuple[int, int]) -> bool:
         """Dispatch a click on a command-panel button. Return True if handled."""
         for button in self.presentation.command_panel.build(manager, manager.screen_width, manager.screen_height):
-            if not button.enabled or button.action is None or not button.rect.collidepoint(mouse_pos):
+            if not button.rect.collidepoint(mouse_pos):
                 continue
+            if not button.enabled or button.action is None:
+                manager.menu_status = button.status or "Unavailable"
+                return True
             self._dispatch_command_button(manager, button)
             return True
         return False
@@ -383,7 +405,11 @@ class InputController:
             manager.begin_construction_placement(button.building_type)
         elif action == "cancel_construction" and button.producer is not None:
             manager.cancel_construction(button.producer)
-        elif action in {"stop", "hold", "attack_move", "patrol", "gather", "return_cargo"}:
+        elif action == "open_build_menu":
+            self.presentation.command_panel.show_build_menu(manager)
+        elif action == "close_submenu":
+            self.presentation.command_panel.show_root()
+        elif action in {"move", "stop", "hold", "attack_move", "patrol", "gather", "return_cargo"}:
             manager._handle_unit_command_button(action)
 
     def _faction_building(self, manager: GameSession, role: str) -> str:

@@ -91,6 +91,12 @@ env.close()
 
 ## Core controls
 
+- The bottom-right 3x3 command card exposes Move (`M`), Stop (`S`), Hold (`H`), Attack Move (`A`),
+  Patrol (`T`), Gather (`G`), Return Cargo (`C`), and Build (`B`) when applicable. Hover a command
+  for its full description, cost, requirements, cooldown, or disabled reason.
+- With a Peasant selected, press `B` to open the faction's registry-derived construction card.
+  The grid shows every current building, including locked advanced structures and their prerequisite;
+  press `Esc` or click Back to return.
 - Right-click ground to move selected units. Hold Shift while right-clicking to append a move.
 - Right-click wood or gold with selected Peasants to gather it. Shift appends gathering after the
   current move or construction order.

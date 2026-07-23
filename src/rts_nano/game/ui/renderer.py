@@ -8,6 +8,7 @@ shares them; the renderer calls them read-only.
 
 from __future__ import annotations
 
+from textwrap import wrap
 from typing import TYPE_CHECKING
 
 import pygame
@@ -38,6 +39,7 @@ from rts_nano.simulation.entities.units import CasterUnit
 
 if TYPE_CHECKING:
     from rts_nano.application import GameSession
+    from rts_nano.game.ui.command_panel import CommandButton
     from rts_nano.simulation.geometry import Rect
 
 WOOD_ICON = "\U0001fab5"
@@ -531,26 +533,208 @@ class GameRenderer:
                 )
             pygame.draw.rect(screen, WHITE, frame_rect, 2)
 
-        font_tiny = pygame.font.SysFont(None, 16)
         buttons = self.presentation.command_panel.build(manager, screen_width, screen_height)
+        buttons_by_slot = {button.slot: button for button in buttons}
+        hovered_button: CommandButton | None = None
+        command_label_font = pygame.font.SysFont(None, 13)
+        command_badge_font = pygame.font.SysFont(None, 13, bold=True)
+        command_tooltip_font = pygame.font.SysFont(None, 17)
         for index, slot_rect in enumerate(self.presentation.command_panel.slot_rects(screen_width, screen_height)):
-            if index >= len(buttons):
-                pygame.draw.rect(screen, (30, 30, 30), slot_rect)
-                pygame.draw.rect(screen, (50, 50, 50), slot_rect, 1)
+            button = buttons_by_slot.get(index)
+            if button is None:
+                pygame.draw.rect(screen, (25, 27, 30), slot_rect)
+                pygame.draw.rect(screen, (55, 58, 62), slot_rect, 1)
                 continue
-
-            button = buttons[index]
             is_hovered = slot_rect.collidepoint(manager.mouse_pos)
-            bg_color = (100, 100, 60) if (is_hovered and button.enabled) else (60, 60, 60)
+            is_active = (
+                button.action == manager.pending_unit_command
+                or (button.action == "open_build_menu" and self.presentation.command_panel.page == "build")
+                or (button.action == "construct" and button.building_type == manager.pending_construction_type)
+            )
+            if not button.enabled:
+                bg_color = (37, 39, 42)
+                border_color = (72, 74, 78)
+            elif is_active:
+                bg_color = (55, 88, 75)
+                border_color = (105, 235, 170)
+            elif is_hovered:
+                bg_color = (91, 78, 43)
+                border_color = (235, 194, 92)
+            else:
+                bg_color = (52, 56, 61)
+                border_color = (130, 137, 145)
             pygame.draw.rect(screen, bg_color, slot_rect)
-            pygame.draw.rect(screen, WHITE, slot_rect, 1)
+            pygame.draw.rect(screen, border_color, slot_rect, 2 if is_hovered or is_active else 1)
+            self._draw_command_button(screen, manager, button, command_label_font, command_badge_font)
+            if is_hovered:
+                hovered_button = button
+        if hovered_button is not None:
+            self._draw_command_tooltip(screen, hovered_button, screen_width, screen_height, command_tooltip_font)
 
-            for word_index, word in enumerate(button.label.split()):
-                text_surf = font_tiny.render(word, True, WHITE)
-                text_rect = text_surf.get_rect(
-                    center=(slot_rect.x + slot_rect.width // 2, slot_rect.y + 16 + word_index * 14)
-                )
-                screen.blit(text_surf, text_rect)
+    def _draw_command_button(
+        self,
+        screen: pygame.Surface,
+        manager: GameSession,
+        button: CommandButton,
+        label_font: pygame.font.Font,
+        badge_font: pygame.font.Font,
+    ) -> None:
+        """Draw one compact icon, hotkey badge, label, and state overlay."""
+        rect = button.rect
+        icon_rect = pygame.Rect(rect.x + 9, rect.y + 3, 28, 28)
+        content_id = button.unit_type or button.building_type
+        content_icon = self.assets.content_icon(content_id, manager.current_team, 28) if content_id else None
+        if content_icon is not None:
+            if not button.enabled:
+                content_icon = content_icon.copy()
+                content_icon.set_alpha(85)
+            screen.blit(content_icon, icon_rect)
+        else:
+            self._draw_command_glyph(screen, icon_rect, button.icon, button.enabled)
+
+        if button.hotkey:
+            badge = badge_font.render(button.hotkey, True, (255, 222, 116) if button.enabled else (125, 125, 125))
+            screen.blit(badge, (rect.x + 2, rect.y + 1))
+
+        label = button.label if len(button.label) <= 9 else f"{button.label[:8]}…"
+        label_color = (235, 238, 240) if button.enabled else (120, 122, 125)
+        label_surface = label_font.render(label, True, label_color)
+        screen.blit(label_surface, label_surface.get_rect(center=(rect.centerx, rect.bottom - 7)))
+
+        if button.status:
+            pygame.draw.rect(screen, (150, 70, 52), (rect.right - 8, rect.y + 2, 6, 6))
+
+    @staticmethod
+    def _draw_command_glyph(
+        screen: pygame.Surface,
+        rect: pygame.Rect,
+        icon: str,
+        enabled: bool,
+    ) -> None:
+        """Draw crisp code-native RTS command symbols without loading assets."""
+        color = (220, 226, 232) if enabled else (100, 103, 108)
+        accent = (232, 176, 70) if enabled else color
+        center = rect.center
+        if icon == "move":
+            pygame.draw.line(screen, color, (rect.left + 4, rect.bottom - 5), (rect.right - 6, rect.top + 6), 3)
+            pygame.draw.polygon(
+                screen,
+                color,
+                [(rect.right - 7, rect.top + 3), (rect.right - 3, rect.top + 11), (rect.right - 12, rect.top + 9)],
+            )
+        elif icon == "stop":
+            pygame.draw.rect(screen, color, rect.inflate(-10, -10), 3)
+        elif icon == "hold":
+            pygame.draw.polygon(
+                screen,
+                color,
+                [
+                    (center[0], rect.top + 3),
+                    (rect.right - 5, rect.top + 8),
+                    (rect.right - 7, rect.bottom - 8),
+                    (center[0], rect.bottom - 3),
+                    (rect.left + 7, rect.bottom - 8),
+                    (rect.left + 5, rect.top + 8),
+                ],
+                2,
+            )
+        elif icon == "attack_move":
+            pygame.draw.circle(screen, accent, center, 9, 2)
+            pygame.draw.line(screen, color, (rect.left + 3, rect.bottom - 4), (rect.right - 4, rect.top + 3), 3)
+            pygame.draw.polygon(
+                screen,
+                color,
+                [(rect.right - 4, rect.top + 2), (rect.right - 3, rect.top + 10), (rect.right - 11, rect.top + 3)],
+            )
+        elif icon == "patrol":
+            pygame.draw.arc(screen, color, rect.inflate(-5, -5), 0.25, 3.2, 2)
+            pygame.draw.arc(screen, color, rect.inflate(-5, -5), 3.4, 6.2, 2)
+            pygame.draw.polygon(
+                screen,
+                color,
+                [(rect.left + 4, center[1]), (rect.left + 9, center[1] - 4), (rect.left + 10, center[1] + 4)],
+            )
+            pygame.draw.polygon(
+                screen,
+                color,
+                [(rect.right - 4, center[1]), (rect.right - 9, center[1] - 4), (rect.right - 10, center[1] + 4)],
+            )
+        elif icon == "gather":
+            pygame.draw.line(screen, color, (rect.left + 7, rect.bottom - 4), (rect.right - 7, rect.top + 5), 3)
+            pygame.draw.arc(screen, accent, (rect.left + 4, rect.top + 3, 18, 11), 3.2, 6.1, 3)
+        elif icon == "return_cargo":
+            pygame.draw.circle(screen, accent, (center[0] + 4, center[1] + 4), 7, 2)
+            pygame.draw.line(screen, color, (rect.right - 3, rect.top + 5), (rect.left + 4, rect.top + 5), 2)
+            pygame.draw.polygon(
+                screen,
+                color,
+                [(rect.left + 3, rect.top + 5), (rect.left + 9, rect.top + 1), (rect.left + 9, rect.top + 9)],
+            )
+        elif icon == "build":
+            pygame.draw.line(screen, color, (rect.left + 6, rect.bottom - 4), (rect.right - 7, rect.top + 5), 4)
+            pygame.draw.rect(screen, accent, (rect.right - 13, rect.top + 3, 10, 7), 2)
+        elif icon == "back":
+            pygame.draw.line(screen, color, (rect.right - 4, center[1]), (rect.left + 6, center[1]), 3)
+            pygame.draw.polygon(
+                screen,
+                color,
+                [(rect.left + 4, center[1]), (rect.left + 11, center[1] - 6), (rect.left + 11, center[1] + 6)],
+            )
+        elif icon == "cancel":
+            pygame.draw.line(screen, (220, 95, 85), (rect.left + 6, rect.top + 6), (rect.right - 6, rect.bottom - 6), 4)
+            pygame.draw.line(screen, (220, 95, 85), (rect.right - 6, rect.top + 6), (rect.left + 6, rect.bottom - 6), 4)
+        elif icon == "research":
+            pygame.draw.rect(screen, color, (rect.left + 7, rect.top + 4, 14, 19), 2)
+            pygame.draw.line(screen, accent, (rect.left + 10, rect.top + 10), (rect.right - 9, rect.top + 10), 2)
+            pygame.draw.line(screen, accent, (rect.left + 10, rect.top + 15), (rect.right - 9, rect.top + 15), 2)
+        elif icon == "ability":
+            pygame.draw.polygon(
+                screen,
+                accent,
+                [
+                    (center[0], rect.top + 2),
+                    (rect.right - 4, center[1]),
+                    (center[0], rect.bottom - 2),
+                    (rect.left + 4, center[1]),
+                ],
+                2,
+            )
+        else:
+            pygame.draw.circle(screen, color, center, 8, 2)
+
+    @staticmethod
+    def _draw_command_tooltip(
+        screen: pygame.Surface,
+        button: CommandButton,
+        screen_width: int,
+        screen_height: int,
+        font: pygame.font.Font,
+    ) -> None:
+        """Draw the full command name, cost, status, and description above the HUD."""
+        title = button.label + (f" [{button.hotkey}]" if button.hotkey else "")
+        body_lines = [
+            wrapped for source_line in button.tooltip.splitlines() for wrapped in (wrap(source_line, width=42) or [""])
+        ]
+        lines = [title, *body_lines]
+        if button.cost:
+            lines.append(f"Cost: {button.cost}")
+        if button.status:
+            lines.append(button.status)
+        width = 270
+        height = 12 + len(lines) * 18
+        x = max(8, screen_width - width - 190)
+        y = max(8, screen_height - BOTTOM_MENU_HEIGHT - height - 6)
+        box = pygame.Rect(x, y, width, height)
+        pygame.draw.rect(screen, (17, 20, 24), box)
+        pygame.draw.rect(screen, (205, 170, 80), box, 1)
+        for index, line in enumerate(lines):
+            if index == 0:
+                color = (244, 213, 125)
+            elif button.status and line == button.status:
+                color = (235, 115, 92)
+            else:
+                color = (215, 218, 222)
+            screen.blit(font.render(line, True, color), (x + 8, y + 7 + index * 18))
 
     def _draw_minimap(self, screen: pygame.Surface, manager: GameSession) -> None:
         """Draw a compact world overview and the current camera rectangle."""

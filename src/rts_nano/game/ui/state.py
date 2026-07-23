@@ -23,3 +23,4 @@ class PresentationState:
         """Discard transient objects while retaining reusable UI helpers."""
         self.click_markers.clear()
         self.tech_tree_visible = False
+        self.command_panel.reset()
