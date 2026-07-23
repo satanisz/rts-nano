@@ -69,7 +69,7 @@ def test_scripted_ai_gathers_resources_into_bank() -> None:
 
 
 def test_scripted_ai_builds_trains_and_attacks() -> None:
-    """With resources the RUST AI raises a pit, trains rippers, and attacks."""
+    """With resources the RUST AI raises a pit, trains units, scouts, and attacks."""
     simulation = HeadlessSimulation.from_settings(_ai_settings())
     manager = simulation.manager
     red = manager.teams[TeamColor.RED]
@@ -94,4 +94,57 @@ def test_scripted_ai_builds_trains_and_attacks() -> None:
     assert built_pit
     assert trained_unit
     assert launched_attack
+    simulation.close()
+
+
+def test_scripted_ai_does_not_know_hidden_enemy_base() -> None:
+    """A hidden base cannot become an attack target through omniscient state access."""
+    settings = _ai_settings()
+    settings["Red"]["ripper"] = [[140, 200], [170, 200], [200, 200]]
+    simulation = HeadlessSimulation.from_settings(settings)
+    manager = simulation.manager
+    ai = ScriptedAI(manager, TeamColor.RED, decision_interval=1)
+    enemy_base = manager.bases_for_team(TeamColor.BLUE)[0]
+
+    ai.step()
+
+    rippers = manager.state.entities_by_content_id("ripper", team=TeamColor.RED)
+    scouting = [unit for unit in rippers if unit.attack_move_destination is not None]
+    assert ai.known_enemy_base_position is None
+    assert len(scouting) == 1
+    assert scouting[0].attack_move_destination != enemy_base.get_center()
+    simulation.close()
+
+
+def test_scripted_ai_attacks_base_after_legitimate_sighting() -> None:
+    """Once team vision reaches the enemy Base, its observed position becomes actionable."""
+    settings = _ai_settings()
+    settings["Blue"]["base"] = [[430, 120]]
+    settings["Red"]["ripper"] = [[140, 200], [170, 200], [200, 200]]
+    simulation = HeadlessSimulation.from_settings(settings)
+    manager = simulation.manager
+    ai = ScriptedAI(manager, TeamColor.RED, decision_interval=1)
+    enemy_position = manager.bases_for_team(TeamColor.BLUE)[0].get_center()
+
+    ai.step()
+
+    rippers = manager.state.entities_by_content_id("ripper", team=TeamColor.RED)
+    assert ai.known_enemy_base_position == enemy_position
+    assert all(unit.attack_move_destination == enemy_position for unit in rippers)
+    simulation.close()
+
+
+def test_scripted_ai_ignores_undiscovered_resource_nodes() -> None:
+    """Workers may use visible or remembered resources, but not hidden map-state nodes."""
+    settings = _ai_settings()
+    settings["Resources"] = {"wood": [[760, 560]], "gold": []}
+    simulation = HeadlessSimulation.from_settings(settings)
+    manager = simulation.manager
+    ai = ScriptedAI(manager, TeamColor.RED, decision_interval=1)
+
+    ai.step()
+
+    assert all(
+        peasant.state == "IDLE" for peasant in manager.state.entities_by_content_id("peasant", team=TeamColor.RED)
+    )
     simulation.close()

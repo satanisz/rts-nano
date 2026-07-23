@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from rts_nano.game.constants import FOG_CELL_SIZE
+from rts_nano.game.fog import FogOfWar
 from rts_nano.game.rules import nearest_entity
 from rts_nano.simulation.entities.base import Building, Resource
 from rts_nano.simulation.entities.units import Peasant
@@ -31,6 +33,8 @@ class ScriptedAI:
         self._team = team
         self._decision_interval = max(1, decision_interval)
         self._frame = 0
+        self._vision = FogOfWar(manager.map_width, manager.map_height)
+        self._last_known_enemy_base: tuple[float, float] | None = None
         faction_id = str(manager.state.faction_for_team(team))
         self._military_building, self._army_units = _FACTION_PLAN.get(faction_id, ("arsenal", ("guardian",)))
 
@@ -39,6 +43,8 @@ class ScriptedAI:
         self._frame += 1
         if self._frame % self._decision_interval != 0 or self._manager.state.team(self._team) is None:
             return
+        self._vision.update(self._manager.state.entities_for_team(self._team))
+        self._refresh_enemy_base_memory()
         self._assign_idle_workers()
         self._build_military()
         self._train_army()
@@ -54,7 +60,7 @@ class ScriptedAI:
                 *self._manager.state.resources_by_content("wood"),
                 *self._manager.state.resources_by_content("gold"),
             )
-            if node.amount > 0
+            if node.amount > 0 and self._vision.is_explored(*node.get_center())
         ]
         if not resources:
             return
@@ -95,18 +101,68 @@ class ScriptedAI:
         army: list[Unit] = [unit for unit in self._manager.units_for_team(self._team) if not isinstance(unit, Peasant)]
         if len(army) < self.ATTACK_FORCE_SIZE:
             return
-        target_base = self._enemy_base()
-        if target_base is None:
+        if self._last_known_enemy_base is None:
+            self._scout_unexplored(army)
             return
         idle = [unit for unit in army if unit.state in {"IDLE", "HOLDING"}]
         if idle:
-            self._manager.issue_attack_move_order(self._team, target_base.get_center(), idle)
+            self._manager.issue_attack_move_order(self._team, self._last_known_enemy_base, idle)
 
-    def _enemy_base(self) -> Base | None:
+    @property
+    def known_enemy_base_position(self) -> tuple[float, float] | None:
+        """Return only the last position legitimately observed by this AI."""
+        return self._last_known_enemy_base
+
+    def _refresh_enemy_base_memory(self) -> None:
+        visible_bases: list[Base] = []
         for team in self._manager.teams:
             if team == self._team:
                 continue
-            bases = self._manager.bases_for_team(team)
-            if bases and bases[0].life > 0:
-                return bases[0]
-        return None
+            visible_bases.extend(
+                base
+                for base in self._manager.bases_for_team(team)
+                if base.life > 0 and self._vision.is_visible(*base.get_center())
+            )
+        if visible_bases:
+            origin = self._manager.bases_for_team(self._team)
+            anchor = origin[0] if origin else self._workers()[0] if self._workers() else visible_bases[0]
+            target = nearest_entity(anchor, visible_bases)
+            if target is not None:
+                center = target.get_center()
+                self._last_known_enemy_base = (float(center[0]), float(center[1]))
+            return
+
+        remembered = self._last_known_enemy_base
+        if remembered is not None and self._vision.is_visible(*remembered):
+            self._last_known_enemy_base = None
+
+    def _scout_unexplored(self, army: list[Unit]) -> None:
+        idle = [unit for unit in army if unit.state in {"IDLE", "HOLDING"}]
+        if not idle:
+            return
+        scout = idle[0]
+        destination = self._nearest_unexplored_point(scout.get_center())
+        if destination is not None:
+            self._manager.issue_attack_move_order(self._team, destination, [scout])
+
+    def _nearest_unexplored_point(
+        self,
+        origin: tuple[int | float, int | float],
+    ) -> tuple[int, int] | None:
+        candidates: list[tuple[int, int]] = []
+        for row, cells in enumerate(self._vision.grid):
+            for col, state in enumerate(cells):
+                if state != FogOfWar.UNEXPLORED:
+                    continue
+                point = (
+                    min(self._manager.map_width - 1, int((col + 0.5) * FOG_CELL_SIZE)),
+                    min(self._manager.map_height - 1, int((row + 0.5) * FOG_CELL_SIZE)),
+                )
+                if not self._manager.terrain.blocks_movement(point):
+                    candidates.append(point)
+        if not candidates:
+            return None
+        return min(
+            candidates,
+            key=lambda point: ((point[0] - origin[0]) ** 2 + (point[1] - origin[1]) ** 2, point[1], point[0]),
+        )
