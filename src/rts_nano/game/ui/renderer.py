@@ -178,15 +178,17 @@ class GameRenderer:
         if team_group:
             res = team_group.resources
             num_buildings = len(manager.state.buildings_for_team(manager.current_team))
-            num_units = len(manager.state.units_for_team(manager.current_team))
+            population = manager.state.population_for_team(manager.current_team)
+            queued_population = manager.production.queued_population_for_team(manager.current_team)
             population_cap = manager.population_cap_for_team(manager.current_team)
         else:
             res = {"wood": 0, "gold": 0}
             num_buildings = 0
-            num_units = 0
+            population = 0
+            queued_population = 0
             population_cap = 0
 
-        at_population_cap = population_cap > 0 and num_units >= population_cap
+        at_population_cap = population + queued_population >= population_cap
         population_color = (255, 90, 90) if at_population_cap else ui_color
         hud_parts: list[pygame.Surface] = [
             font.render(f"Team {manager.current_team.value} | ", True, ui_color),
@@ -194,7 +196,9 @@ class GameRenderer:
             font.render(f": {res['wood']}   ", True, ui_color),
             emoji_font.render(GOLD_ICON, True, ui_color),
             font.render(f": {res['gold']} | Buildings: {num_buildings}   ", True, ui_color),
-            font.render(f"Units: {num_units}/{population_cap}", True, population_color),
+            font.render(
+                f"Population: {population}/{population_cap} (+{queued_population} queued)", True, population_color
+            ),
         ]
 
         if manager.paused and not manager.menu_active:

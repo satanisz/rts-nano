@@ -16,6 +16,8 @@ regression tests for newly discovered bugs.
 
 ## C1 — Economy and tick integrity
 
+Status: **complete** — [C1 review](docs/reviews/GAME_CLOSEOUT_C1_REVIEW.md).
+
 Fix G1 (population) and G3 (dead builders).
 
 - Separate unit count from the sum of unit population costs. Production and HUD must use the

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from rts_nano.content import CONTENT
 from rts_nano.game.constants import FOG_CELL_SIZE
 from rts_nano.game.fog import FogOfWar
 from rts_nano.game.rules import nearest_entity
@@ -100,7 +101,16 @@ class ScriptedAI:
     def _launch_attack(self) -> None:
         army: list[Unit] = [unit for unit in self._manager.units_for_team(self._team) if not isinstance(unit, Peasant)]
         if len(army) < self.ATTACK_FORCE_SIZE:
-            return
+            free_supply = self._manager.population_cap_for_team(self._team) - self._manager.state.population_for_team(
+                self._team
+            )
+            cheapest_army_supply = min(CONTENT.get_unit(unit_id).population for unit_id in self._army_units)
+            if (
+                not army
+                or self._manager.production.queued_units_for_team(self._team)
+                or free_supply >= cheapest_army_supply
+            ):
+                return
         if self._last_known_enemy_base is None:
             self._scout_unexplored(army)
             return

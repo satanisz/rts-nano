@@ -115,7 +115,11 @@ class GameState:
 
     def count_units(self, team: TeamColor) -> int:
         """Return the number of living units owned by a team."""
-        return len(self.units_for_team(team))
+        return sum(unit.life > 0 for unit in self.units_for_team(team))
+
+    def population_for_team(self, team: TeamColor) -> int:
+        """Return occupied supply, excluding dead units awaiting tick cleanup."""
+        return sum(unit.definition.population for unit in self.units_for_team(team) if unit.life > 0)
 
     def population_cap_for_team(self, team: TeamColor) -> int:
         """Return population supplied by living completed buildings."""

@@ -635,7 +635,7 @@ class GameSession:
 
     def _has_reached_unit_cap(self, team: TeamColor) -> bool:
         """Return whether a team is at the current unit cap."""
-        return self._count_units(team) + self.production.queued_population_for_team(
+        return self.state.population_for_team(team) + self.production.queued_population_for_team(
             team
         ) >= self.population_cap_for_team(team)
 

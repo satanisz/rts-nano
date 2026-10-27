@@ -60,7 +60,9 @@ class ConstructionSystem:
 
     def _builders_for_team(self, team: TeamColor) -> list[Peasant]:
         return [
-            entity for entity in self._state.entities_by_content_id("peasant", team=team) if isinstance(entity, Peasant)
+            entity
+            for entity in self._state.entities_by_content_id("peasant", team=team)
+            if isinstance(entity, Peasant) and entity.life > 0
         ]
 
     def can_start_construction(

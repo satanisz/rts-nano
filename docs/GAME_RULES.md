@@ -1,7 +1,7 @@
 # Game Rules — Verified State
 
-Date: 2026-10-28. Audited code: `8e06cd5d1ba0eaea5a2171285d9321b1dcd727ab`.
-This document describes gameplay without designing an ML API. Known deviations from intended
+Date: 2026-10-28. Updated through closeout sprint C1.
+This document describes gameplay without designing an ML API. Remaining deviations from intended
 rules are explicit and must not be treated as accepted design.
 Readiness evidence: [game-stage audit](reviews/GAME_STAGE_AUDIT_2026-10-28.md).
 
@@ -55,24 +55,26 @@ not the ML API.
 - Buildings are dynamic obstacles. Placement/removal changes the obstacle revision and causes
   active routes to update.
 
-**Known bug G3:** a zero-HP worker not yet removed at the end of the tick may contribute
-construction or repair work. See the audit.
+Workers with HP <= 0 contribute neither construction nor repair, including before end-of-tick
+cleanup. This closes audit bug G3.
 
 ## Population and production
 
 A Base provides 10 supply and a completed House provides 6. Units cost 1–3 population.
 Queued units reserve their population costs. A unit can be trained only at a registry-listed producer.
 
-**Known bug G1:** current cap validation adds the number of living units to the weighted population
-of queued units. It does not sum the living army's population costs. The registry-based limit is
-therefore not guaranteed, and the HUD also shows unit count beside population capacity. Unit count
-and occupied population must be separate quantities.
+Occupied population sums the definition costs of living units, separately from unit count.
+New production requires occupied population plus all queued reservations plus the requested unit's
+cost to fit supply. Spawning transfers reserved population to occupied population without freeing
+capacity. Death and cancellation release the corresponding population. The HUD shows occupied
+population/capacity and a separate queued amount. This closes audit bug G1.
 
 Production and research share a building FIFO. Only its first entry advances each tick. If no safe
 spawn point exists, the completed job waits instead of spawning inside an obstacle. Cancellation
 removes the first entry and refunds 75%; destruction removes the queue without a refund. Population
-is validated on enqueue; losing a House does not revalidate supply at spawn. This policy must be
-explicitly accepted as part of G1's repair.
+is validated on enqueue. Losing a House or Base keeps the existing army and allows already paid
+jobs to finish, even above the reduced cap; new requests remain blocked until enough capacity
+is available. There is no forced unit deletion or automatic refund on supply loss.
 
 ## Technologies and abilities
 

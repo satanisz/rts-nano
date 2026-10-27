@@ -106,7 +106,9 @@ class ProductionSystem:
         if not self._can_pay(team_state.resources, spec.cost):
             return False, "insufficient_resources"
 
-        reserved_population = self._state.count_units(producer.team) + self.queued_population_for_team(producer.team)
+        reserved_population = self._state.population_for_team(producer.team) + self.queued_population_for_team(
+            producer.team
+        )
         if reserved_population + spec.population > self._state.population_cap_for_team(producer.team):
             return False, "population_cap"
 
