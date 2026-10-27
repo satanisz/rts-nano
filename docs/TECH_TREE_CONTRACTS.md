@@ -4,6 +4,11 @@ Date: 2026-07-20
 Plan: `EXECUTIVE_PLAN_06_EXPANDED_FACTION_TECH_TREES.md`
 Status: approved implementation contract for S1-S9
 
+Implementation notes checked on 2026-10-28: queue cancellation and temporary-effect storage below
+describe the current runtime. The [game-stage audit](reviews/GAME_STAGE_AUDIT_2026-10-28.md) records
+open population, visibility, and construction bugs; this contract is not a claim that those
+acceptance conditions already pass.
+
 This document fixes the simulation rules that must remain stable while the expanded faction
 technology trees are implemented. Numeric values introduced by the plan are provisional and live
 only in the canonical content registry. AI, balance tuning, reward design, and RL interfaces remain
@@ -52,9 +57,11 @@ cooldowns are not reset.
 ## Building activity queue
 
 Unit production and research are typed jobs in one FIFO building activity queue. A building works
-on at most one job per frame. Unit completion still emits `(producer, unit)` for rally processing;
-research completion emits a typed upgrade-completion event. Cancellation targets a queue index and
-uses the job definition's refund rule. No idle simulation tick scans every upgrade definition.
+on at most one job per frame. Unit completion returns `(producer, unit)` for rally processing;
+research completion updates the team and affected entities directly, without a separate completion
+event. `cancel_next()` removes the first activity and uses the job definition's refund rule;
+arbitrary queue-index cancellation is not implemented. No idle simulation tick scans every upgrade
+definition.
 
 ## Ability and cast lifecycle
 
@@ -74,9 +81,11 @@ cooldown frames, duration, radius, maximum affected targets, effect ID, and pres
    simulation frames only.
 6. Area queries use the spatial index, then stable `entity_id` ordering, then the definition's
    target cap. There is no random target choice.
-7. Temporary effects store an expiry frame and source upgrade/effect ID. Reapplying the same effect
-   refreshes duration and keeps the stronger magnitude; it never stacks without a definition that
-   explicitly permits stacking. Expired effects are removed in stable entity order.
+7. Temporary effects store per-entity remaining-frame counters and effect-specific state, rather
+   than a generic expiry/source-ID record. Arc Bind and Mutagenic Surge extend duration using the
+   maximum remaining duration and assign their configured magnitude. Poison overwrites damage and
+   refreshes duration rather than accumulating stacks. There is no general stronger-magnitude merge
+   rule. `EffectsSystem` advances counters in stable entity iteration order.
 
 The windowed presentation may only create commands for rendered, selectable entities. Once a
 command enters the pure simulation, cast legality depends only on deterministic ownership, life,

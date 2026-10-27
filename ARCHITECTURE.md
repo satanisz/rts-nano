@@ -3,6 +3,11 @@
 RTS Nano has one deterministic game simulation. The windowed game and headless callers compose the
 same core; rendering is an optional adapter, not a second implementation of the rules.
 
+Current game-stage status (2026-10-28): see the [game audit](docs/reviews/GAME_STAGE_AUDIT_2026-10-28.md),
+[verified gameplay rules](docs/GAME_RULES.md), and [closeout plan](EXECUTIVE_PLAN_08_GAME_STAGE_CLOSEOUT.md).
+The architecture is established; the audit records three open gameplay bugs and the remaining
+match-rule and acceptance work. ML API preparation is outside that closeout scope.
+
 ## Dependency direction
 
 ```text

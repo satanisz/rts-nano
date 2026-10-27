@@ -1,6 +1,8 @@
 # RL Environment Contract
 
-This document freezes the Plan 07 boundary before runtime implementation.
+This document describes the implemented Plan 07 boundary. The separate
+[game-stage closeout](../EXECUTIVE_PLAN_08_GAME_STAGE_CLOSEOUT.md) assesses gameplay readiness
+without extending this boundary or preparing ML adapters.
 
 ## Episode rules
 
