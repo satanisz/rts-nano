@@ -70,10 +70,7 @@ class GameRenderer:
         play_area_height = manager.play_area_height
         screen_height = manager.screen_height
 
-        if manager.current_team in manager.teams:
-            manager.fog.update(manager.state.entities_for_team(manager.current_team))
-        else:
-            manager.fog.update([])
+        manager.refresh_player_visibility()
         self._update_effects(manager)
 
         world_surface = screen.subsurface(pygame.Rect(0, 0, screen_width, play_area_height))

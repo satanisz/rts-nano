@@ -35,6 +35,8 @@ release of population when training finishes.
 
 ## C2 — Target selection and fog of war
 
+Status: **complete** — [C2 review](docs/reviews/GAME_CLOSEOUT_C2_REVIEW.md).
+
 Fix G2 with a shared object-selection rule for selection, right-click, gather commands, rally,
 and casts. Hostile targets must be visible when selected; resources must satisfy the chosen
 exploration rule. Clicking empty or hidden ground may issue a coordinate order, but must not

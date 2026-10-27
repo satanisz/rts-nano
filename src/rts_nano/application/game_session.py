@@ -107,6 +107,7 @@ class GameSession:
         )
         self.control_groups: dict[int, list[Unit]] = {}
         self._current_team = TeamColor.BLUE
+        self._team_fog = {TeamColor.BLUE: self.state.fog}
         self._selected_entities: list[Entity] = []
         self._paused = False
         self.dragging: bool = False
@@ -214,6 +215,10 @@ class GameSession:
     @current_team.setter
     def current_team(self, value: TeamColor) -> None:
         self._current_team = value
+        if value not in self._team_fog:
+            self._team_fog[value] = FogOfWar(self.map_width, self.map_height)
+        self.state.fog = self._team_fog[value]
+        self.refresh_player_visibility()
 
     @property
     def selected_entities(self) -> list[Entity]:
@@ -733,16 +738,35 @@ class GameSession:
 
     def _unit_at_world_pos(self, position: tuple[float, float]) -> Unit | None:
         """Return the topmost unit under a world position."""
-        point = (int(position[0]), int(position[1]))
-        for entity in reversed(self.all_entities):
-            if isinstance(entity, Unit) and entity.contains_point(point):
-                return entity
-        return None
+        entity = self.player_entity_at(position, entity_type=Unit)
+        return entity if isinstance(entity, Unit) else None
 
     def _resource_at_position(self, position: tuple[float, float]) -> Resource | None:
         """Return the topmost resource under a world position."""
+        entity = self.player_entity_at(position, entity_type=Resource)
+        return entity if isinstance(entity, Resource) else None
+
+    def refresh_player_visibility(self) -> None:
+        """Refresh current-player sight without requiring a rendered frame."""
+        self.fog.update([entity for entity in self.state.entities_for_team(self.current_team) if entity.life > 0])
+        self.selected_entities = [entity for entity in self.selected_entities if self.can_player_target(entity)]
+
+    def can_player_target(self, entity: Entity) -> bool:
+        """Apply the shared player rule: own, visible hostile, or explored resource."""
+        if isinstance(entity, Resource):
+            return entity.amount > 0 and self.fog.is_explored(*entity.get_center())
+        return (
+            isinstance(entity, (Unit, Building))
+            and entity.life > 0
+            and (entity.team == self.current_team or self.fog.is_visible(*entity.get_center()))
+        )
+
+    def player_entity_at(self, position: tuple[float, float], *, entity_type: type[Entity] = Entity) -> Entity | None:
+        """Resolve a player click without revealing hidden object identity."""
+        self.refresh_player_visibility()
+        point = (int(position[0]), int(position[1]))
         for entity in reversed(self.all_entities):
-            if isinstance(entity, Resource) and entity.contains_point((int(position[0]), int(position[1]))):
+            if isinstance(entity, entity_type) and entity.contains_point(point) and self.can_player_target(entity):
                 return entity
         return None
 
@@ -827,22 +851,9 @@ class GameSession:
         self.selected_entities.clear()
 
         if is_click:
-            for entity in reversed(self.all_entities):
-                if entity.contains_point(self.drag_start):
-                    cx, cy = entity.get_center()
-                    is_visible = self.fog.is_visible(cx, cy)
-                    is_explored = self.fog.is_explored(cx, cy)
-                    is_allied = getattr(entity, "team", None) == self.current_team
-                    is_resource = isinstance(entity, Resource)
-
-                    if not is_allied:
-                        if is_resource and not (is_explored or is_visible):
-                            continue
-                        if not is_resource and not is_visible:
-                            continue
-
-                    self.selected_entities.append(entity)
-                    break
+            entity = self.player_entity_at(self.drag_start)
+            if entity is not None:
+                self.selected_entities.append(entity)
         else:
             for entity in self.all_entities:
                 if len(self.selected_entities) >= MAX_SELECTION_SIZE:

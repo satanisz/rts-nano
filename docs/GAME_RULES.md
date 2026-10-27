@@ -1,6 +1,6 @@
 # Game Rules — Verified State
 
-Date: 2026-10-28. Updated through closeout sprint C1.
+Date: 2026-10-28. Updated through closeout sprint C2.
 This document describes gameplay without designing an ML API. Remaining deviations from intended
 rules are explicit and must not be treated as accepted design.
 Readiness evidence: [game-stage audit](reviews/GAME_STAGE_AUDIT_2026-10-28.md).
@@ -100,12 +100,21 @@ in ID order. Temporary statuses use remaining-tick counters.
   animations present an already resolved result.
 - Fog has unexplored/explored/visible states based on vision radius. `FogOfWar` does not model
   terrain occlusion.
-- The renderer refreshes the current player's fog. The bot owns its explored-cell memory and
-  last-seen enemy-base position. This is not one shared per-tick simulation of every team's knowledge.
+- Input and rendering refresh the current player's fog from living allied entities. Each selectable
+  side has separate exploration memory; switching teams cannot transfer that memory. Restart clears
+  it. The bot owns its separate explored-cell memory and last-seen enemy-base position. This is not
+  one shared per-tick simulation of every team's knowledge.
 
-**Known bug G2:** selection/rendering filter visibility, but right-click and cast-target lookup
-search all entities. A hidden object can be targeted before being seen. Closeout requires consistent
-target selection, not a physical line-of-sight system.
+Selection, right-click, gather, rally, and entity casts share one player-target rule: living allied
+objects are available, hostile objects must be currently visible, and resources must be explored
+and nonempty. Unknown object clicks resolve as ground where appropriate, without object identity.
+An unseen entity cannot become a new cast target. Ground/area spells may still target coordinates
+without identifying hidden entities. Enemy inspection clears when sight is lost.
+
+A legally issued attack or entity cast continues tracking its living target after sight is lost;
+this preserves the existing explicit-target rule. Enemy rally stores the visible target's position
+as attack-move ground coordinates, not a tracking reference. These are deliberate gameplay policies,
+not a physical line-of-sight model. This closes audit bug G2.
 
 ## Maps and bot
 

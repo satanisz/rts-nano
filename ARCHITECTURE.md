@@ -55,6 +55,12 @@ ownership.
 Selection, current team, pause, camera, menus, and viewport state live here rather than in the
 simulation.
 
+Player input and rendering refresh the active team's separate exploration grid through
+`GameSession.refresh_player_visibility()`. `player_entity_at()` applies the same ownership,
+visibility, and explored-resource rules for selection and object-targeting commands. This keeps
+click legality independent of whether a frame has already been rendered; it does not add ML
+observation filtering or change tracking after a legal target command.
+
 `game/ui/` owns Pygame input, rendering, terrain drawing, cached image/font resources, command
 panels, projectiles, click markers, and other visual effects. Rendering reads simulation state and
 events but does not change gameplay state.

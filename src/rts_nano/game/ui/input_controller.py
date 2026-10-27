@@ -79,6 +79,7 @@ class InputController:
 
     def handle_event(self, manager: GameSession, event: pygame.event.Event) -> None:
         """Process one pygame event for team control, selection, and orders."""
+        manager.refresh_player_visibility()
         if event.type == pygame.KEYDOWN:
             self._handle_keydown(manager, event)
         elif event.type == pygame.MOUSEBUTTONDOWN:
@@ -246,7 +247,7 @@ class InputController:
                 (entity for entity in manager.selected_entities if isinstance(entity, CasterUnit)),
                 None,
             )
-            target = next((entity for entity in manager.all_entities if entity.contains_point(world_pos)), None)
+            target = manager.player_entity_at(world_pos)
             queue = bool(pygame.key.get_mods() & pygame.KMOD_SHIFT)
             if caster is not None:
                 if ability.target_kind.value in {"ground", "area"}:
@@ -298,11 +299,7 @@ class InputController:
         order_pos = manager._screen_to_world(mouse_pos)
         if manager.terrain.blocks_movement(order_pos):
             return
-        target_entity = None
-        for entity in manager.all_entities:
-            if entity.contains_point(order_pos):
-                target_entity = entity
-                break
+        target_entity = manager.player_entity_at(order_pos)
 
         marker_color = (230, 190, 40) if isinstance(target_entity, Resource) else (255, 80, 80)
         if target_entity is None:
