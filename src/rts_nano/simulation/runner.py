@@ -54,8 +54,10 @@ class SimulationRunner:
 
     def step(self) -> set[Entity]:
         """Advance exactly one simulation tick and return removed entities."""
-        self.state.tick_count += 1
         self.events.clear()
+        if self.state.game_over_message is not None:
+            return set()
+        self.state.tick_count += 1
         all_entities = tuple(self.state.store)
         self._update_height_levels(all_entities)
         for entity in all_entities:

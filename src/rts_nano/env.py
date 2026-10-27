@@ -42,6 +42,7 @@ from rts_nano.actions import (
 )
 from rts_nano.content import CONTENT
 from rts_nano.game.fog import FogOfWar
+from rts_nano.game.match import MatchRules
 from rts_nano.game.observations import (
     AbilitySnapshot,
     ActivitySnapshot,
@@ -234,11 +235,15 @@ class RtsNanoEnv:
             if callable(reset_team_reward):
                 reset_team_reward()
 
+        # Preserve the existing episode truncation contract instead of turning
+        # the ordinary game's deadline into an environment terminal draw.
         if self._settings is not None:
             settings_copy = copy.deepcopy(self._settings)
-            self._simulation = HeadlessSimulation.from_settings(settings_copy)
+            self._simulation = HeadlessSimulation.from_settings(settings_copy, match_rules=MatchRules(max_frames=None))
         else:
-            self._simulation = HeadlessSimulation.from_map_file(self._resolve_map_path(self._map_id))
+            self._simulation = HeadlessSimulation.from_map_file(
+                self._resolve_map_path(self._map_id), match_rules=MatchRules(max_frames=None)
+            )
         self._action_translator = ActionTranslator(self._simulation.manager, self._entity_ids)
         return self.observe()
 

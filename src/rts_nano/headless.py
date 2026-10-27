@@ -16,6 +16,7 @@ from rts_nano.map_schema import load_map_settings
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from rts_nano.game.match import MatchRules
     from rts_nano.map_schema import MapSettings
     from rts_nano.simulation.entities.base import TeamColor, Unit
 
@@ -35,20 +36,20 @@ class HeadlessSimulation:
     manager: GameSession
 
     @classmethod
-    def from_map_file(cls, path: Path) -> HeadlessSimulation:
+    def from_map_file(cls, path: Path, *, match_rules: MatchRules | None = None) -> HeadlessSimulation:
         """Create a headless simulation from a map JSON file."""
-        return cls(GameSession(load_map_settings(path)))
+        return cls(GameSession(load_map_settings(path), match_rules=match_rules))
 
     @classmethod
-    def from_settings(cls, settings: MapSettings) -> HeadlessSimulation:
+    def from_settings(cls, settings: MapSettings, *, match_rules: MatchRules | None = None) -> HeadlessSimulation:
         """Create a headless simulation from already parsed map settings."""
-        return cls(GameSession(settings))
+        return cls(GameSession(settings, match_rules=match_rules))
 
     def step(self, frames: int = 1) -> int:
-        """Advance until the frame budget or a natural result, returning actual frames."""
+        """Advance until the frame budget or a match result, returning actual frames."""
         advanced = 0
         for _ in range(max(0, frames)):
-            if self.manager.paused:
+            if self.manager.paused or self.manager.game_over_message is not None:
                 break
             self.manager.update()
             advanced += 1

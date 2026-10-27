@@ -84,6 +84,11 @@ One `SimulationRunner.step()` performs:
 7. remove dead entities and publish obstacle revisions;
 8. update victory state.
 
+`MatchRules` defines the ordinary game's 36,000-tick deadline. Victory resolves elimination before
+the deadline draw and latches the result; the runner cannot advance a completed match. Pause does
+not advance time, and restart preserves rules while resetting the state. The pre-existing RL wrapper
+explicitly opts out of the game deadline to preserve its separate episode truncation contract.
+
 Presentation consumes the resulting state and attack events after the simulation step.
 
 ## Orders and production handoff

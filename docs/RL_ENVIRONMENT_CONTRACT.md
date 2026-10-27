@@ -10,6 +10,10 @@ The default RL episode limit is 36,000 simulation frames. Natural victory or dra
 `terminated`; reaching the limit without a result sets `truncated`. A result reached on the final
 allowed frame takes precedence. A completed environment rejects further steps until `reset()`.
 
+Ordinary game sessions also have a simulation-owned 36,000-tick draw rule. This existing environment
+explicitly disables that game deadline internally so its established time-limit truncation remains
+distinct from natural elimination. This is compatibility wiring, not a new adapter or API option.
+
 ## Joint decision rules
 
 `step_joint()` accepts at most 16 ordered actions for each known team. Both batches are normalized

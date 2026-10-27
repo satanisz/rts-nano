@@ -52,6 +52,9 @@ not only `OrderSystem`.
 
 ## C3 — Freeze match-ending rules
 
+Status: **complete** — [C3 review](docs/reviews/GAME_CLOSEOUT_C3_REVIEW.md).
+Accepted rule: elimination plus a 36,000-tick draw deadline, with elimination taking precedence.
+
 Retain or explicitly change elimination of all objects. The minimal recommendation is to retain
 elimination, add a simulation-time match limit, and draw at that limit without army scoring.
 A natural result on the final tick takes precedence. Start acceptance with 36,000 ticks

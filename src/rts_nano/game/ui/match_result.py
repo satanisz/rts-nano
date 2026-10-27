@@ -6,12 +6,36 @@ from typing import TYPE_CHECKING
 
 import pygame
 
+from rts_nano.game.constants import FPS
+
 if TYPE_CHECKING:
     from rts_nano.application import GameSession
 
 RESULT_BUTTON_WIDTH = 240
 RESULT_BUTTON_HEIGHT = 52
 RESULT_BUTTON_GAP = 16
+
+
+def match_clock_label(manager: GameSession) -> str:
+    """Format simulation time and the optional match limit for the HUD."""
+
+    def clock(frames: int) -> str:
+        seconds = int(frames / FPS)
+        return f"{seconds // 60}:{seconds % 60:02d}"
+
+    label = f"Time {clock(manager.state.tick_count)}"
+    if manager.state.match_rules.max_frames is not None:
+        label += f" / {clock(manager.state.match_rules.max_frames)}"
+    return label
+
+
+def match_result_detail(manager: GameSession) -> str:
+    """Explain the terminal gameplay rule independently of player perspective."""
+    if manager.state.match_end_reason == "time_limit":
+        return "Time limit reached."
+    if manager.game_over_message == "Draw":
+        return "Both teams eliminated."
+    return "All opposing forces eliminated."
 
 
 def match_result_title(manager: GameSession) -> str:

@@ -26,7 +26,12 @@ from rts_nano.game.constants import (
 )
 from rts_nano.game.fog import FogOfWar
 from rts_nano.game.ui.effects import ArcherShot, MagicMissile
-from rts_nano.game.ui.match_result import match_result_buttons, match_result_title
+from rts_nano.game.ui.match_result import (
+    match_clock_label,
+    match_result_buttons,
+    match_result_detail,
+    match_result_title,
+)
 from rts_nano.game.ui.order_display import unit_order_lines
 from rts_nano.game.ui.pygame_assets import PygameAssets, building_glyph
 from rts_nano.game.ui.selection_panel import PORTRAIT_SIZE, build_selection_panel_layout
@@ -196,6 +201,7 @@ class GameRenderer:
             font.render(
                 f"Population: {population}/{population_cap} (+{queued_population} queued)", True, population_color
             ),
+            font.render(f" | {match_clock_label(manager)}", True, ui_color),
         ]
 
         if manager.paused and not manager.menu_active:
@@ -863,6 +869,8 @@ class GameRenderer:
         button_font = pygame.font.SysFont(None, 34)
         title = title_font.render(match_result_title(manager), True, WHITE)
         screen.blit(title, title.get_rect(center=(manager.screen_width // 2, manager.screen_height // 2 - 40)))
+        detail = pygame.font.SysFont(None, 26).render(match_result_detail(manager), True, WHITE)
+        screen.blit(detail, detail.get_rect(center=(manager.screen_width // 2, manager.screen_height // 2 + 5)))
         for label, rect in match_result_buttons(manager.screen_width, manager.screen_height):
             color = (80, 80, 80) if rect.collidepoint(manager.mouse_pos) else (40, 40, 40)
             pygame.draw.rect(screen, color, rect)

@@ -1,7 +1,9 @@
 """Victory detection over the shared ``GameState``.
 
 A team stays active while it owns at least one living entity. When only one team
-remains it wins; when none remain the match is a draw. The result is written to
+remains it wins; when none remain the match is a draw. Otherwise the configured
+simulation-time deadline produces a draw. Elimination takes precedence and the
+result is latched. The result is written to
 ``GameState`` (``game_over_message``) so observation, HUD, and env
 terminal checks keep reading the same fields.
 """
@@ -23,10 +25,20 @@ class VictorySystem:
 
     def update(self) -> None:
         """Detect a terminal win/draw and record it on the game state."""
+        if self._state.game_over_message is not None:
+            return
         active_teams = [
             team for team in self._state.teams if any(entity.life > 0 for entity in self._state.entities_for_team(team))
         ]
         if len(active_teams) == 1:
             self._state.game_over_message = f"Team {active_teams[0].value} wins"
+            self._state.match_end_reason = "elimination"
         elif not active_teams:
             self._state.game_over_message = "Draw"
+            self._state.match_end_reason = "elimination"
+        elif (
+            self._state.match_rules.max_frames is not None
+            and self._state.tick_count >= self._state.match_rules.max_frames
+        ):
+            self._state.game_over_message = "Draw"
+            self._state.match_end_reason = "time_limit"

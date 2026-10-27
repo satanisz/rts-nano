@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Literal, cast
 
 from rts_nano.content import CONTENT
 from rts_nano.game.entity_store import EntityStore
+from rts_nano.game.match import MatchRules
 from rts_nano.game.rules import clamp_point
 from rts_nano.game.spatial import SpatialIndex
 from rts_nano.game.types import EntityCategory, FactionId, TeamId, UpgradeId
@@ -68,6 +69,8 @@ class GameState:
     teams: dict[TeamColor, TeamState] = field(default_factory=dict)
     store: EntityStore = field(default_factory=EntityStore)
     game_over_message: str | None = None
+    match_rules: MatchRules = field(default_factory=MatchRules)
+    match_end_reason: Literal["elimination", "time_limit"] | None = None
     tick_count: int = 0
     spatial_index: SpatialIndex = field(default_factory=SpatialIndex)
     obstacle_revision: int = 0

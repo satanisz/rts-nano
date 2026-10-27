@@ -1,6 +1,6 @@
 # Game Rules — Verified State
 
-Date: 2026-10-28. Updated through closeout sprint C2.
+Date: 2026-10-28. Updated through closeout sprint C3.
 This document describes gameplay without designing an ML API. Remaining deviations from intended
 rules are explicit and must not be treated as accepted design.
 Readiness evidence: [game-stage audit](reviews/GAME_STAGE_AUDIT_2026-10-28.md).
@@ -35,10 +35,17 @@ is `Draw`. Destroying a base alone does not end a match while its owner has othe
 Living unfinished buildings also keep a team active. After a result, `GameSession` stops the
 simulation; restart recreates the map and match state while retaining cached artwork.
 
-**Limitation:** the game has no match-duration limit, stalemate resolution, or surrender command.
-Two opposing houses can keep it running forever. The limit in `env.py` belongs to a separate
-layer and does not apply in `main.py`. Choosing the final ending rule belongs to game closeout,
-not the ML API.
+Ordinary windowed and headless games draw after 36,000 simulation ticks (10 nominal minutes) if
+elimination has not produced a result. Elimination on the final allowed tick takes precedence,
+including mutual elimination. No army-value score or heuristic lack-of-progress detection is used.
+The HUD shows elapsed time/limit and the result overlay explains a time-limit draw. Pause freezes
+the clock, a terminal result is latched, and restart resets time/result while retaining match rules.
+There is no surrender command.
+
+`MatchRules(max_frames=...)` configures controlled game scenarios; `None` explicitly disables the
+game deadline. The existing `RtsNanoEnv` opts out of that game deadline internally and retains its
+own unchanged episode truncation policy, including a disabled episode limit. No new ML-facing API,
+observation schema, or reward behavior was added to implement the game rule.
 
 ## Economy and construction
 

@@ -49,6 +49,7 @@ from rts_nano.game.effects import EffectsSystem
 from rts_nano.game.entity_factory import EntityFactory
 from rts_nano.game.fog import FogOfWar
 from rts_nano.game.gather import GatherSystem
+from rts_nano.game.match import MatchRules
 from rts_nano.game.movement import MovementSystem
 from rts_nano.game.orders import OrderSystem
 from rts_nano.game.production import ProductionSystem
@@ -93,7 +94,7 @@ class GameSession:
         ``_clamp_to_world`` instead of reading camera fields directly.
     """
 
-    def __init__(self, map_settings: MapSettings) -> None:
+    def __init__(self, map_settings: MapSettings, *, match_rules: MatchRules | None = None) -> None:
         """Initialize the object."""
         self.map_settings = map_settings
         terrain = TerrainMap(self.map_settings.get("Terrain"))
@@ -104,6 +105,7 @@ class GameSession:
             fog=FogOfWar(map_width, map_height),
             map_width=map_width,
             map_height=map_height,
+            match_rules=match_rules if match_rules is not None else MatchRules(),
         )
         self.control_groups: dict[int, list[Unit]] = {}
         self._current_team = TeamColor.BLUE
@@ -162,7 +164,7 @@ class GameSession:
 
     def restart(self) -> GameSession:
         """Create a fresh deterministic match with the same map and display state."""
-        restarted = type(self)(deepcopy(self.map_settings))
+        restarted = type(self)(deepcopy(self.map_settings), match_rules=self.state.match_rules)
         restarted.set_viewport_size(self.screen_width, self.screen_height)
         restarted.set_fullscreen_enabled(self.fullscreen_enabled)
         return restarted
@@ -865,6 +867,9 @@ class GameSession:
 
     def update(self) -> None:
         """Advance the pure simulation runner unless the application is paused."""
+        if self.game_over_message is not None:
+            self.paused = True
+            return
         if self.paused:
             return
         removed_entities = self.simulation.step()
