@@ -13,20 +13,21 @@ so camera limits, minimap, HUD, and edge scrolling can adapt without bitmap
 stretching.
 """
 
+from __future__ import annotations
+
 import sys
 from argparse import ArgumentParser
+from dataclasses import dataclass
 from pathlib import Path
 
 import pygame
 
-from rts_nano.ai import ScriptedAI
-from rts_nano.application import GameSession
+from rts_nano.application import GameSession, MatchController, MatchMode
 from rts_nano.game.constants import FPS, GRAY, SCREEN_HEIGHT, SCREEN_WIDTH
 from rts_nano.game.ui.input_controller import FULLSCREEN_TOGGLE_EVENT, RESTART_MATCH_EVENT, InputController
 from rts_nano.game.ui.renderer import GameRenderer
 from rts_nano.game.ui.state import PresentationState
 from rts_nano.map_schema import load_map_settings
-from rts_nano.simulation.entities import TeamColor
 
 BASE_DIR = Path(__file__).resolve().parent
 MAPS_DIR = BASE_DIR / "maps"
@@ -42,11 +43,21 @@ def _resolve_game_map_path(path: Path) -> Path:
     return MAPS_DIR / candidate.name
 
 
-def _parse_args() -> Path:
-    """Return the requested playable map path."""
-    parser = ArgumentParser(description="Play RTS Nano")
+@dataclass(frozen=True, slots=True)
+class LaunchOptions:
+    """Validated startup choices for the interactive application."""
+
+    map_path: Path
+    mode: MatchMode
+
+
+def _parse_args(argv: list[str] | None = None) -> LaunchOptions:
+    """Return the requested map and participant mode."""
+    parser = ArgumentParser(description="Play RTS Nano or spectate two bots")
     parser.add_argument("--map", type=Path, default=DEFAULT_GAME_MAP, help="Map JSON path or packaged map name")
-    return _resolve_game_map_path(parser.parse_args().map)
+    parser.add_argument("--mode", type=MatchMode, choices=list(MatchMode), default=MatchMode.PLAY)
+    args = parser.parse_args(argv)
+    return LaunchOptions(_resolve_game_map_path(args.map), args.mode)
 
 
 def _desktop_size() -> tuple[int, int]:
@@ -129,19 +140,19 @@ def main() -> None:
     Keeping the display surface as the render target is important: it means
     fullscreen shows more map instead of stretching a fixed-resolution image.
     """
-    map_path = _parse_args()
+    options = _parse_args()
     pygame.init()
     display_screen, _ = _create_display(fullscreen=False)
     pygame.display.set_caption("Simple RTS")
     clock = pygame.time.Clock()
 
-    map_settings = load_map_settings(map_path)
-    game_manager = GameSession(map_settings)
+    map_settings = load_map_settings(options.map_path)
+    match = MatchController(GameSession(map_settings), options.mode)
+    game_manager = match.session
     game_manager.set_viewport_size(*display_screen.get_size())
     presentation = PresentationState()
     renderer = GameRenderer(presentation=presentation)
     input_controller = InputController(presentation=presentation)
-    opponent_ai = ScriptedAI(game_manager, TeamColor.RED)
 
     running = True
     while running:
@@ -157,18 +168,16 @@ def main() -> None:
                 game_manager.set_fullscreen_enabled(fullscreen_enabled)
                 game_manager.set_viewport_size(*display_screen.get_size())
             elif event.type == RESTART_MATCH_EVENT:
-                game_manager = game_manager.restart()
+                match = match.restart()
+                game_manager = match.session
                 presentation.reset_match()
                 renderer.reset_match()
                 input_controller.reset_match()
-                opponent_ai = ScriptedAI(game_manager, TeamColor.RED)
                 continue
             input_controller.handle_event(game_manager, event)
 
         input_controller.update_camera(game_manager)
-        if not game_manager.paused:
-            opponent_ai.step()
-        game_manager.update()
+        match.step()
 
         display_screen.fill(GRAY)
         renderer.draw(display_screen, game_manager)
