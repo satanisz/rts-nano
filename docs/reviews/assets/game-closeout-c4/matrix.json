@@ -1,0 +1,1831 @@
+{
+  "platform": "Windows-11-10.0.26200-SP0",
+  "processor": "Intel64 Family 6 Model 198 Stepping 2, GenuineIntel",
+  "python": "3.14.4",
+  "runs": [
+    {
+      "map": "map_spec_01.json",
+      "factions": [
+        "AEGIS",
+        "RUST"
+      ],
+      "reverse_commands": false,
+      "ticks": 18000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "milestones": {
+        "Blue": {
+          "house": 810,
+          "arsenal": 2280,
+          "spire": 3930,
+          "research": 7860,
+          "cast": 9870,
+          "combat": 9871
+        },
+        "Red": {
+          "house": 780,
+          "pit": 2010,
+          "chem_vat": 3330,
+          "research": 8040,
+          "cast": 9870,
+          "combat": 9871
+        }
+      },
+      "digest": "2fae5567384349bb70257132234a1e2715854d47fe8668eecacd6f37c871c1c8",
+      "active_economy_ticks": 4403,
+      "elapsed_seconds": 3.755,
+      "tick_steps_per_second": 4963.11,
+      "max_tick_ms": 21.889,
+      "command_batches": 600,
+      "mean_command_ms": 0.144,
+      "max_command_ms": 19.331,
+      "retained_python_mib_after_warmup": null
+    },
+    {
+      "map": "map_spec_01.json",
+      "factions": [
+        "AEGIS",
+        "RUST"
+      ],
+      "reverse_commands": false,
+      "ticks": 18000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "milestones": {
+        "Blue": {
+          "house": 810,
+          "arsenal": 2280,
+          "spire": 3930,
+          "research": 7860,
+          "cast": 9870,
+          "combat": 9871
+        },
+        "Red": {
+          "house": 780,
+          "pit": 2010,
+          "chem_vat": 3330,
+          "research": 8040,
+          "cast": 9870,
+          "combat": 9871
+        }
+      },
+      "digest": "2fae5567384349bb70257132234a1e2715854d47fe8668eecacd6f37c871c1c8",
+      "active_economy_ticks": 4403,
+      "elapsed_seconds": 4.3548,
+      "tick_steps_per_second": 4267.6,
+      "max_tick_ms": 22.353,
+      "command_batches": 600,
+      "mean_command_ms": 0.151,
+      "max_command_ms": 19.736,
+      "retained_python_mib_after_warmup": null
+    },
+    {
+      "map": "map_spec_01.json",
+      "factions": [
+        "AEGIS",
+        "RUST"
+      ],
+      "reverse_commands": true,
+      "ticks": 18000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "milestones": {
+        "Red": {
+          "house": 780,
+          "pit": 2010,
+          "chem_vat": 3330,
+          "research": 8040,
+          "cast": 9870,
+          "combat": 9871
+        },
+        "Blue": {
+          "house": 810,
+          "arsenal": 2280,
+          "spire": 3930,
+          "research": 7860,
+          "cast": 9870,
+          "combat": 9871
+        }
+      },
+      "digest": "6b0684d7a9a37b2dadb09985aba49fc8714aabdbcf0b13e7495616d724424bae",
+      "active_economy_ticks": 4403,
+      "elapsed_seconds": 5.3735,
+      "tick_steps_per_second": 3488.64,
+      "max_tick_ms": 25.385,
+      "command_batches": 600,
+      "mean_command_ms": 0.258,
+      "max_command_ms": 37.347,
+      "retained_python_mib_after_warmup": null
+    },
+    {
+      "map": "map_spec_01.json",
+      "factions": [
+        "AEGIS",
+        "RUST"
+      ],
+      "reverse_commands": true,
+      "ticks": 18000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "milestones": {
+        "Red": {
+          "house": 780,
+          "pit": 2010,
+          "chem_vat": 3330,
+          "research": 8040,
+          "cast": 9870,
+          "combat": 9871
+        },
+        "Blue": {
+          "house": 810,
+          "arsenal": 2280,
+          "spire": 3930,
+          "research": 7860,
+          "cast": 9870,
+          "combat": 9871
+        }
+      },
+      "digest": "6b0684d7a9a37b2dadb09985aba49fc8714aabdbcf0b13e7495616d724424bae",
+      "active_economy_ticks": 4403,
+      "elapsed_seconds": 5.3453,
+      "tick_steps_per_second": 3508.54,
+      "max_tick_ms": 42.173,
+      "command_batches": 600,
+      "mean_command_ms": 0.263,
+      "max_command_ms": 37.07,
+      "retained_python_mib_after_warmup": null
+    },
+    {
+      "map": "map_spec_01.json",
+      "factions": [
+        "RUST",
+        "AEGIS"
+      ],
+      "reverse_commands": false,
+      "ticks": 18000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "milestones": {
+        "Blue": {
+          "house": 810,
+          "pit": 2010,
+          "chem_vat": 3330,
+          "research": 6750,
+          "cast": 11250,
+          "combat": 11251
+        },
+        "Red": {
+          "house": 780,
+          "arsenal": 2280,
+          "spire": 3900,
+          "research": 9420,
+          "cast": 11250,
+          "combat": 11251
+        }
+      },
+      "digest": "30c9fde8959c249618edd86b120b938c9897bce47dc604147041d71977a259b9",
+      "active_economy_ticks": 4407,
+      "elapsed_seconds": 4.1906,
+      "tick_steps_per_second": 4451.11,
+      "max_tick_ms": 13.819,
+      "command_batches": 600,
+      "mean_command_ms": 0.163,
+      "max_command_ms": 34.277,
+      "retained_python_mib_after_warmup": null
+    },
+    {
+      "map": "map_spec_01.json",
+      "factions": [
+        "RUST",
+        "AEGIS"
+      ],
+      "reverse_commands": false,
+      "ticks": 18000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "milestones": {
+        "Blue": {
+          "house": 810,
+          "pit": 2010,
+          "chem_vat": 3330,
+          "research": 6750,
+          "cast": 11250,
+          "combat": 11251
+        },
+        "Red": {
+          "house": 780,
+          "arsenal": 2280,
+          "spire": 3900,
+          "research": 9420,
+          "cast": 11250,
+          "combat": 11251
+        }
+      },
+      "digest": "30c9fde8959c249618edd86b120b938c9897bce47dc604147041d71977a259b9",
+      "active_economy_ticks": 4407,
+      "elapsed_seconds": 3.8934,
+      "tick_steps_per_second": 4791.34,
+      "max_tick_ms": 14.146,
+      "command_batches": 600,
+      "mean_command_ms": 0.157,
+      "max_command_ms": 33.703,
+      "retained_python_mib_after_warmup": null
+    },
+    {
+      "map": "map_spec_01.json",
+      "factions": [
+        "RUST",
+        "AEGIS"
+      ],
+      "reverse_commands": true,
+      "ticks": 18000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "milestones": {
+        "Red": {
+          "house": 780,
+          "arsenal": 2280,
+          "spire": 3900,
+          "research": 9420,
+          "cast": 11250,
+          "combat": 11251
+        },
+        "Blue": {
+          "house": 810,
+          "pit": 2010,
+          "chem_vat": 3330,
+          "research": 6750,
+          "cast": 11250,
+          "combat": 11251
+        }
+      },
+      "digest": "fd804c5df8bb3afffd2430b67fb5f8d85c0d755f03f2f576ab4f88282a4ac93f",
+      "active_economy_ticks": 4407,
+      "elapsed_seconds": 4.6868,
+      "tick_steps_per_second": 3987.68,
+      "max_tick_ms": 26.322,
+      "command_batches": 600,
+      "mean_command_ms": 0.204,
+      "max_command_ms": 39.854,
+      "retained_python_mib_after_warmup": null
+    },
+    {
+      "map": "map_spec_01.json",
+      "factions": [
+        "RUST",
+        "AEGIS"
+      ],
+      "reverse_commands": true,
+      "ticks": 18000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "milestones": {
+        "Red": {
+          "house": 780,
+          "arsenal": 2280,
+          "spire": 3900,
+          "research": 9420,
+          "cast": 11250,
+          "combat": 11251
+        },
+        "Blue": {
+          "house": 810,
+          "pit": 2010,
+          "chem_vat": 3330,
+          "research": 6750,
+          "cast": 11250,
+          "combat": 11251
+        }
+      },
+      "digest": "fd804c5df8bb3afffd2430b67fb5f8d85c0d755f03f2f576ab4f88282a4ac93f",
+      "active_economy_ticks": 4407,
+      "elapsed_seconds": 3.8389,
+      "tick_steps_per_second": 4863.27,
+      "max_tick_ms": 13.366,
+      "command_batches": 600,
+      "mean_command_ms": 0.156,
+      "max_command_ms": 33.811,
+      "retained_python_mib_after_warmup": null
+    },
+    {
+      "map": "map_spec_01.json",
+      "factions": [
+        "AEGIS",
+        "AEGIS"
+      ],
+      "reverse_commands": false,
+      "ticks": 18000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "milestones": {
+        "Blue": {
+          "house": 810,
+          "arsenal": 2280,
+          "spire": 3930,
+          "research": 8010,
+          "cast": 11310,
+          "combat": 11311
+        },
+        "Red": {
+          "house": 780,
+          "arsenal": 2280,
+          "spire": 3960,
+          "research": 9480,
+          "cast": 11310,
+          "combat": 11311
+        }
+      },
+      "digest": "bd3ba814066984802094776707903f5f90c77cc86b9bd899a93504585ae25dd8",
+      "active_economy_ticks": 3974,
+      "elapsed_seconds": 3.808,
+      "tick_steps_per_second": 4898.19,
+      "max_tick_ms": 18.389,
+      "command_batches": 600,
+      "mean_command_ms": 0.152,
+      "max_command_ms": 35.25,
+      "retained_python_mib_after_warmup": null
+    },
+    {
+      "map": "map_spec_01.json",
+      "factions": [
+        "AEGIS",
+        "AEGIS"
+      ],
+      "reverse_commands": false,
+      "ticks": 18000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "milestones": {
+        "Blue": {
+          "house": 810,
+          "arsenal": 2280,
+          "spire": 3930,
+          "research": 8010,
+          "cast": 11310,
+          "combat": 11311
+        },
+        "Red": {
+          "house": 780,
+          "arsenal": 2280,
+          "spire": 3960,
+          "research": 9480,
+          "cast": 11310,
+          "combat": 11311
+        }
+      },
+      "digest": "bd3ba814066984802094776707903f5f90c77cc86b9bd899a93504585ae25dd8",
+      "active_economy_ticks": 3974,
+      "elapsed_seconds": 3.8013,
+      "tick_steps_per_second": 4908.49,
+      "max_tick_ms": 19.51,
+      "command_batches": 600,
+      "mean_command_ms": 0.154,
+      "max_command_ms": 35.803,
+      "retained_python_mib_after_warmup": null
+    },
+    {
+      "map": "map_spec_01.json",
+      "factions": [
+        "AEGIS",
+        "AEGIS"
+      ],
+      "reverse_commands": true,
+      "ticks": 18000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "milestones": {
+        "Red": {
+          "house": 780,
+          "arsenal": 2280,
+          "spire": 3960,
+          "research": 9480,
+          "cast": 11310,
+          "combat": 11311
+        },
+        "Blue": {
+          "house": 810,
+          "arsenal": 2280,
+          "spire": 3930,
+          "research": 8010,
+          "cast": 11310,
+          "combat": 11311
+        }
+      },
+      "digest": "27b5f5145706c9f40fb8d504e55c22590e8704c98489f83124af525aea00a326",
+      "active_economy_ticks": 3974,
+      "elapsed_seconds": 3.8158,
+      "tick_steps_per_second": 4891.11,
+      "max_tick_ms": 18.888,
+      "command_batches": 600,
+      "mean_command_ms": 0.158,
+      "max_command_ms": 34.491,
+      "retained_python_mib_after_warmup": null
+    },
+    {
+      "map": "map_spec_01.json",
+      "factions": [
+        "AEGIS",
+        "AEGIS"
+      ],
+      "reverse_commands": true,
+      "ticks": 18000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "milestones": {
+        "Red": {
+          "house": 780,
+          "arsenal": 2280,
+          "spire": 3960,
+          "research": 9480,
+          "cast": 11310,
+          "combat": 11311
+        },
+        "Blue": {
+          "house": 810,
+          "arsenal": 2280,
+          "spire": 3930,
+          "research": 8010,
+          "cast": 11310,
+          "combat": 11311
+        }
+      },
+      "digest": "27b5f5145706c9f40fb8d504e55c22590e8704c98489f83124af525aea00a326",
+      "active_economy_ticks": 3974,
+      "elapsed_seconds": 3.8368,
+      "tick_steps_per_second": 4863.34,
+      "max_tick_ms": 17.945,
+      "command_batches": 600,
+      "mean_command_ms": 0.156,
+      "max_command_ms": 35.526,
+      "retained_python_mib_after_warmup": null
+    },
+    {
+      "map": "map_spec_01.json",
+      "factions": [
+        "RUST",
+        "RUST"
+      ],
+      "reverse_commands": false,
+      "ticks": 18000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "milestones": {
+        "Blue": {
+          "house": 810,
+          "pit": 2010,
+          "chem_vat": 3330,
+          "research": 6750,
+          "cast": 9870,
+          "combat": 9871
+        },
+        "Red": {
+          "house": 780,
+          "pit": 2010,
+          "chem_vat": 3330,
+          "research": 8040,
+          "cast": 9870,
+          "combat": 9871
+        }
+      },
+      "digest": "692b91b453e5cbca14a6838be075be1b2736ebb76a4f164ad2dfb6166b607352",
+      "active_economy_ticks": 3879,
+      "elapsed_seconds": 3.7918,
+      "tick_steps_per_second": 4917.16,
+      "max_tick_ms": 19.806,
+      "command_batches": 600,
+      "mean_command_ms": 0.15,
+      "max_command_ms": 18.78,
+      "retained_python_mib_after_warmup": null
+    },
+    {
+      "map": "map_spec_01.json",
+      "factions": [
+        "RUST",
+        "RUST"
+      ],
+      "reverse_commands": false,
+      "ticks": 18000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "milestones": {
+        "Blue": {
+          "house": 810,
+          "pit": 2010,
+          "chem_vat": 3330,
+          "research": 6750,
+          "cast": 9870,
+          "combat": 9871
+        },
+        "Red": {
+          "house": 780,
+          "pit": 2010,
+          "chem_vat": 3330,
+          "research": 8040,
+          "cast": 9870,
+          "combat": 9871
+        }
+      },
+      "digest": "692b91b453e5cbca14a6838be075be1b2736ebb76a4f164ad2dfb6166b607352",
+      "active_economy_ticks": 3879,
+      "elapsed_seconds": 3.8426,
+      "tick_steps_per_second": 4856.53,
+      "max_tick_ms": 18.699,
+      "command_batches": 600,
+      "mean_command_ms": 0.154,
+      "max_command_ms": 19.834,
+      "retained_python_mib_after_warmup": null
+    },
+    {
+      "map": "map_spec_01.json",
+      "factions": [
+        "RUST",
+        "RUST"
+      ],
+      "reverse_commands": true,
+      "ticks": 18000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "milestones": {
+        "Red": {
+          "house": 780,
+          "pit": 2010,
+          "chem_vat": 3330,
+          "research": 8040,
+          "cast": 9870,
+          "combat": 9871
+        },
+        "Blue": {
+          "house": 810,
+          "pit": 2010,
+          "chem_vat": 3330,
+          "research": 6750,
+          "cast": 9870,
+          "combat": 9871
+        }
+      },
+      "digest": "b5da5dd2fd038f3419bf7d80d8417a3046eedeb8b21f77f767c739d2d30ce12a",
+      "active_economy_ticks": 3879,
+      "elapsed_seconds": 3.8415,
+      "tick_steps_per_second": 4851.09,
+      "max_tick_ms": 19.221,
+      "command_batches": 600,
+      "mean_command_ms": 0.148,
+      "max_command_ms": 19.348,
+      "retained_python_mib_after_warmup": null
+    },
+    {
+      "map": "map_spec_01.json",
+      "factions": [
+        "RUST",
+        "RUST"
+      ],
+      "reverse_commands": true,
+      "ticks": 18000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "milestones": {
+        "Red": {
+          "house": 780,
+          "pit": 2010,
+          "chem_vat": 3330,
+          "research": 8040,
+          "cast": 9870,
+          "combat": 9871
+        },
+        "Blue": {
+          "house": 810,
+          "pit": 2010,
+          "chem_vat": 3330,
+          "research": 6750,
+          "cast": 9870,
+          "combat": 9871
+        }
+      },
+      "digest": "b5da5dd2fd038f3419bf7d80d8417a3046eedeb8b21f77f767c739d2d30ce12a",
+      "active_economy_ticks": 3879,
+      "elapsed_seconds": 3.8159,
+      "tick_steps_per_second": 4883.76,
+      "max_tick_ms": 19.082,
+      "command_batches": 600,
+      "mean_command_ms": 0.145,
+      "max_command_ms": 19.464,
+      "retained_python_mib_after_warmup": null
+    },
+    {
+      "map": "map_spec_02.json",
+      "factions": [
+        "AEGIS",
+        "RUST"
+      ],
+      "reverse_commands": false,
+      "ticks": 18000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "milestones": {
+        "Blue": {
+          "house": 720,
+          "arsenal": 2250,
+          "spire": 3720,
+          "research": 7920,
+          "cast": 9750,
+          "combat": 9751
+        },
+        "Red": {
+          "house": 720,
+          "pit": 2070,
+          "chem_vat": 3270,
+          "research": 6960,
+          "cast": 9750,
+          "combat": 9751
+        }
+      },
+      "digest": "17c78c2cefb718643e7e8bcfd164281728fb5fbe698addde706685518bb7a183",
+      "active_economy_ticks": 4227,
+      "elapsed_seconds": 3.3095,
+      "tick_steps_per_second": 5537.97,
+      "max_tick_ms": 19.532,
+      "command_batches": 600,
+      "mean_command_ms": 0.029,
+      "max_command_ms": 7.677,
+      "retained_python_mib_after_warmup": null
+    },
+    {
+      "map": "map_spec_02.json",
+      "factions": [
+        "AEGIS",
+        "RUST"
+      ],
+      "reverse_commands": false,
+      "ticks": 18000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "milestones": {
+        "Blue": {
+          "house": 720,
+          "arsenal": 2250,
+          "spire": 3720,
+          "research": 7920,
+          "cast": 9750,
+          "combat": 9751
+        },
+        "Red": {
+          "house": 720,
+          "pit": 2070,
+          "chem_vat": 3270,
+          "research": 6960,
+          "cast": 9750,
+          "combat": 9751
+        }
+      },
+      "digest": "17c78c2cefb718643e7e8bcfd164281728fb5fbe698addde706685518bb7a183",
+      "active_economy_ticks": 4227,
+      "elapsed_seconds": 3.2719,
+      "tick_steps_per_second": 5602.22,
+      "max_tick_ms": 21.476,
+      "command_batches": 600,
+      "mean_command_ms": 0.029,
+      "max_command_ms": 7.322,
+      "retained_python_mib_after_warmup": null
+    },
+    {
+      "map": "map_spec_02.json",
+      "factions": [
+        "AEGIS",
+        "RUST"
+      ],
+      "reverse_commands": true,
+      "ticks": 18000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "milestones": {
+        "Red": {
+          "house": 720,
+          "pit": 2070,
+          "chem_vat": 3270,
+          "research": 6960,
+          "cast": 9750,
+          "combat": 9751
+        },
+        "Blue": {
+          "house": 720,
+          "arsenal": 2250,
+          "spire": 3720,
+          "research": 7920,
+          "cast": 9750,
+          "combat": 9751
+        }
+      },
+      "digest": "a06f375c7d22c060ee1157777de770248dc701fb547aec4f534c070b29c362cb",
+      "active_economy_ticks": 4227,
+      "elapsed_seconds": 3.2567,
+      "tick_steps_per_second": 5627.5,
+      "max_tick_ms": 19.671,
+      "command_batches": 600,
+      "mean_command_ms": 0.029,
+      "max_command_ms": 8.061,
+      "retained_python_mib_after_warmup": null
+    },
+    {
+      "map": "map_spec_02.json",
+      "factions": [
+        "AEGIS",
+        "RUST"
+      ],
+      "reverse_commands": true,
+      "ticks": 18000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "milestones": {
+        "Red": {
+          "house": 720,
+          "pit": 2070,
+          "chem_vat": 3270,
+          "research": 6960,
+          "cast": 9750,
+          "combat": 9751
+        },
+        "Blue": {
+          "house": 720,
+          "arsenal": 2250,
+          "spire": 3720,
+          "research": 7920,
+          "cast": 9750,
+          "combat": 9751
+        }
+      },
+      "digest": "a06f375c7d22c060ee1157777de770248dc701fb547aec4f534c070b29c362cb",
+      "active_economy_ticks": 4227,
+      "elapsed_seconds": 3.2624,
+      "tick_steps_per_second": 5620.16,
+      "max_tick_ms": 19.66,
+      "command_batches": 600,
+      "mean_command_ms": 0.03,
+      "max_command_ms": 7.885,
+      "retained_python_mib_after_warmup": null
+    },
+    {
+      "map": "map_spec_02.json",
+      "factions": [
+        "RUST",
+        "AEGIS"
+      ],
+      "reverse_commands": false,
+      "ticks": 18000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "milestones": {
+        "Blue": {
+          "house": 720,
+          "pit": 2040,
+          "chem_vat": 3210,
+          "research": 7020,
+          "cast": 9720,
+          "combat": 9721
+        },
+        "Red": {
+          "house": 720,
+          "arsenal": 2310,
+          "spire": 3840,
+          "research": 7890,
+          "cast": 9720,
+          "combat": 9721
+        }
+      },
+      "digest": "41a0d8ea74cbd22d5a1949c4d6235c2f92d0885e66413b1801d7d8c50a624d89",
+      "active_economy_ticks": 4161,
+      "elapsed_seconds": 3.2406,
+      "tick_steps_per_second": 5651.92,
+      "max_tick_ms": 17.684,
+      "command_batches": 600,
+      "mean_command_ms": 0.025,
+      "max_command_ms": 3.511,
+      "retained_python_mib_after_warmup": null
+    },
+    {
+      "map": "map_spec_02.json",
+      "factions": [
+        "RUST",
+        "AEGIS"
+      ],
+      "reverse_commands": false,
+      "ticks": 18000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "milestones": {
+        "Blue": {
+          "house": 720,
+          "pit": 2040,
+          "chem_vat": 3210,
+          "research": 7020,
+          "cast": 9720,
+          "combat": 9721
+        },
+        "Red": {
+          "house": 720,
+          "arsenal": 2310,
+          "spire": 3840,
+          "research": 7890,
+          "cast": 9720,
+          "combat": 9721
+        }
+      },
+      "digest": "41a0d8ea74cbd22d5a1949c4d6235c2f92d0885e66413b1801d7d8c50a624d89",
+      "active_economy_ticks": 4161,
+      "elapsed_seconds": 3.2893,
+      "tick_steps_per_second": 5567.94,
+      "max_tick_ms": 16.049,
+      "command_batches": 600,
+      "mean_command_ms": 0.025,
+      "max_command_ms": 3.524,
+      "retained_python_mib_after_warmup": null
+    },
+    {
+      "map": "map_spec_02.json",
+      "factions": [
+        "RUST",
+        "AEGIS"
+      ],
+      "reverse_commands": true,
+      "ticks": 18000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "milestones": {
+        "Red": {
+          "house": 720,
+          "arsenal": 2310,
+          "spire": 3840,
+          "research": 7890,
+          "cast": 9720,
+          "combat": 9721
+        },
+        "Blue": {
+          "house": 720,
+          "pit": 2040,
+          "chem_vat": 3210,
+          "research": 7020,
+          "cast": 9720,
+          "combat": 9721
+        }
+      },
+      "digest": "758167d464980563b3ff124de803c18fee4148fa033c68efe1ad27a9c81e199f",
+      "active_economy_ticks": 4161,
+      "elapsed_seconds": 3.2839,
+      "tick_steps_per_second": 5577.56,
+      "max_tick_ms": 15.596,
+      "command_batches": 600,
+      "mean_command_ms": 0.025,
+      "max_command_ms": 3.732,
+      "retained_python_mib_after_warmup": null
+    },
+    {
+      "map": "map_spec_02.json",
+      "factions": [
+        "RUST",
+        "AEGIS"
+      ],
+      "reverse_commands": true,
+      "ticks": 18000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "milestones": {
+        "Red": {
+          "house": 720,
+          "arsenal": 2310,
+          "spire": 3840,
+          "research": 7890,
+          "cast": 9720,
+          "combat": 9721
+        },
+        "Blue": {
+          "house": 720,
+          "pit": 2040,
+          "chem_vat": 3210,
+          "research": 7020,
+          "cast": 9720,
+          "combat": 9721
+        }
+      },
+      "digest": "758167d464980563b3ff124de803c18fee4148fa033c68efe1ad27a9c81e199f",
+      "active_economy_ticks": 4161,
+      "elapsed_seconds": 3.3218,
+      "tick_steps_per_second": 5515.39,
+      "max_tick_ms": 16.487,
+      "command_batches": 600,
+      "mean_command_ms": 0.026,
+      "max_command_ms": 3.567,
+      "retained_python_mib_after_warmup": null
+    },
+    {
+      "map": "map_spec_02.json",
+      "factions": [
+        "AEGIS",
+        "AEGIS"
+      ],
+      "reverse_commands": false,
+      "ticks": 18000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "milestones": {
+        "Blue": {
+          "house": 720,
+          "arsenal": 2250,
+          "spire": 3720,
+          "research": 7920,
+          "cast": 9750,
+          "combat": 9751
+        },
+        "Red": {
+          "house": 720,
+          "arsenal": 2310,
+          "spire": 3840,
+          "research": 7890,
+          "cast": 9750,
+          "combat": 9751
+        }
+      },
+      "digest": "99d8a5c72c7fc95d388ab461e03deeae25c231333c02360d175e9c499d1aec96",
+      "active_economy_ticks": 3967,
+      "elapsed_seconds": 3.2358,
+      "tick_steps_per_second": 5659.16,
+      "max_tick_ms": 15.03,
+      "command_batches": 600,
+      "mean_command_ms": 0.024,
+      "max_command_ms": 5.626,
+      "retained_python_mib_after_warmup": null
+    },
+    {
+      "map": "map_spec_02.json",
+      "factions": [
+        "AEGIS",
+        "AEGIS"
+      ],
+      "reverse_commands": false,
+      "ticks": 18000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "milestones": {
+        "Blue": {
+          "house": 720,
+          "arsenal": 2250,
+          "spire": 3720,
+          "research": 7920,
+          "cast": 9750,
+          "combat": 9751
+        },
+        "Red": {
+          "house": 720,
+          "arsenal": 2310,
+          "spire": 3840,
+          "research": 7890,
+          "cast": 9750,
+          "combat": 9751
+        }
+      },
+      "digest": "99d8a5c72c7fc95d388ab461e03deeae25c231333c02360d175e9c499d1aec96",
+      "active_economy_ticks": 3967,
+      "elapsed_seconds": 3.2342,
+      "tick_steps_per_second": 5661.43,
+      "max_tick_ms": 13.817,
+      "command_batches": 600,
+      "mean_command_ms": 0.023,
+      "max_command_ms": 4.979,
+      "retained_python_mib_after_warmup": null
+    },
+    {
+      "map": "map_spec_02.json",
+      "factions": [
+        "AEGIS",
+        "AEGIS"
+      ],
+      "reverse_commands": true,
+      "ticks": 18000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "milestones": {
+        "Red": {
+          "house": 720,
+          "arsenal": 2310,
+          "spire": 3840,
+          "research": 7890,
+          "cast": 9750,
+          "combat": 9751
+        },
+        "Blue": {
+          "house": 720,
+          "arsenal": 2250,
+          "spire": 3720,
+          "research": 7920,
+          "cast": 9750,
+          "combat": 9751
+        }
+      },
+      "digest": "6a84f0538dc956d3838e6ac42d08432fa13e1dfa1ab3543758d355d6e947a8c8",
+      "active_economy_ticks": 3967,
+      "elapsed_seconds": 3.2653,
+      "tick_steps_per_second": 5607.06,
+      "max_tick_ms": 15.098,
+      "command_batches": 600,
+      "mean_command_ms": 0.022,
+      "max_command_ms": 5.077,
+      "retained_python_mib_after_warmup": null
+    },
+    {
+      "map": "map_spec_02.json",
+      "factions": [
+        "AEGIS",
+        "AEGIS"
+      ],
+      "reverse_commands": true,
+      "ticks": 18000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "milestones": {
+        "Red": {
+          "house": 720,
+          "arsenal": 2310,
+          "spire": 3840,
+          "research": 7890,
+          "cast": 9750,
+          "combat": 9751
+        },
+        "Blue": {
+          "house": 720,
+          "arsenal": 2250,
+          "spire": 3720,
+          "research": 7920,
+          "cast": 9750,
+          "combat": 9751
+        }
+      },
+      "digest": "6a84f0538dc956d3838e6ac42d08432fa13e1dfa1ab3543758d355d6e947a8c8",
+      "active_economy_ticks": 3967,
+      "elapsed_seconds": 3.2444,
+      "tick_steps_per_second": 5643.87,
+      "max_tick_ms": 14.262,
+      "command_batches": 600,
+      "mean_command_ms": 0.023,
+      "max_command_ms": 5.149,
+      "retained_python_mib_after_warmup": null
+    },
+    {
+      "map": "map_spec_02.json",
+      "factions": [
+        "RUST",
+        "RUST"
+      ],
+      "reverse_commands": false,
+      "ticks": 18000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "milestones": {
+        "Blue": {
+          "house": 720,
+          "pit": 2040,
+          "chem_vat": 3210,
+          "research": 7020,
+          "cast": 8850,
+          "combat": 8851
+        },
+        "Red": {
+          "house": 720,
+          "pit": 2070,
+          "chem_vat": 3270,
+          "research": 6960,
+          "cast": 8850,
+          "combat": 8851
+        }
+      },
+      "digest": "65f57a9bb97a385e9217589746f065bbb95f9d7a0b90e98f3b539bd594ee4d5b",
+      "active_economy_ticks": 3781,
+      "elapsed_seconds": 3.2344,
+      "tick_steps_per_second": 5671.97,
+      "max_tick_ms": 19.726,
+      "command_batches": 600,
+      "mean_command_ms": 0.032,
+      "max_command_ms": 11.023,
+      "retained_python_mib_after_warmup": null
+    },
+    {
+      "map": "map_spec_02.json",
+      "factions": [
+        "RUST",
+        "RUST"
+      ],
+      "reverse_commands": false,
+      "ticks": 18000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "milestones": {
+        "Blue": {
+          "house": 720,
+          "pit": 2040,
+          "chem_vat": 3210,
+          "research": 7020,
+          "cast": 8850,
+          "combat": 8851
+        },
+        "Red": {
+          "house": 720,
+          "pit": 2070,
+          "chem_vat": 3270,
+          "research": 6960,
+          "cast": 8850,
+          "combat": 8851
+        }
+      },
+      "digest": "65f57a9bb97a385e9217589746f065bbb95f9d7a0b90e98f3b539bd594ee4d5b",
+      "active_economy_ticks": 3781,
+      "elapsed_seconds": 3.2202,
+      "tick_steps_per_second": 5694.52,
+      "max_tick_ms": 20.228,
+      "command_batches": 600,
+      "mean_command_ms": 0.031,
+      "max_command_ms": 10.411,
+      "retained_python_mib_after_warmup": null
+    },
+    {
+      "map": "map_spec_02.json",
+      "factions": [
+        "RUST",
+        "RUST"
+      ],
+      "reverse_commands": true,
+      "ticks": 18000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "milestones": {
+        "Red": {
+          "house": 720,
+          "pit": 2070,
+          "chem_vat": 3270,
+          "research": 6960,
+          "cast": 8850,
+          "combat": 8851
+        },
+        "Blue": {
+          "house": 720,
+          "pit": 2040,
+          "chem_vat": 3210,
+          "research": 7020,
+          "cast": 8850,
+          "combat": 8851
+        }
+      },
+      "digest": "12a4b69d579522bc8c47cef700cca5153dfb14a59711f5fff710e2bb0f3257d4",
+      "active_economy_ticks": 3781,
+      "elapsed_seconds": 3.2405,
+      "tick_steps_per_second": 5659.31,
+      "max_tick_ms": 19.786,
+      "command_batches": 600,
+      "mean_command_ms": 0.03,
+      "max_command_ms": 9.814,
+      "retained_python_mib_after_warmup": null
+    },
+    {
+      "map": "map_spec_02.json",
+      "factions": [
+        "RUST",
+        "RUST"
+      ],
+      "reverse_commands": true,
+      "ticks": 18000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "milestones": {
+        "Red": {
+          "house": 720,
+          "pit": 2070,
+          "chem_vat": 3270,
+          "research": 6960,
+          "cast": 8850,
+          "combat": 8851
+        },
+        "Blue": {
+          "house": 720,
+          "pit": 2040,
+          "chem_vat": 3210,
+          "research": 7020,
+          "cast": 8850,
+          "combat": 8851
+        }
+      },
+      "digest": "12a4b69d579522bc8c47cef700cca5153dfb14a59711f5fff710e2bb0f3257d4",
+      "active_economy_ticks": 3781,
+      "elapsed_seconds": 3.245,
+      "tick_steps_per_second": 5653.85,
+      "max_tick_ms": 18.903,
+      "command_batches": 600,
+      "mean_command_ms": 0.032,
+      "max_command_ms": 10.764,
+      "retained_python_mib_after_warmup": null
+    },
+    {
+      "map": "map_spec_03.json",
+      "factions": [
+        "AEGIS",
+        "RUST"
+      ],
+      "reverse_commands": false,
+      "ticks": 18000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "milestones": {
+        "Blue": {
+          "house": 750,
+          "arsenal": 2190,
+          "spire": 3570,
+          "research": 6630,
+          "cast": 8460,
+          "combat": 8461
+        },
+        "Red": {
+          "house": 720,
+          "pit": 1860,
+          "chem_vat": 3090,
+          "research": 5400,
+          "cast": 8460,
+          "combat": 8461
+        }
+      },
+      "digest": "abf03f4f9b4feb99ad2b9bf1a98454c65f352b61ecab83fe8d75815883b975ae",
+      "active_economy_ticks": 4577,
+      "elapsed_seconds": 3.3272,
+      "tick_steps_per_second": 5538.51,
+      "max_tick_ms": 8.933,
+      "command_batches": 600,
+      "mean_command_ms": 0.062,
+      "max_command_ms": 6.504,
+      "retained_python_mib_after_warmup": null
+    },
+    {
+      "map": "map_spec_03.json",
+      "factions": [
+        "AEGIS",
+        "RUST"
+      ],
+      "reverse_commands": false,
+      "ticks": 18000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "milestones": {
+        "Blue": {
+          "house": 750,
+          "arsenal": 2190,
+          "spire": 3570,
+          "research": 6630,
+          "cast": 8460,
+          "combat": 8461
+        },
+        "Red": {
+          "house": 720,
+          "pit": 1860,
+          "chem_vat": 3090,
+          "research": 5400,
+          "cast": 8460,
+          "combat": 8461
+        }
+      },
+      "digest": "abf03f4f9b4feb99ad2b9bf1a98454c65f352b61ecab83fe8d75815883b975ae",
+      "active_economy_ticks": 4577,
+      "elapsed_seconds": 3.3276,
+      "tick_steps_per_second": 5540.27,
+      "max_tick_ms": 9.216,
+      "command_batches": 600,
+      "mean_command_ms": 0.063,
+      "max_command_ms": 6.858,
+      "retained_python_mib_after_warmup": null
+    },
+    {
+      "map": "map_spec_03.json",
+      "factions": [
+        "AEGIS",
+        "RUST"
+      ],
+      "reverse_commands": true,
+      "ticks": 18000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "milestones": {
+        "Red": {
+          "house": 720,
+          "pit": 1860,
+          "chem_vat": 3090,
+          "research": 5400,
+          "cast": 8460,
+          "combat": 8461
+        },
+        "Blue": {
+          "house": 750,
+          "arsenal": 2190,
+          "spire": 3570,
+          "research": 6630,
+          "cast": 8460,
+          "combat": 8461
+        }
+      },
+      "digest": "abf03f4f9b4feb99ad2b9bf1a98454c65f352b61ecab83fe8d75815883b975ae",
+      "active_economy_ticks": 4577,
+      "elapsed_seconds": 3.3941,
+      "tick_steps_per_second": 5432.8,
+      "max_tick_ms": 9.862,
+      "command_batches": 600,
+      "mean_command_ms": 0.064,
+      "max_command_ms": 7.207,
+      "retained_python_mib_after_warmup": null
+    },
+    {
+      "map": "map_spec_03.json",
+      "factions": [
+        "AEGIS",
+        "RUST"
+      ],
+      "reverse_commands": true,
+      "ticks": 18000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "milestones": {
+        "Red": {
+          "house": 720,
+          "pit": 1860,
+          "chem_vat": 3090,
+          "research": 5400,
+          "cast": 8460,
+          "combat": 8461
+        },
+        "Blue": {
+          "house": 750,
+          "arsenal": 2190,
+          "spire": 3570,
+          "research": 6630,
+          "cast": 8460,
+          "combat": 8461
+        }
+      },
+      "digest": "abf03f4f9b4feb99ad2b9bf1a98454c65f352b61ecab83fe8d75815883b975ae",
+      "active_economy_ticks": 4577,
+      "elapsed_seconds": 3.3854,
+      "tick_steps_per_second": 5447.47,
+      "max_tick_ms": 8.483,
+      "command_batches": 600,
+      "mean_command_ms": 0.065,
+      "max_command_ms": 6.991,
+      "retained_python_mib_after_warmup": null
+    },
+    {
+      "map": "map_spec_03.json",
+      "factions": [
+        "RUST",
+        "AEGIS"
+      ],
+      "reverse_commands": false,
+      "ticks": 18000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "milestones": {
+        "Blue": {
+          "house": 750,
+          "pit": 1920,
+          "chem_vat": 3120,
+          "research": 5850,
+          "cast": 8100,
+          "combat": 8101
+        },
+        "Red": {
+          "house": 720,
+          "arsenal": 2160,
+          "spire": 3600,
+          "research": 6270,
+          "cast": 8100,
+          "combat": 8101
+        }
+      },
+      "digest": "13e15a169507d53e89eac1053310c7be61ab43b7e5519284ad6860be3c0a9968",
+      "active_economy_ticks": 4440,
+      "elapsed_seconds": 3.3056,
+      "tick_steps_per_second": 5576.63,
+      "max_tick_ms": 8.069,
+      "command_batches": 600,
+      "mean_command_ms": 0.062,
+      "max_command_ms": 7.738,
+      "retained_python_mib_after_warmup": null
+    },
+    {
+      "map": "map_spec_03.json",
+      "factions": [
+        "RUST",
+        "AEGIS"
+      ],
+      "reverse_commands": false,
+      "ticks": 18000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "milestones": {
+        "Blue": {
+          "house": 750,
+          "pit": 1920,
+          "chem_vat": 3120,
+          "research": 5850,
+          "cast": 8100,
+          "combat": 8101
+        },
+        "Red": {
+          "house": 720,
+          "arsenal": 2160,
+          "spire": 3600,
+          "research": 6270,
+          "cast": 8100,
+          "combat": 8101
+        }
+      },
+      "digest": "13e15a169507d53e89eac1053310c7be61ab43b7e5519284ad6860be3c0a9968",
+      "active_economy_ticks": 4440,
+      "elapsed_seconds": 3.3231,
+      "tick_steps_per_second": 5548.66,
+      "max_tick_ms": 9.351,
+      "command_batches": 600,
+      "mean_command_ms": 0.064,
+      "max_command_ms": 7.666,
+      "retained_python_mib_after_warmup": null
+    },
+    {
+      "map": "map_spec_03.json",
+      "factions": [
+        "RUST",
+        "AEGIS"
+      ],
+      "reverse_commands": true,
+      "ticks": 18000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "milestones": {
+        "Red": {
+          "house": 720,
+          "arsenal": 2160,
+          "spire": 3600,
+          "research": 6270,
+          "cast": 8100,
+          "combat": 8101
+        },
+        "Blue": {
+          "house": 750,
+          "pit": 1920,
+          "chem_vat": 3120,
+          "research": 5850,
+          "cast": 8100,
+          "combat": 8101
+        }
+      },
+      "digest": "13e15a169507d53e89eac1053310c7be61ab43b7e5519284ad6860be3c0a9968",
+      "active_economy_ticks": 4440,
+      "elapsed_seconds": 3.3109,
+      "tick_steps_per_second": 5568.62,
+      "max_tick_ms": 7.955,
+      "command_batches": 600,
+      "mean_command_ms": 0.061,
+      "max_command_ms": 7.956,
+      "retained_python_mib_after_warmup": null
+    },
+    {
+      "map": "map_spec_03.json",
+      "factions": [
+        "RUST",
+        "AEGIS"
+      ],
+      "reverse_commands": true,
+      "ticks": 18000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "milestones": {
+        "Red": {
+          "house": 720,
+          "arsenal": 2160,
+          "spire": 3600,
+          "research": 6270,
+          "cast": 8100,
+          "combat": 8101
+        },
+        "Blue": {
+          "house": 750,
+          "pit": 1920,
+          "chem_vat": 3120,
+          "research": 5850,
+          "cast": 8100,
+          "combat": 8101
+        }
+      },
+      "digest": "13e15a169507d53e89eac1053310c7be61ab43b7e5519284ad6860be3c0a9968",
+      "active_economy_ticks": 4440,
+      "elapsed_seconds": 3.335,
+      "tick_steps_per_second": 5531.31,
+      "max_tick_ms": 8.223,
+      "command_batches": 600,
+      "mean_command_ms": 0.064,
+      "max_command_ms": 7.407,
+      "retained_python_mib_after_warmup": null
+    },
+    {
+      "map": "map_spec_03.json",
+      "factions": [
+        "AEGIS",
+        "AEGIS"
+      ],
+      "reverse_commands": false,
+      "ticks": 18000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "milestones": {
+        "Blue": {
+          "house": 750,
+          "arsenal": 2190,
+          "spire": 3570,
+          "research": 6630,
+          "cast": 8460,
+          "combat": 8461
+        },
+        "Red": {
+          "house": 720,
+          "arsenal": 2160,
+          "spire": 3600,
+          "research": 6270,
+          "cast": 8460,
+          "combat": 8461
+        }
+      },
+      "digest": "0eed91d6c771ca98e5bc63f3f4cff3a5543ed0f8fa30aeb08d7f0f9a878973a9",
+      "active_economy_ticks": 4189,
+      "elapsed_seconds": 3.3236,
+      "tick_steps_per_second": 5550.12,
+      "max_tick_ms": 9.013,
+      "command_batches": 600,
+      "mean_command_ms": 0.065,
+      "max_command_ms": 7.043,
+      "retained_python_mib_after_warmup": null
+    },
+    {
+      "map": "map_spec_03.json",
+      "factions": [
+        "AEGIS",
+        "AEGIS"
+      ],
+      "reverse_commands": false,
+      "ticks": 18000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "milestones": {
+        "Blue": {
+          "house": 750,
+          "arsenal": 2190,
+          "spire": 3570,
+          "research": 6630,
+          "cast": 8460,
+          "combat": 8461
+        },
+        "Red": {
+          "house": 720,
+          "arsenal": 2160,
+          "spire": 3600,
+          "research": 6270,
+          "cast": 8460,
+          "combat": 8461
+        }
+      },
+      "digest": "0eed91d6c771ca98e5bc63f3f4cff3a5543ed0f8fa30aeb08d7f0f9a878973a9",
+      "active_economy_ticks": 4189,
+      "elapsed_seconds": 3.3011,
+      "tick_steps_per_second": 5589.36,
+      "max_tick_ms": 9.28,
+      "command_batches": 600,
+      "mean_command_ms": 0.064,
+      "max_command_ms": 6.86,
+      "retained_python_mib_after_warmup": null
+    },
+    {
+      "map": "map_spec_03.json",
+      "factions": [
+        "AEGIS",
+        "AEGIS"
+      ],
+      "reverse_commands": true,
+      "ticks": 18000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "milestones": {
+        "Red": {
+          "house": 720,
+          "arsenal": 2160,
+          "spire": 3600,
+          "research": 6270,
+          "cast": 8460,
+          "combat": 8461
+        },
+        "Blue": {
+          "house": 750,
+          "arsenal": 2190,
+          "spire": 3570,
+          "research": 6630,
+          "cast": 8460,
+          "combat": 8461
+        }
+      },
+      "digest": "20ff4bd158eb86b72d8e1cd0e411df18f568106337393db8cca1a0f031f035e1",
+      "active_economy_ticks": 4189,
+      "elapsed_seconds": 3.3271,
+      "tick_steps_per_second": 5549.8,
+      "max_tick_ms": 8.722,
+      "command_batches": 600,
+      "mean_command_ms": 0.066,
+      "max_command_ms": 8.689,
+      "retained_python_mib_after_warmup": null
+    },
+    {
+      "map": "map_spec_03.json",
+      "factions": [
+        "AEGIS",
+        "AEGIS"
+      ],
+      "reverse_commands": true,
+      "ticks": 18000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "milestones": {
+        "Red": {
+          "house": 720,
+          "arsenal": 2160,
+          "spire": 3600,
+          "research": 6270,
+          "cast": 8460,
+          "combat": 8461
+        },
+        "Blue": {
+          "house": 750,
+          "arsenal": 2190,
+          "spire": 3570,
+          "research": 6630,
+          "cast": 8460,
+          "combat": 8461
+        }
+      },
+      "digest": "20ff4bd158eb86b72d8e1cd0e411df18f568106337393db8cca1a0f031f035e1",
+      "active_economy_ticks": 4189,
+      "elapsed_seconds": 3.2691,
+      "tick_steps_per_second": 5642.66,
+      "max_tick_ms": 8.856,
+      "command_batches": 600,
+      "mean_command_ms": 0.063,
+      "max_command_ms": 6.596,
+      "retained_python_mib_after_warmup": null
+    },
+    {
+      "map": "map_spec_03.json",
+      "factions": [
+        "RUST",
+        "RUST"
+      ],
+      "reverse_commands": false,
+      "ticks": 18000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "milestones": {
+        "Blue": {
+          "house": 750,
+          "pit": 1920,
+          "chem_vat": 3120,
+          "research": 5850,
+          "cast": 7680,
+          "combat": 7681
+        },
+        "Red": {
+          "house": 720,
+          "pit": 1860,
+          "chem_vat": 3090,
+          "research": 5400,
+          "cast": 7680,
+          "combat": 7681
+        }
+      },
+      "digest": "1d79363893c792a5bd4df33a9e575d535e0b563e9191be76d80a443944face46",
+      "active_economy_ticks": 4165,
+      "elapsed_seconds": 3.2658,
+      "tick_steps_per_second": 5651.34,
+      "max_tick_ms": 9.113,
+      "command_batches": 600,
+      "mean_command_ms": 0.065,
+      "max_command_ms": 7.831,
+      "retained_python_mib_after_warmup": null
+    },
+    {
+      "map": "map_spec_03.json",
+      "factions": [
+        "RUST",
+        "RUST"
+      ],
+      "reverse_commands": false,
+      "ticks": 18000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "milestones": {
+        "Blue": {
+          "house": 750,
+          "pit": 1920,
+          "chem_vat": 3120,
+          "research": 5850,
+          "cast": 7680,
+          "combat": 7681
+        },
+        "Red": {
+          "house": 720,
+          "pit": 1860,
+          "chem_vat": 3090,
+          "research": 5400,
+          "cast": 7680,
+          "combat": 7681
+        }
+      },
+      "digest": "1d79363893c792a5bd4df33a9e575d535e0b563e9191be76d80a443944face46",
+      "active_economy_ticks": 4165,
+      "elapsed_seconds": 3.2954,
+      "tick_steps_per_second": 5600.32,
+      "max_tick_ms": 8.332,
+      "command_batches": 600,
+      "mean_command_ms": 0.067,
+      "max_command_ms": 7.911,
+      "retained_python_mib_after_warmup": null
+    },
+    {
+      "map": "map_spec_03.json",
+      "factions": [
+        "RUST",
+        "RUST"
+      ],
+      "reverse_commands": true,
+      "ticks": 18000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "milestones": {
+        "Red": {
+          "house": 720,
+          "pit": 1860,
+          "chem_vat": 3090,
+          "research": 5400,
+          "cast": 7680,
+          "combat": 7681
+        },
+        "Blue": {
+          "house": 750,
+          "pit": 1920,
+          "chem_vat": 3120,
+          "research": 5850,
+          "cast": 7680,
+          "combat": 7681
+        }
+      },
+      "digest": "1d79363893c792a5bd4df33a9e575d535e0b563e9191be76d80a443944face46",
+      "active_economy_ticks": 4165,
+      "elapsed_seconds": 3.3199,
+      "tick_steps_per_second": 5562.74,
+      "max_tick_ms": 8.246,
+      "command_batches": 600,
+      "mean_command_ms": 0.067,
+      "max_command_ms": 7.042,
+      "retained_python_mib_after_warmup": null
+    },
+    {
+      "map": "map_spec_03.json",
+      "factions": [
+        "RUST",
+        "RUST"
+      ],
+      "reverse_commands": true,
+      "ticks": 18000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "milestones": {
+        "Red": {
+          "house": 720,
+          "pit": 1860,
+          "chem_vat": 3090,
+          "research": 5400,
+          "cast": 7680,
+          "combat": 7681
+        },
+        "Blue": {
+          "house": 750,
+          "pit": 1920,
+          "chem_vat": 3120,
+          "research": 5850,
+          "cast": 7680,
+          "combat": 7681
+        }
+      },
+      "digest": "1d79363893c792a5bd4df33a9e575d535e0b563e9191be76d80a443944face46",
+      "active_economy_ticks": 4165,
+      "elapsed_seconds": 3.2833,
+      "tick_steps_per_second": 5614.97,
+      "max_tick_ms": 8.244,
+      "command_batches": 600,
+      "mean_command_ms": 0.062,
+      "max_command_ms": 6.646,
+      "retained_python_mib_after_warmup": null
+    }
+  ]
+}

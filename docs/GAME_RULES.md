@@ -1,9 +1,9 @@
 # Game Rules — Verified State
 
-Date: 2026-10-28. Updated through closeout sprint C3.
-This document describes gameplay without designing an ML API. Remaining deviations from intended
-rules are explicit and must not be treated as accepted design.
-Readiness evidence: [game-stage audit](reviews/GAME_STAGE_AUDIT_2026-10-28.md).
+Date: 2026-10-28. Frozen through closeout sprint C4.
+This document describes gameplay without designing an ML API. Current acceptance evidence is in
+the [C4 review](reviews/GAME_CLOSEOUT_C4_REVIEW.md); the [original audit](reviews/GAME_STAGE_AUDIT_2026-10-28.md)
+records the pre-fix state. Its G1–G3 defects are resolved.
 
 ## Current game scope
 
@@ -82,6 +82,7 @@ removes the first entry and refunds 75%; destruction removes the queue without a
 is validated on enqueue. Losing a House or Base keeps the existing army and allows already paid
 jobs to finish, even above the reduced cap; new requests remain blocked until enough capacity
 is available. There is no forced unit deletion or automatic refund on supply loss.
+The selected producer shows the active training/research progress, its next job, and waiting count.
 
 ## Technologies and abilities
 
@@ -99,7 +100,8 @@ in ID order. Temporary statuses use remaining-tick counters.
 - Move, attack-move, patrol, stop, hold, target interaction, gather, return cargo, build, repair,
   and cast use shared gameplay systems. Unit queues hold 16 deferred orders.
 - Water, rocks, elevation, and ramps affect routes. Unreachable movement stops the unit instead
-  of retrying pathfinding forever.
+  of retrying pathfinding forever. Path edges validate the actual starting and ending points;
+  leaving an existing building overlap must move outward without cutting through its center.
 - Modified damage cannot be negative. Shields absorb damage before HP and regenerate after a
   damage-free delay. Poison refreshes one effect rather than stacking independently, and also
   passes through shields.
@@ -133,7 +135,10 @@ Legacy `map_settings_*.json` remain compatibility/regression material; the visua
 `ScriptedAI` demonstrates gathering, one basic military producer, training, scouting, and attacks.
 It does not build Houses, train workers, research, or use active abilities. It neither validates
 the whole tech tree nor provides a reliable balance measure. Controlled scenarios can serve game
-acceptance without expanding the bot.
+acceptance without expanding the bot. The C4 driver verifies earned economy, both producer tiers,
+research, casts, combat, result, and restart in all 12 map/faction combinations, both command orders,
+with two fresh runs per ordering. Its 18,000-tick acceptance deadline is deliberately shorter than
+the ordinary 36,000-tick match rule; its draws are not a balance result.
 
 ## Outside the game stage
 

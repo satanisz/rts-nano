@@ -1,0 +1,45 @@
+{
+  "platform": "Windows-11-10.0.26200-SP0",
+  "processor": "Intel64 Family 6 Model 198 Stepping 2, GenuineIntel",
+  "python": "3.14.4",
+  "runs": [
+    {
+      "map": "map_spec_01.json",
+      "factions": [
+        "AEGIS",
+        "RUST"
+      ],
+      "reverse_commands": false,
+      "ticks": 36000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "milestones": {
+        "Blue": {
+          "house": 810,
+          "arsenal": 2280,
+          "spire": 3930,
+          "research": 7860,
+          "cast": 9870,
+          "combat": 9871
+        },
+        "Red": {
+          "house": 780,
+          "pit": 2010,
+          "chem_vat": 3330,
+          "research": 8040,
+          "cast": 9870,
+          "combat": 9871
+        }
+      },
+      "digest": "04f5026958a81f5c3d45fcf2607ce4aa4cd5f771f91bbc6fcdd5cc0526944330",
+      "active_economy_ticks": 5490,
+      "elapsed_seconds": 39.8968,
+      "tick_steps_per_second": 949.85,
+      "max_tick_ms": 210.962,
+      "command_batches": 1200,
+      "mean_command_ms": 0.678,
+      "max_command_ms": 119.869,
+      "retained_python_mib_after_warmup": 0.02140045166015625
+    }
+  ]
+}

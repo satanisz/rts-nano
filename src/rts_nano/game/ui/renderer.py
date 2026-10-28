@@ -204,9 +204,8 @@ class GameRenderer:
             font.render(f" | {match_clock_label(manager)}", True, ui_color),
         ]
 
-        if manager.paused and not manager.menu_active:
-            pause_label = manager.game_over_message or "- PAUSED -"
-            pause_text = font.render(pause_label, True, WHITE)
+        if manager.paused and not manager.menu_active and manager.game_over_message is None:
+            pause_text = font.render("- PAUSED -", True, WHITE)
             text_rect = pause_text.get_rect(center=(screen_width // 2, screen_height // 2))
             screen.blit(pause_text, text_rect)
 
@@ -218,12 +217,12 @@ class GameRenderer:
         self._draw_bottom_menu(screen, manager)
         self._draw_minimap(screen, manager)
 
-        if self.presentation.tech_tree_visible:
+        if manager.game_over_message is not None:
+            self._draw_match_result(screen, manager)
+        elif self.presentation.tech_tree_visible:
             self._draw_tech_tree(screen, manager)
         elif manager.menu_active:
             self._draw_main_menu(screen, manager)
-        elif manager.game_over_message is not None:
-            self._draw_match_result(screen, manager)
 
     def reset_match(self) -> None:
         """Clear match-local effects while preserving cached presentation assets."""
@@ -497,9 +496,22 @@ class GameRenderer:
                     stats_texts.append(f"Repairers: {manager.construction.active_repairer_count(primary_entity)}")
                 stats_texts.append(f"SHIELD: {primary_entity.shield_modifier}")
                 activity = manager.production.queue_for(primary_entity)
-                if activity and activity[0].kind == "research":
-                    upgrade = CONTENT.get_upgrade(activity[0].content_id)
-                    stats_texts.append(f"Research: {upgrade.display_name} {activity[0].progress:.0%}")
+                if activity:
+                    entry = activity[0]
+                    if entry.kind == "research":
+                        name = CONTENT.get_upgrade(entry.content_id).display_name
+                        stats_texts.append(f"Research: {name} {entry.progress:.0%}")
+                    else:
+                        name = CONTENT.get_unit(entry.content_id).display_name
+                        stats_texts.append(f"Training: {name} {entry.progress:.0%}")
+                    if len(activity) > 1:
+                        next_job = activity[1]
+                        name = (
+                            CONTENT.get_upgrade(next_job.content_id).display_name
+                            if next_job.kind == "research"
+                            else CONTENT.get_unit(next_job.content_id).display_name
+                        )
+                        stats_texts.append(f"Next: {name} ({len(activity) - 1} waiting)")
                 team_state = manager.state.team(primary_entity.team)
                 if team_state is not None and team_state.completed_upgrades:
                     completed_names = [

@@ -4,8 +4,7 @@ Extracted from ``GameManager`` so the tick's movement behavior lives in one
 place. Map/terrain state comes from the shared ``GameState`` (``terrain``,
 ``map_width``/``map_height``, ``clamp_to_world``); the system owns target
 assignment, A* pathing, formation spread, attack-move acquisition, patrol leg
-flipping, and stuck recovery. Behavior is byte-identical to the previous
-in-manager version.
+flipping, and stuck recovery. Paths respect terrain and living building footprints.
 """
 
 from __future__ import annotations
@@ -112,8 +111,15 @@ class MovementSystem:
             min_distance_squared = (unit.radius + entity.radius) ** 2
             start_distance_squared = distance_between_points(start, center) ** 2
             end_distance_squared = distance_between_points(end, center) ** 2
+            # Escaping an overlap must move outward from the first step, not
+            # cut through the center merely because the far endpoint is outside.
+            outward_projection = (start[0] - center[0]) * (end[0] - start[0]) + (start[1] - center[1]) * (
+                end[1] - start[1]
+            )
             escaping_overlap = (
-                start_distance_squared < min_distance_squared and end_distance_squared > start_distance_squared
+                start_distance_squared < min_distance_squared
+                and end_distance_squared > start_distance_squared
+                and outward_projection >= 0
             )
             if not escaping_overlap and self._distance_squared_to_segment(center, start, end) < min_distance_squared:
                 return True

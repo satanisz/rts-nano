@@ -4,6 +4,11 @@ Date: 2026-10-28. Commit: `8e06cd5d1ba0eaea5a2171285d9321b1dcd727ab`.
 Scope: rules, economy, combat, input, maps, determinism, tests, performance, and documentation.
 **Preparing an ML API is excluded.**
 
+**Historical baseline, superseded for current readiness by the [C4 closeout review](GAME_CLOSEOUT_C4_REVIEW.md).**
+The user subsequently authorized Plan 08. C1 resolves G1/G3, C2 resolves G2, C3 establishes the
+game deadline, and C4 records whole-game acceptance plus the additional path/UI fixes it uncovered.
+Findings and measurements below intentionally describe the original audited commit.
+
 ## Verdict
 
 **The technical foundation is reusable, but the whole game stage should not yet be marked

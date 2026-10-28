@@ -1,6 +1,6 @@
 # Plan 08 — Game Stage Closeout
 
-Date: 2026-10-28. Status: **approved for sprint execution; implementation in progress**.
+Date: 2026-10-28. Status: **complete — game stage frozen at the C4 closeout commit**.
 Basis: [audit](docs/reviews/GAME_STAGE_AUDIT_2026-10-28.md) and
 [verified rules](docs/GAME_RULES.md).
 
@@ -70,6 +70,10 @@ an expected outcome or a known upper bound on its duration.
 
 ## C4 — Whole-game acceptance and version freeze
 
+Status: **complete** — [C4 review](docs/reviews/GAME_CLOSEOUT_C4_REVIEW.md), including reproducible
+matrix data, active memory/performance measurements, visual evidence, and final validation.
+Acceptance additionally exposed and fixed exact-endpoint/overlap path validation and result/queue UI defects.
+
 After C1–C3, run the three-map/four-faction-pairing matrix:
 AEGIS/RUST, RUST/AEGIS, AEGIS/AEGIS, and RUST/RUST. Reverse roles and command order in scenarios
 comparing sides. Do not infer balance from simple-bot wins.
@@ -101,3 +105,7 @@ training, curricula, and multi-environment infrastructure.
 
 Execution order: **C1 → C2 → C3 → C4**, with a separate commit per sprint. This is a bounded
 closeout of existing mechanics, not another content expansion.
+
+Completed commits: documentation/translation `b0d0731`, C1 `220346e`, C2 `ddbfde7`, C3 `369fe05`;
+C4 is the commit containing its final review and acceptance data. That commit identifies the frozen
+game version. Subsequent ML work requires a separate scope decision from the user.

@@ -3,9 +3,18 @@
 Plan 05 records the completed historical core architecture migration. Plans 06 and 07 describe
 later technology-tree and environment work already present in the repository.
 
-For the current game-stage assessment, read `docs/reviews/GAME_STAGE_AUDIT_2026-10-28.md` and
-`docs/GAME_RULES.md`. The audit found three open gameplay bugs despite a passing test suite.
-`EXECUTIVE_PLAN_08_GAME_STAGE_CLOSEOUT.md` proposes a bounded closeout: population/tick integrity,
-fog-aware targeting, explicit match-ending rules, and acceptance of the current map/faction set.
-The proposal is not a record of completed fixes or authorization to implement the whole backlog.
-The requested closeout scope excludes preparing an API for ML, new content, and RL training.
+For the current game-stage status, read `docs/reviews/GAME_CLOSEOUT_C4_REVIEW.md`,
+`docs/GAME_RULES.md`, and `EXECUTIVE_PLAN_08_GAME_STAGE_CLOSEOUT.md`.
+The original `docs/reviews/GAME_STAGE_AUDIT_2026-10-28.md` describes the pre-fix baseline.
+
+The user authorized executing C1–C4 as separately committed sprints. C1 fixes weighted population
+and dead-worker work; C2 fixes player targeting through fog; C3 freezes elimination plus a
+36,000-tick draw deadline. C4 verifies all three v3 maps and four faction pairings, fixes an
+additional worker/base path issue found during acceptance, and records UI/performance/memory evidence.
+Recent audit/rules/plan text and all new sprint reports are English. `EXECUTIVE_PLAN_01.md` is a
+historical Polish document last changed in June 2026, outside the recent translation request.
+
+This closes the bounded game stage, not a competitive-balance certification or ML integration.
+The scope excludes preparing an API for ML, new content, and RL training. The existing environment
+received only the C3 compatibility wiring needed to preserve its prior episode-limit semantics.
+Wait for the user's next scope decision; do not infer authorization for the remaining ML backlog.

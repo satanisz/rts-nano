@@ -24,6 +24,21 @@ jobs:
       - name: Validate shipped maps
         run: uv run python -m rts_nano.validate_map src/rts_nano/maps/*.json
 
+  game-closeout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          enable-cache: true
+          python-version: "3.14"
+      - name: Install locked dependencies
+        run: uv sync --locked --dev
+      - name: Repeat both-player progression on every map and faction pairing
+        run: uv run python benchmarks/game_closeout.py --repeats 2 --output tmp/game-closeout.json
+
   render-smoke:
     runs-on: ubuntu-latest
     env:

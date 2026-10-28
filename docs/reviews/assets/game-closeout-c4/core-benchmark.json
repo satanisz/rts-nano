@@ -1,0 +1,28 @@
+{
+  "active_economy": {
+    "cold_init_ms": 1.98,
+    "orders_ms": 696.512,
+    "steps_per_second": 3570.428
+  },
+  "close_combat_400": {
+    "cold_init_ms": 2.245,
+    "group_orders_ms": 16.613,
+    "steps_per_second": 33.226
+  },
+  "dispersed_400": {
+    "group_orders_ms": 1904.222,
+    "steps_per_second": 141.24
+  },
+  "idle_map_01": {
+    "cold_init_ms": 2.726,
+    "steps_per_second": 6925.424
+  },
+  "idle_retained_mib_5000_steps": 0.0,
+  "repeats": 3,
+  "steps_per_scenario": 200,
+  "two_army_combat": {
+    "cold_init_ms": 0.364,
+    "group_orders_ms": 0.721,
+    "steps_per_second": 577.811
+  }
+}

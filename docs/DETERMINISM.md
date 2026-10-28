@@ -29,6 +29,13 @@ cooldowns, temporary effects, and cross-faction status application. Area abiliti
 bonuses use bounded spatial queries, stable entity-ID ordering, and explicit target/contributor
 caps. UI graph generation reads immutable definitions and never enters the simulation tick.
 
+`benchmarks/game_closeout.py --repeats 2` adds the game closeout matrix: three v3 maps, four faction
+pairings, both team command orders, and two fresh executions of each ordered scenario. It compares
+canonical final observation digests after earned economy, construction, research, abilities, and
+combat. Opposite command orders are separate cases; they are not required to have identical results.
+The C4 report records local cross-process hash-seed checks. The existing golden replay files were
+not rebaselined for C1–C4; this does not promise every historical command stream is unchanged.
+
 ## Avoiding accidental nondeterminism
 
 - Do not derive gameplay order from sets, wall-clock time, rendering frames, or object addresses.

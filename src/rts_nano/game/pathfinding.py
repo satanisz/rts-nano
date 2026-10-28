@@ -44,7 +44,7 @@ def find_path(
         width: Searchable map width.
         height: Searchable map height.
         can_move_between: Terrain/collision predicate for adjacent grid-cell
-            centers.
+            centers and the exact first/last path connections.
         grid_size: Size of one search cell in world pixels.
 
     The search uses 8-neighbor movement and octile distance. Diagonal moves are
@@ -60,7 +60,7 @@ def find_path(
     goal_cell = _clamp_cell(goal_cell, max_col, max_row)
 
     if start_cell == goal_cell:
-        return [goal]
+        return [goal] if can_move_between(start, goal) else []
 
     frontier: list[tuple[int, int, Cell]] = []
     heapq.heappush(frontier, (0, 0, start_cell))
@@ -75,9 +75,9 @@ def find_path(
         if current == goal_cell:
             return _reconstruct_path(came_from, current, goal, grid_size, width, height)
 
-        current_point = _cell_center(current, grid_size, width, height)
+        current_point = start if current == start_cell else _cell_center(current, grid_size, width, height)
         for neighbor, move_cost in _neighbors(current, max_col, max_row):
-            neighbor_point = _cell_center(neighbor, grid_size, width, height)
+            neighbor_point = goal if neighbor == goal_cell else _cell_center(neighbor, grid_size, width, height)
             if not can_move_between(current_point, neighbor_point):
                 continue
 
@@ -88,6 +88,7 @@ def find_path(
                 height=height,
                 grid_size=grid_size,
                 can_move_between=can_move_between,
+                current_point=current_point,
             ):
                 continue
 
@@ -153,6 +154,7 @@ def _allows_diagonal_step(
     height: int,
     grid_size: int,
     can_move_between: Callable[[Point, Point], bool],
+    current_point: Point,
 ) -> bool:
     """Prevent diagonal clipping through blocked corners.
 
@@ -163,7 +165,6 @@ def _allows_diagonal_step(
     """
     horizontal = (neighbor[0], current[1])
     vertical = (current[0], neighbor[1])
-    current_point = _cell_center(current, grid_size, width, height)
     horizontal_point = _cell_center(horizontal, grid_size, width, height)
     vertical_point = _cell_center(vertical, grid_size, width, height)
     return can_move_between(current_point, horizontal_point) and can_move_between(current_point, vertical_point)
