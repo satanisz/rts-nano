@@ -41,7 +41,7 @@ Status: complete — [S1 review](docs/reviews/BOT_SPECTATOR_S1_REVIEW.md).
 
 ## S2 — Observer presentation and read-only controls
 
-Status: pending.
+Status: complete — [S2 review](docs/reviews/BOT_SPECTATOR_S2_REVIEW.md).
 
 - Add isolated All/Blue/Red observation policy and per-team presentation exploration.
 - Share the policy between world drawing, effects, minimap, and inspection.

@@ -38,11 +38,13 @@ def match_result_detail(manager: GameSession) -> str:
     return "All opposing forces eliminated."
 
 
-def match_result_title(manager: GameSession) -> str:
-    """Return the result from the current player's perspective."""
+def match_result_title(manager: GameSession, *, spectator: bool = False) -> str:
+    """Return a player result or a neutral team outcome for spectators."""
     message = manager.game_over_message
     if message == "Draw":
         return "DRAW"
+    if spectator:
+        return "BLUE WINS" if message == "Team Blue wins" else "RED WINS"
     if message == f"Team {manager.current_team.value} wins":
         return "VICTORY"
     return "DEFEAT"

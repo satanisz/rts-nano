@@ -2,9 +2,9 @@
 
 This module intentionally stays thin. It owns pygame display creation,
 fullscreen/window fallback behavior, and the outer event/update/draw loop. The
-actual game state lives in :class:`rts_nano.game.manager.GameSession`; keep new
-gameplay logic there unless it truly concerns process startup, display mode, or
-top-level event dispatch.
+game state lives in :class:`rts_nano.application.GameSession`; participant and
+restart orchestration lives in ``MatchController``. Keep this module focused on
+process startup, display mode, and top-level event dispatch.
 
 Rendering uses the real pygame display size. In windowed mode the initial
 window follows the monitor aspect ratio; in fullscreen mode pygame is asked for
@@ -25,6 +25,7 @@ import pygame
 from rts_nano.application import GameSession, MatchController, MatchMode
 from rts_nano.game.constants import FPS, GRAY, SCREEN_HEIGHT, SCREEN_WIDTH
 from rts_nano.game.ui.input_controller import FULLSCREEN_TOGGLE_EVENT, RESTART_MATCH_EVENT, InputController
+from rts_nano.game.ui.match_view import MatchView
 from rts_nano.game.ui.renderer import GameRenderer
 from rts_nano.game.ui.state import PresentationState
 from rts_nano.map_schema import load_map_settings
@@ -143,14 +144,14 @@ def main() -> None:
     options = _parse_args()
     pygame.init()
     display_screen, _ = _create_display(fullscreen=False)
-    pygame.display.set_caption("Simple RTS")
+    pygame.display.set_caption("RTS Nano - Bot Spectator" if options.mode == MatchMode.SPECTATE else "Simple RTS")
     clock = pygame.time.Clock()
 
     map_settings = load_map_settings(options.map_path)
     match = MatchController(GameSession(map_settings), options.mode)
     game_manager = match.session
     game_manager.set_viewport_size(*display_screen.get_size())
-    presentation = PresentationState()
+    presentation = PresentationState(view=MatchView(options.mode))
     renderer = GameRenderer(presentation=presentation)
     input_controller = InputController(presentation=presentation)
 

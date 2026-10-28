@@ -75,7 +75,8 @@ class GameRenderer:
         play_area_height = manager.play_area_height
         screen_height = manager.screen_height
 
-        manager.refresh_player_visibility()
+        self.presentation.view.refresh(manager)
+        fog = self.presentation.view.fog_for(manager)
         self._update_effects(manager)
 
         world_surface = screen.subsurface(pygame.Rect(0, 0, screen_width, play_area_height))
@@ -84,14 +85,7 @@ class GameRenderer:
         self._terrain_renderer.draw(world_surface, manager.terrain, camera_offset)
 
         for entity in manager.all_entities:
-            cx, cy = entity.get_center()
-            is_visible = manager.fog.is_visible(cx, cy)
-            is_explored = manager.fog.is_explored(cx, cy)
-
-            is_allied = getattr(entity, "team", None) == manager.current_team
-            is_resource = isinstance(entity, Resource)
-
-            if is_allied:
+            if self.presentation.view.can_inspect(manager, entity):
                 self._draw_entity(
                     world_surface,
                     entity,
@@ -99,32 +93,14 @@ class GameRenderer:
                     manager.state.tick_count,
                     entity in manager.selected_entities,
                 )
-            elif is_resource:
-                if is_explored or is_visible:
-                    self._draw_entity(
-                        world_surface,
-                        entity,
-                        camera_offset,
-                        manager.state.tick_count,
-                        entity in manager.selected_entities,
-                    )
-            else:
-                if is_visible:
-                    self._draw_entity(
-                        world_surface,
-                        entity,
-                        camera_offset,
-                        manager.state.tick_count,
-                        entity in manager.selected_entities,
-                    )
 
         self._draw_rally_points(world_surface, manager, camera_offset)
 
         for missile in self._magic_missiles:
-            if manager.fog.is_visible(missile.x, missile.y):
+            if fog is None or fog.is_visible(missile.x, missile.y):
                 missile.draw(world_surface, camera_offset)
         for shot in self._archer_shots:
-            if manager.fog.is_visible(shot.x, shot.y):
+            if fog is None or fog.is_visible(shot.x, shot.y):
                 shot.draw(world_surface, camera_offset)
         now_ms = pygame.time.get_ticks()
         self.presentation.click_markers = [
@@ -135,28 +111,8 @@ class GameRenderer:
 
         self._draw_pending_construction(world_surface, camera_offset, manager)
 
-        fog_surf = pygame.Surface((screen_width, play_area_height), pygame.SRCALPHA)
-        fog_surf.fill((0, 0, 0, 255))
-
-        start_col = max(0, int(manager.camera_x // FOG_CELL_SIZE))
-        end_col = min(manager.fog.cols - 1, int((manager.camera_x + screen_width) // FOG_CELL_SIZE))
-        start_row = max(0, int(manager.camera_y // FOG_CELL_SIZE))
-        end_row = min(manager.fog.rows - 1, int((manager.camera_y + play_area_height) // FOG_CELL_SIZE))
-
-        for row in range(start_row, end_row + 1):
-            for col in range(start_col, end_col + 1):
-                state = manager.fog.grid[row][col]
-                if state > 0:
-                    rect_x = int(col * FOG_CELL_SIZE - manager.camera_x)
-                    rect_y = int(row * FOG_CELL_SIZE - manager.camera_y)
-                    # Expand by 1 pixel to prevent visual seams between grid cells
-                    rect = pygame.Rect(rect_x, rect_y, FOG_CELL_SIZE + 1, FOG_CELL_SIZE + 1)
-                    if state == FogOfWar.VISIBLE:
-                        fog_surf.fill((0, 0, 0, 0), rect)
-                    else:
-                        fog_surf.fill((0, 0, 0, 150), rect)
-
-        world_surface.blit(fog_surf, (0, 0))
+        if fog is not None:
+            self._draw_world_fog(world_surface, manager, fog)
 
         if manager.dragging and manager.drag_start and manager.drag_end:
             x1, y1 = manager._world_to_screen(manager.drag_start)
@@ -172,6 +128,54 @@ class GameRenderer:
             screen.blit(selection_surface, (min_x, min_y))
             pygame.draw.rect(screen, GREEN, (min_x, min_y, width, height), 2)
 
+        if manager.paused and not manager.menu_active and manager.game_over_message is None:
+            font = pygame.font.SysFont(None, 36)
+            pause_text = font.render("- PAUSED -", True, WHITE)
+            text_rect = pause_text.get_rect(center=(screen_width // 2, screen_height // 2))
+            screen.blit(pause_text, text_rect)
+
+        if self.presentation.view.is_spectator:
+            self._draw_spectator_hud(screen, manager)
+        else:
+            self._draw_player_hud(screen, manager)
+        self._draw_bottom_menu(screen, manager)
+        self._draw_minimap(screen, manager)
+        if self.presentation.view.is_spectator:
+            self._draw_spectator_controls(screen, manager)
+
+        if manager.game_over_message is not None:
+            self._draw_match_result(screen, manager)
+        elif self.presentation.tech_tree_visible:
+            self._draw_tech_tree(screen, manager)
+        elif manager.menu_active:
+            self._draw_main_menu(screen, manager)
+
+    @staticmethod
+    def _draw_world_fog(surface: pygame.Surface, manager: GameSession, fog: FogOfWar) -> None:
+        """Draw one view's fog without changing any exploration data."""
+        width, height = surface.get_size()
+        fog_surf = pygame.Surface((width, height), pygame.SRCALPHA)
+        fog_surf.fill((0, 0, 0, 255))
+        start_col = max(0, int(manager.camera_x // FOG_CELL_SIZE))
+        end_col = min(fog.cols - 1, int((manager.camera_x + width) // FOG_CELL_SIZE))
+        start_row = max(0, int(manager.camera_y // FOG_CELL_SIZE))
+        end_row = min(fog.rows - 1, int((manager.camera_y + height) // FOG_CELL_SIZE))
+        for row in range(start_row, end_row + 1):
+            for col in range(start_col, end_col + 1):
+                state = fog.grid[row][col]
+                if state > 0:
+                    rect = pygame.Rect(
+                        int(col * FOG_CELL_SIZE - manager.camera_x),
+                        int(row * FOG_CELL_SIZE - manager.camera_y),
+                        FOG_CELL_SIZE + 1,
+                        FOG_CELL_SIZE + 1,
+                    )
+                    fog_surf.fill((0, 0, 0, 0 if state == FogOfWar.VISIBLE else 150), rect)
+        surface.blit(fog_surf, (0, 0))
+
+    @staticmethod
+    def _draw_player_hud(screen: pygame.Surface, manager: GameSession) -> None:
+        """Keep the existing player economy/clock presentation."""
         font = pygame.font.SysFont(None, 36)
         emoji_font = pygame.font.SysFont(["Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", "Noto Emoji"], 20)
         team_group = manager.teams.get(manager.current_team)
@@ -204,25 +208,53 @@ class GameRenderer:
             font.render(f" | {match_clock_label(manager)}", True, ui_color),
         ]
 
-        if manager.paused and not manager.menu_active and manager.game_over_message is None:
-            pause_text = font.render("- PAUSED -", True, WHITE)
-            text_rect = pause_text.get_rect(center=(screen_width // 2, screen_height // 2))
-            screen.blit(pause_text, text_rect)
-
         hud_x = 10
         hud_y = 10
         for part_surface in hud_parts:
             screen.blit(part_surface, (hud_x, hud_y))
             hud_x += part_surface.get_width()
-        self._draw_bottom_menu(screen, manager)
-        self._draw_minimap(screen, manager)
 
-        if manager.game_over_message is not None:
-            self._draw_match_result(screen, manager)
-        elif self.presentation.tech_tree_visible:
-            self._draw_tech_tree(screen, manager)
-        elif manager.menu_active:
-            self._draw_main_menu(screen, manager)
+    def _draw_spectator_hud(self, screen: pygame.Surface, manager: GameSession) -> None:
+        """Show the observer view and both sides' public match statistics."""
+        font = pygame.font.SysFont(None, 26)
+        header = (
+            f"SPECTATOR | View: {self.presentation.view.label} | "
+            f"{match_clock_label(manager)} | Speed: {manager.fps_multiplier:g}x"
+        )
+        screen.blit(font.render(header, True, WHITE), (10, 10))
+        for index, team in enumerate((TeamColor.BLUE, TeamColor.RED)):
+            state = manager.state.team(team)
+            if state is None:
+                continue
+            population = manager.state.population_for_team(team)
+            capacity = manager.population_cap_for_team(team)
+            queued = manager.production.queued_population_for_team(team)
+            buildings = len(manager.state.buildings_for_team(team))
+            label = (
+                f"{team.value} ({state.faction_id}) | Wood: {state.resources['wood']} | Gold: {state.resources['gold']} | "
+                f"Population: {population}/{capacity} (+{queued} queued) | Buildings: {buildings}"
+            )
+            color = (145, 180, 255) if team == TeamColor.BLUE else (255, 145, 145)
+            screen.blit(font.render(label, True, color), (10, 38 + index * 25))
+
+    @staticmethod
+    def _draw_spectator_controls(screen: pygame.Surface, manager: GameSession) -> None:
+        """Replace gameplay command cards with persistent observer help."""
+        left = manager.screen_width - 174
+        top = manager.screen_height - BOTTOM_MENU_HEIGHT + 12
+        font = pygame.font.SysFont(None, 18)
+        lines = (
+            "SPECTATOR",
+            "Tab: All / Blue / Red",
+            "Click: Inspect",
+            "P / Space: Pause",
+            "R: Restart",
+            "F9: Technology",
+            "F10: Menu / speed",
+            "F11: Fullscreen",
+        )
+        for index, line in enumerate(lines):
+            screen.blit(font.render(line, True, WHITE), (left, top + index * 19))
 
     def reset_match(self) -> None:
         """Clear match-local effects while preserving cached presentation assets."""
@@ -552,6 +584,8 @@ class GameRenderer:
                 )
             pygame.draw.rect(screen, WHITE, frame_rect, 2)
 
+        if self.presentation.view.is_spectator:
+            return
         buttons = self.presentation.command_panel.build(manager, screen_width, screen_height)
         buttons_by_slot = {button.slot: button for button in buttons}
         hovered_button: CommandButton | None = None
@@ -785,41 +819,25 @@ class GameRenderer:
         for region in manager.terrain.ramps:
             pygame.draw.rect(screen, (158, 142, 96), mini_rect(region.rect))
 
-        fog_surf = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
-        fog_surf.fill((0, 0, 0, 255))
-
-        for row in range(manager.fog.rows):
-            for col in range(manager.fog.cols):
-                state = manager.fog.grid[row][col]
-                if state > 0:
-                    cell_rect = pygame.Rect(
-                        int(col * FOG_CELL_SIZE * scale_x),
-                        int(row * FOG_CELL_SIZE * scale_y),
-                        max(1, int(FOG_CELL_SIZE * scale_x)) + 1,
-                        max(1, int(FOG_CELL_SIZE * scale_y)) + 1,
-                    )
-                    if state == FogOfWar.VISIBLE:
-                        fog_surf.fill((0, 0, 0, 0), cell_rect)
-                    else:
-                        fog_surf.fill((0, 0, 0, 150), cell_rect)
-        screen.blit(fog_surf, (rect.left, rect.top))
+        fog = self.presentation.view.fog_for(manager)
+        if fog is not None:
+            fog_surf = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
+            fog_surf.fill((0, 0, 0, 255))
+            for row in range(fog.rows):
+                for col in range(fog.cols):
+                    state = fog.grid[row][col]
+                    if state > 0:
+                        cell_rect = pygame.Rect(
+                            int(col * FOG_CELL_SIZE * scale_x),
+                            int(row * FOG_CELL_SIZE * scale_y),
+                            max(1, int(FOG_CELL_SIZE * scale_x)) + 1,
+                            max(1, int(FOG_CELL_SIZE * scale_y)) + 1,
+                        )
+                        fog_surf.fill((0, 0, 0, 0 if state == FogOfWar.VISIBLE else 150), cell_rect)
+            screen.blit(fog_surf, (rect.left, rect.top))
 
         for entity in manager.all_entities:
-            cx, cy = entity.get_center()
-            is_visible = manager.fog.is_visible(cx, cy)
-            is_explored = manager.fog.is_explored(cx, cy)
-            is_allied = getattr(entity, "team", None) == manager.current_team
-            is_resource = isinstance(entity, Resource)
-
-            should_draw = False
-            if is_allied:
-                should_draw = True
-            elif is_resource:
-                should_draw = is_explored or is_visible
-            else:
-                should_draw = is_visible
-
-            if should_draw:
+            if self.presentation.view.can_inspect(manager, entity):
                 color = getattr(entity, "color", WHITE)
                 if isinstance(entity, Resource):
                     color = (80, 210, 120) if isinstance(entity, Wood) else (90, 220, 240)
@@ -847,13 +865,14 @@ class GameRenderer:
         menu_width = 300
         button_height = 50
         spacing = 20
-        total_height = len(manager.menu_options) * (button_height + spacing) - spacing
+        options = self.presentation.view.menu_options(manager)
+        total_height = len(options) * (button_height + spacing) - spacing
         start_x = (screen_width - menu_width) // 2
         start_y = (screen_height - total_height) // 2
 
         font = pygame.font.SysFont(None, 40)
 
-        for i, option in enumerate(manager.menu_options):
+        for i, option in enumerate(options):
             rect = pygame.Rect(start_x, start_y + i * (button_height + spacing), menu_width, button_height)
 
             color = (80, 80, 80) if rect.collidepoint(manager.mouse_pos) else (40, 40, 40)
@@ -871,15 +890,16 @@ class GameRenderer:
             status_rect = status_surf.get_rect(center=(screen_width // 2, start_y + total_height + 30))
             screen.blit(status_surf, status_rect)
 
-    @staticmethod
-    def _draw_match_result(screen: pygame.Surface, manager: GameSession) -> None:
+    def _draw_match_result(self, screen: pygame.Surface, manager: GameSession) -> None:
         """Draw a terminal result overlay with restart and quit actions."""
         overlay = pygame.Surface((manager.screen_width, manager.screen_height), pygame.SRCALPHA)
         overlay.fill((0, 0, 0, 190))
         screen.blit(overlay, (0, 0))
         title_font = pygame.font.SysFont(None, 72)
         button_font = pygame.font.SysFont(None, 34)
-        title = title_font.render(match_result_title(manager), True, WHITE)
+        title = title_font.render(
+            match_result_title(manager, spectator=self.presentation.view.is_spectator), True, WHITE
+        )
         screen.blit(title, title.get_rect(center=(manager.screen_width // 2, manager.screen_height // 2 - 40)))
         detail = pygame.font.SysFont(None, 26).render(match_result_detail(manager), True, WHITE)
         screen.blit(detail, detail.get_rect(center=(manager.screen_width // 2, manager.screen_height // 2 + 5)))

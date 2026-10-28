@@ -44,6 +44,7 @@ class InputController:
         self.presentation = presentation or PresentationState()
         self._last_click_ms = 0
         self._last_click_pos: tuple[int, int] = (0, 0)
+        self._paused_before_menu = False
 
     def update_camera(self, manager: GameSession) -> None:
         """Scroll the viewport with keyboard keys or screen-edge mouse position."""
@@ -79,7 +80,7 @@ class InputController:
 
     def handle_event(self, manager: GameSession, event: pygame.event.Event) -> None:
         """Process one pygame event for team control, selection, and orders."""
-        manager.refresh_player_visibility()
+        self.presentation.view.refresh(manager)
         if event.type == pygame.KEYDOWN:
             self._handle_keydown(manager, event)
         elif event.type == pygame.MOUSEBUTTONDOWN:
@@ -93,6 +94,7 @@ class InputController:
         """Clear click history that must not cross a match boundary."""
         self._last_click_ms = 0
         self._last_click_pos = (0, 0)
+        self._paused_before_menu = False
 
     def _handle_keydown(self, manager: GameSession, event: pygame.event.Event) -> None:
         if manager.game_over_message is not None:
@@ -102,6 +104,9 @@ class InputController:
                 pygame.event.post(pygame.event.Event(pygame.QUIT))
             elif event.key == pygame.K_F11 or (event.key == pygame.K_RETURN and event.mod & pygame.KMOD_ALT):
                 self._request_fullscreen_toggle(manager)
+            return
+        if self.presentation.view.is_spectator:
+            self._handle_spectator_keydown(manager, event)
             return
         if event.key == pygame.K_ESCAPE:
             if self.presentation.command_panel.page != "root":
@@ -167,6 +172,42 @@ class InputController:
             else:
                 manager.recall_control_group(group_id)
 
+    def _handle_spectator_keydown(self, manager: GameSession, event: pygame.event.Event) -> None:
+        """Allow only observer/application controls before any gameplay hotkey dispatch."""
+        if event.key == pygame.K_TAB:
+            self.presentation.view.cycle_perspective(manager)
+        elif event.key in {pygame.K_p, pygame.K_SPACE}:
+            if not manager.menu_active:
+                manager.paused = not manager.paused
+        elif event.key == pygame.K_r:
+            pygame.event.post(pygame.event.Event(RESTART_MATCH_EVENT))
+        elif event.key == pygame.K_q:
+            pygame.event.post(pygame.event.Event(pygame.QUIT))
+        elif event.key == pygame.K_F9:
+            self.presentation.tech_tree_visible = not self.presentation.tech_tree_visible
+        elif event.key == pygame.K_F10:
+            self.presentation.tech_tree_visible = False
+            self._toggle_spectator_menu(manager)
+        elif event.key == pygame.K_ESCAPE:
+            if self.presentation.tech_tree_visible:
+                self.presentation.tech_tree_visible = False
+            elif manager.menu_active:
+                self._toggle_spectator_menu(manager)
+            else:
+                manager.selected_entities.clear()
+        elif event.key == pygame.K_F11 or (event.key == pygame.K_RETURN and event.mod & pygame.KMOD_ALT):
+            self._request_fullscreen_toggle(manager)
+
+    def _toggle_spectator_menu(self, manager: GameSession) -> None:
+        """Restore the observer's prior pause choice after closing the menu."""
+        if manager.menu_active:
+            manager.menu_active = False
+            manager.paused = self._paused_before_menu
+        else:
+            self._paused_before_menu = manager.paused
+            manager.menu_active = True
+            manager.paused = True
+
     def _handle_mouse_down(self, manager: GameSession, event: pygame.event.Event) -> None:
         mouse_pos = event.pos
         manager.set_mouse_pos(mouse_pos)
@@ -203,6 +244,12 @@ class InputController:
         if minimap_rect.collidepoint(mouse_pos):
             manager.minimap_dragging = True
             manager._center_camera_from_minimap_pos(mouse_pos)
+            return
+
+        if self.presentation.view.is_spectator:
+            if mouse_pos[1] < manager.play_area_height:
+                entity = self.presentation.view.entity_at(manager, manager._screen_to_world(mouse_pos))
+                manager.selected_entities = [entity] if entity is not None else []
             return
 
         if self._handle_selection_panel_click(manager, mouse_pos):
@@ -288,6 +335,8 @@ class InputController:
         manager.drag_end = world_pos
 
     def _handle_right_click(self, manager: GameSession, mouse_pos: tuple[int, int]) -> None:
+        if self.presentation.view.is_spectator:
+            return
         if manager.pending_construction_type is not None:
             manager.cancel_pending_construction_placement()
             return
@@ -389,6 +438,8 @@ class InputController:
 
     def _dispatch_command_button(self, manager: GameSession, button: CommandButton) -> None:
         """Run the manager action behind an enabled command-panel button."""
+        if self.presentation.view.is_spectator:
+            return
         action = button.action
         if action == "produce" and button.producer is not None and button.unit_type:
             manager.produce_unit(button.producer, button.unit_type)
@@ -431,17 +482,18 @@ class InputController:
         menu_width = 300
         button_height = 50
         spacing = 20
-        total_height = len(manager.menu_options) * (button_height + spacing) - spacing
+        options = self.presentation.view.menu_options(manager)
+        total_height = len(options) * (button_height + spacing) - spacing
         start_x = (manager.screen_width - menu_width) // 2
         start_y = (manager.screen_height - total_height) // 2
 
-        for i, option in enumerate(manager.menu_options):
+        for i, option in enumerate(options):
             rect = pygame.Rect(start_x, start_y + i * (button_height + spacing), menu_width, button_height)
             if not rect.collidepoint(mouse_pos):
                 continue
             if option == "CONTINUE":
                 manager.menu_active = False
-                manager.paused = False
+                manager.paused = self._paused_before_menu if self.presentation.view.is_spectator else False
             elif option == "SAVE":
                 manager.menu_status = "Save is not implemented yet."
             elif option == "LOAD":
