@@ -1,0 +1,56 @@
+{
+  "platform": "Windows-11-10.0.26200-SP0",
+  "processor": "Intel64 Family 6 Model 198 Stepping 2, GenuineIntel",
+  "python": "3.14.4",
+  "runs": [
+    {
+      "map": "map_spec_01.json",
+      "ticks": 11726,
+      "result": "Team Red wins",
+      "reason": "elimination",
+      "attacks_landed": 359,
+      "both_armies_seen": true,
+      "checkpoints": {
+        "6000": "8499ca95509a77199fa5b552491f467d7551b8970f74d26525c6ea4480d51400",
+        "11726": "5740c5a8b42162954bfe4ade9007489721be24840fee9a0ff846cd7184a45293"
+      },
+      "elapsed_seconds": 15.4555,
+      "ticks_per_second": 758.69,
+      "restart": "PASS"
+    },
+    {
+      "map": "map_spec_01.json",
+      "ticks": 11726,
+      "result": "Team Red wins",
+      "reason": "elimination",
+      "attacks_landed": 359,
+      "both_armies_seen": true,
+      "checkpoints": {
+        "6000": "8499ca95509a77199fa5b552491f467d7551b8970f74d26525c6ea4480d51400",
+        "11726": "5740c5a8b42162954bfe4ade9007489721be24840fee9a0ff846cd7184a45293"
+      },
+      "elapsed_seconds": 15.583,
+      "ticks_per_second": 752.49,
+      "restart": "PASS"
+    },
+    {
+      "map": "map_spec_02.json",
+      "ticks": 36000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "attacks_landed": 264,
+      "both_armies_seen": true,
+      "checkpoints": {
+        "6000": "bfb7abde01a84f87a8daf0b6b4793b011ccc4155be2ee8e9c80867e434c5e382",
+        "12000": "2c8ecf46d4dd554599507c1b2f5cbbbbbee463917cb4cf222eb3b8ec6c9bee21",
+        "18000": "ad3cd54a70b0f31e9a58743ced2aaed2bf6c932de72e887054257ca497ba84b7",
+        "24000": "860abc1450080e46e2386cf68355ff55a1d32462a206ab1811a7de2d21636049",
+        "30000": "39502fb4cd72b6e45685355aa5d8b9a8602b16d01fc052c23b14c6d06e04ed89",
+        "36000": "da0bdc9b6bc0fdd0dfc8f97e401aee00c3889bdd78a37c9df4ef20830028b867"
+      },
+      "elapsed_seconds": 1013.0891,
+      "ticks_per_second": 35.53,
+      "restart": "PASS"
+    }
+  ]
+}

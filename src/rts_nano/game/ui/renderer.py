@@ -216,6 +216,9 @@ class GameRenderer:
 
     def _draw_spectator_hud(self, screen: pygame.Surface, manager: GameSession) -> None:
         """Show the observer view and both sides' public match statistics."""
+        background = pygame.Surface((manager.screen_width, 90), pygame.SRCALPHA)
+        background.fill((12, 17, 24, 225))
+        screen.blit(background, (0, 0))
         font = pygame.font.SysFont(None, 26)
         header = (
             f"SPECTATOR | View: {self.presentation.view.label} | "
@@ -235,7 +238,11 @@ class GameRenderer:
                 f"Population: {population}/{capacity} (+{queued} queued) | Buildings: {buildings}"
             )
             color = (145, 180, 255) if team == TeamColor.BLUE else (255, 145, 145)
-            screen.blit(font.render(label, True, color), (10, 38 + index * 25))
+            available_width = manager.screen_width - 20
+            label_font = font
+            if font.size(label)[0] > available_width:
+                label_font = pygame.font.SysFont(None, max(16, int(26 * available_width / font.size(label)[0])))
+            screen.blit(label_font.render(label, True, color), (10, 38 + index * 25))
 
     @staticmethod
     def _draw_spectator_controls(screen: pygame.Surface, manager: GameSession) -> None:
@@ -277,7 +284,12 @@ class GameRenderer:
         small_font = pygame.font.SysFont(None, 18)
         title = title_font.render(f"{team.faction_id} TECHNOLOGY TREE", True, WHITE)
         screen.blit(title, (32, 24))
-        hint = row_font.render("F9: close  |  Research at the listed production building", True, (170, 190, 210))
+        instructions = (
+            "F9: close  |  Read-only team research overview"
+            if self.presentation.view.is_spectator
+            else "F9: close  |  Research at the listed production building"
+        )
+        hint = row_font.render(instructions, True, (170, 190, 210))
         screen.blit(hint, (32, 66))
         entries = build_tech_tree(team)
         column_width = max(360, (manager.screen_width - 96) // 2)

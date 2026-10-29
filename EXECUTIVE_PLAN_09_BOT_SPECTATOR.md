@@ -1,6 +1,6 @@
 # Plan 09 — Bot Match Spectator
 
-Date: 2026-10-29. Status: implementation in progress.
+Date: 2026-10-29. Status: complete.
 
 ## User outcome
 
@@ -16,8 +16,9 @@ cannot issue unit, economy, research, construction, spell, queue, or rally comma
 
 1. An application-level match controller owns the game session, mode, and participating bots.
    `main.py` composes it and owns the SDL loop. The simulation runner remains the only rules engine.
-2. Play runs the Red bot; Spectate runs Blue then Red before each simulation tick. Both inspect the
-   same pre-tick world. Submission order is stable, not a guarantee of simultaneous resolution or
+2. Play runs the Red bot; Spectate runs Blue then Red before each simulation tick. They act
+   sequentially on the shared session; earlier commands may already be visible to the next bot.
+   Submission order is stable, not a guarantee of simultaneous resolution or
    competitive fairness. Pausing/ending prevents bot decisions as well as simulation advancement.
 3. A separate presentation view owns spectator visibility and exploration. All-map visibility
    changes drawing and inspection only. It never reveals terrain or enemies to a bot's own memory.
@@ -53,7 +54,12 @@ Status: complete — [S2 review](docs/reviews/BOT_SPECTATOR_S2_REVIEW.md).
 
 ## S3 — Acceptance and documentation
 
-Status: pending.
+Status: complete — [S3 acceptance review](docs/reviews/BOT_SPECTATOR_S3_REVIEW.md).
+
+Acceptance discovery: the two-bot Twin Rivers workload exposed repeated baseline scouting searches
+for an identical unreachable ground route. S3 includes one bounded failed-request cache in the bot,
+with invalidation tests and behavior comparisons. It preserves the chosen scout/goal and strategy;
+it is required to keep the viewer responsive, not an expansion of bot capabilities.
 
 - Run each shipped v3 map through the two-bot application controller to a bounded result; restart.
 - Compare fresh runs and a rendered observer against equivalent headless decisions. Exercise view

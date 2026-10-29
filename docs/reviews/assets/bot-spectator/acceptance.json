@@ -1,0 +1,113 @@
+{
+  "platform": "Windows-11-10.0.26200-SP0",
+  "processor": "Intel64 Family 6 Model 198 Stepping 2, GenuineIntel",
+  "python": "3.14.4",
+  "runs": [
+    {
+      "map": "map_spec_01.json",
+      "ticks": 11726,
+      "result": "Team Red wins",
+      "reason": "elimination",
+      "attacks_landed": 359,
+      "both_armies_seen": true,
+      "checkpoints": {
+        "6000": "8499ca95509a77199fa5b552491f467d7551b8970f74d26525c6ea4480d51400",
+        "11726": "5740c5a8b42162954bfe4ade9007489721be24840fee9a0ff846cd7184a45293"
+      },
+      "elapsed_seconds": 6.2928,
+      "ticks_per_second": 1863.39,
+      "restart": "PASS"
+    },
+    {
+      "map": "map_spec_01.json",
+      "ticks": 11726,
+      "result": "Team Red wins",
+      "reason": "elimination",
+      "attacks_landed": 359,
+      "both_armies_seen": true,
+      "checkpoints": {
+        "6000": "8499ca95509a77199fa5b552491f467d7551b8970f74d26525c6ea4480d51400",
+        "11726": "5740c5a8b42162954bfe4ade9007489721be24840fee9a0ff846cd7184a45293"
+      },
+      "elapsed_seconds": 6.6119,
+      "ticks_per_second": 1773.47,
+      "restart": "PASS"
+    },
+    {
+      "map": "map_spec_02.json",
+      "ticks": 36000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "attacks_landed": 264,
+      "both_armies_seen": true,
+      "checkpoints": {
+        "6000": "bfb7abde01a84f87a8daf0b6b4793b011ccc4155be2ee8e9c80867e434c5e382",
+        "12000": "2c8ecf46d4dd554599507c1b2f5cbbbbbee463917cb4cf222eb3b8ec6c9bee21",
+        "18000": "ad3cd54a70b0f31e9a58743ced2aaed2bf6c932de72e887054257ca497ba84b7",
+        "24000": "860abc1450080e46e2386cf68355ff55a1d32462a206ab1811a7de2d21636049",
+        "30000": "39502fb4cd72b6e45685355aa5d8b9a8602b16d01fc052c23b14c6d06e04ed89",
+        "36000": "da0bdc9b6bc0fdd0dfc8f97e401aee00c3889bdd78a37c9df4ef20830028b867"
+      },
+      "elapsed_seconds": 23.8797,
+      "ticks_per_second": 1507.56,
+      "restart": "PASS"
+    },
+    {
+      "map": "map_spec_02.json",
+      "ticks": 36000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "attacks_landed": 264,
+      "both_armies_seen": true,
+      "checkpoints": {
+        "6000": "bfb7abde01a84f87a8daf0b6b4793b011ccc4155be2ee8e9c80867e434c5e382",
+        "12000": "2c8ecf46d4dd554599507c1b2f5cbbbbbee463917cb4cf222eb3b8ec6c9bee21",
+        "18000": "ad3cd54a70b0f31e9a58743ced2aaed2bf6c932de72e887054257ca497ba84b7",
+        "24000": "860abc1450080e46e2386cf68355ff55a1d32462a206ab1811a7de2d21636049",
+        "30000": "39502fb4cd72b6e45685355aa5d8b9a8602b16d01fc052c23b14c6d06e04ed89",
+        "36000": "da0bdc9b6bc0fdd0dfc8f97e401aee00c3889bdd78a37c9df4ef20830028b867"
+      },
+      "elapsed_seconds": 24.3662,
+      "ticks_per_second": 1477.46,
+      "restart": "PASS"
+    },
+    {
+      "map": "map_spec_03.json",
+      "ticks": 36000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "attacks_landed": 293,
+      "both_armies_seen": true,
+      "checkpoints": {
+        "6000": "2f65b647b4206ad19425ab02ff4b16e53a6439beec1bf42f04ebd0f0be860daa",
+        "12000": "a598a0bf24b478611d6e7255141c32191cac52e3dc93a5714fb71685b625a523",
+        "18000": "d5e107d6b4dc1ba357bdae8862664fa2a9653e7acd5d0fb1e6758cfb08cd4a57",
+        "24000": "66bf9867efe481caeaac1630b600dd5c9d1fa92f5b30e9452a271d8a8cefe726",
+        "30000": "df9152d92c8498c34f603cdad45f9274da148f84fe7dc83b09019e22e6852de9",
+        "36000": "ab1a209087dd2598bf4ffdceae1105cce0c56ee5850977dfc494a705e88fc257"
+      },
+      "elapsed_seconds": 159.677,
+      "ticks_per_second": 225.46,
+      "restart": "PASS"
+    },
+    {
+      "map": "map_spec_03.json",
+      "ticks": 36000,
+      "result": "Draw",
+      "reason": "time_limit",
+      "attacks_landed": 293,
+      "both_armies_seen": true,
+      "checkpoints": {
+        "6000": "2f65b647b4206ad19425ab02ff4b16e53a6439beec1bf42f04ebd0f0be860daa",
+        "12000": "a598a0bf24b478611d6e7255141c32191cac52e3dc93a5714fb71685b625a523",
+        "18000": "d5e107d6b4dc1ba357bdae8862664fa2a9653e7acd5d0fb1e6758cfb08cd4a57",
+        "24000": "66bf9867efe481caeaac1630b600dd5c9d1fa92f5b30e9452a271d8a8cefe726",
+        "30000": "df9152d92c8498c34f603cdad45f9274da148f84fe7dc83b09019e22e6852de9",
+        "36000": "ab1a209087dd2598bf4ffdceae1105cce0c56ee5850977dfc494a705e88fc257"
+      },
+      "elapsed_seconds": 172.542,
+      "ticks_per_second": 208.64,
+      "restart": "PASS"
+    }
+  ]
+}

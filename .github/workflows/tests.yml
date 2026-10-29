@@ -58,6 +58,9 @@ jobs:
           uv run pytest
           tests/test_presentation_boundary.py
           tests/test_asset_completeness.py
+          tests/test_spectator_view.py
+          tests/test_spectator_acceptance.py
+          tests/test_main.py
 
   benchmark-smoke:
     runs-on: ubuntu-latest

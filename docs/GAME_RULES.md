@@ -11,6 +11,10 @@ A two-team RTS: Blue and Red identify sides; map `faction_id` selects AEGIS or R
 Swapped sides and same-faction matches are supported. The windowed game starts with a Blue
 human player and a simple Red bot.
 
+The application also offers `--mode spectate` to watch Blue and Red baseline bots. Observer
+visibility, inspection, and controls are described in [Watching bot matches](BOT_SPECTATOR.md).
+This application mode uses the same frozen gameplay rules and independent bot knowledge.
+
 | Shared foundation | AEGIS | RUST |
 |---|---|---|
 | Peasant, Knight, Archer, Mage | Guardian, Marksman, Arclight | Ripper, Spitter, Brute |

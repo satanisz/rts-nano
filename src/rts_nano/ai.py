@@ -8,13 +8,12 @@ from rts_nano.content import CONTENT
 from rts_nano.game.constants import FOG_CELL_SIZE
 from rts_nano.game.fog import FogOfWar
 from rts_nano.game.rules import nearest_entity
-from rts_nano.simulation.entities.base import Building, Resource
+from rts_nano.simulation.entities.base import Building, Resource, Unit
 from rts_nano.simulation.entities.units import Peasant
 
 if TYPE_CHECKING:
     from rts_nano.application import GameSession
     from rts_nano.simulation.entities import TeamColor
-    from rts_nano.simulation.entities.base import Unit
     from rts_nano.simulation.entities.buildings import Base
 
 _FACTION_PLAN: dict[str, tuple[str, tuple[str, ...]]] = {
@@ -36,6 +35,7 @@ class ScriptedAI:
         self._frame = 0
         self._vision = FogOfWar(manager.map_width, manager.map_height)
         self._last_known_enemy_base: tuple[float, float] | None = None
+        self._failed_scout_request: tuple[object, ...] | None = None
         faction_id = str(manager.state.faction_for_team(team))
         self._military_building, self._army_units = _FACTION_PLAN.get(faction_id, ("arsenal", ("guardian",)))
 
@@ -153,7 +153,44 @@ class ScriptedAI:
         scout = idle[0]
         destination = self._nearest_unexplored_point(scout.get_center())
         if destination is not None:
+            # Only reuse a failed ground request. An entity entering the clicked
+            # point may change attack-move target resolution and must be retried.
+            has_target = any(
+                isinstance(entity, (Unit, Building))
+                and entity.team != self._team
+                and entity.life > 0
+                and entity.contains_point(destination)
+                for entity in self._manager.all_entities
+            )
+            if (
+                not has_target
+                and scout.path_unreachable
+                and self._failed_scout_request == self._scout_request_key(scout, destination)
+            ):
+                return
             self._manager.issue_attack_move_order(self._team, destination, [scout])
+            self._failed_scout_request = (
+                self._scout_request_key(scout, destination) if scout.path_unreachable and not has_target else None
+            )
+
+    def _scout_request_key(self, scout: Unit, destination: tuple[int, int]) -> tuple[object, ...]:
+        """Fingerprint one failed request without retaining entities or unbounded history."""
+        terrain = self._manager.terrain
+        return (
+            scout.entity_id,
+            scout.get_center(),
+            scout.radius,
+            destination,
+            self._manager.state.obstacle_revision,
+            scout.current_order,
+            tuple(scout.order_queue),
+            scout.attack_move_destination,
+            scout.patrol_points,
+            tuple(terrain.water),
+            tuple(terrain.high_ground),
+            tuple(terrain.ramps),
+            tuple(terrain.rocks),
+        )
 
     def _nearest_unexplored_point(
         self,

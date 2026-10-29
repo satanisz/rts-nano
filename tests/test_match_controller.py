@@ -80,6 +80,7 @@ def test_restart_recreates_both_bot_memories_and_preserves_mode_and_rules() -> N
     assert len(restarted._bots) == 2
     assert all(new is not old and new._frame == 0 for new, old in zip(restarted._bots, match._bots, strict=True))
     assert all(bot.known_enemy_base_position is None for bot in restarted._bots)
+    assert all(bot._failed_scout_request is None for bot in restarted._bots)
 
 
 def test_both_real_bots_develop_from_the_original_zero_bank_start() -> None:

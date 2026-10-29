@@ -164,7 +164,8 @@ def main() -> None:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-            elif event.type == FULLSCREEN_TOGGLE_EVENT:
+                break
+            if event.type == FULLSCREEN_TOGGLE_EVENT:
                 display_screen, fullscreen_enabled = _create_display(fullscreen=event.enabled)
                 game_manager.set_fullscreen_enabled(fullscreen_enabled)
                 game_manager.set_viewport_size(*display_screen.get_size())
@@ -177,6 +178,8 @@ def main() -> None:
                 continue
             input_controller.handle_event(game_manager, event)
 
+        if not running:
+            break
         input_controller.update_camera(game_manager)
         match.step()
 

@@ -4,6 +4,73 @@ RTS Nano is a compact real-time strategy game with a deterministic, presentation
 simulation core. The current milestone is a complete game core for later AI and reinforcement-
 learning work; it is not intended to be a commercial game product.
 
+## Requirements and installation
+
+- Python 3.14 or newer
+- [uv](https://docs.astral.sh/uv/)
+- Pygame CE (installed from the lockfile)
+
+```powershell
+uv sync --locked --dev
+```
+
+## Run
+
+```powershell
+# Play the game
+uv run python -m rts_nano.main
+
+# Play another competitive map
+uv run python -m rts_nano.main --map map_spec_02.json
+
+# Watch two bots
+uv run python -m rts_nano.main --mode spectate
+
+# Watch two bots on another map
+uv run python -m rts_nano.main --mode spectate --map map_spec_02.json
+
+# Open the map editor
+uv run python -m rts_nano.map_editor --map map_settings_01.json
+
+# Validate one or more maps
+uv run python -m rts_nano.validate_map src/rts_nano/maps/map_spec_01.json
+
+# Inspect and preview the semantic MapSpec example
+uv run python -m rts_nano.map_inspect src/rts_nano/maps/map_spec_01.json
+uv run python -m rts_nano.map_preview src/rts_nano/maps/map_spec_01.json --output tmp/map_spec_01.svg
+
+# Run the pure headless benchmark
+uv run python benchmarks/core_baseline.py
+```
+
+`rts_nano.headless.HeadlessSimulation` exposes the same simulation used by the windowed game
+without importing Pygame, configuring SDL, loading images, or creating presentation objects.
+
+Spectator mode starts with the full map visible. `Tab` cycles All/Blue/Red views; left-click inspects
+objects, `P`/Space pauses, `R` restarts, and `F10` opens the menu with speed controls. Both teams'
+statistics are visible while gameplay commands are disabled. The existing baseline bots retain
+their own fog-of-war knowledge. See [Watching bot matches](docs/BOT_SPECTATOR.md) for controls and limits.
+
+`rts_nano.env.RtsNanoEnv` adds a deterministic episode lifecycle and simultaneous Blue/Red action
+boundary for future RL adapters. It defaults to a 36,000-frame limit, reports termination and
+truncation separately, supports configurable frame skip, and exposes registry-derived strategic
+and tactical actions. It remains tensor-framework neutral; Gymnasium/PyTorch adapters belong to
+the next milestone.
+
+```python
+from rts_nano.actions import MoveAction, NoOpAction
+from rts_nano.env import RtsNanoEnv
+from rts_nano.simulation.entities import TeamColor
+
+env = RtsNanoEnv(frame_skip=8)  # Always headless; no visual assets are loaded.
+observation = env.reset(seed=7)
+result = env.step_joint({
+    TeamColor.BLUE: (MoveAction(TeamColor.BLUE, (600, 400)),),
+    TeamColor.RED: (NoOpAction(),),
+})
+env.close()
+```
+
 ## Current game
 
 Two factions share the same economy and construction fundamentals but use distinct rosters:
@@ -32,62 +99,6 @@ The playable game defaults to the semantic MapSpec v3 map set:
 
 Every map uses exact 180-degree spawn/resource symmetry and executable checks for starting economy
 and critical routes. Legacy v2 maps remain available for compatibility and regression tests.
-
-## Requirements and installation
-
-- Python 3.14 or newer
-- [uv](https://docs.astral.sh/uv/)
-- Pygame CE (installed from the lockfile)
-
-```powershell
-uv sync --locked --dev
-```
-
-## Run
-
-```powershell
-# Play the game
-uv run python -m rts_nano.main
-
-# Play another competitive map
-uv run python -m rts_nano.main --map map_spec_02.json
-
-# Open the map editor
-uv run python -m rts_nano.map_editor --map map_settings_01.json
-
-# Validate one or more maps
-uv run python -m rts_nano.validate_map src/rts_nano/maps/map_spec_01.json
-
-# Inspect and preview the semantic MapSpec example
-uv run python -m rts_nano.map_inspect src/rts_nano/maps/map_spec_01.json
-uv run python -m rts_nano.map_preview src/rts_nano/maps/map_spec_01.json --output tmp/map_spec_01.svg
-
-# Run the pure headless benchmark
-uv run python benchmarks/core_baseline.py
-```
-
-`rts_nano.headless.HeadlessSimulation` exposes the same simulation used by the windowed game
-without importing Pygame, configuring SDL, loading images, or creating presentation objects.
-
-`rts_nano.env.RtsNanoEnv` adds a deterministic episode lifecycle and simultaneous Blue/Red action
-boundary for future RL adapters. It defaults to a 36,000-frame limit, reports termination and
-truncation separately, supports configurable frame skip, and exposes registry-derived strategic
-and tactical actions. It remains tensor-framework neutral; Gymnasium/PyTorch adapters belong to
-the next milestone.
-
-```python
-from rts_nano.actions import MoveAction, NoOpAction
-from rts_nano.env import RtsNanoEnv
-from rts_nano.simulation.entities import TeamColor
-
-env = RtsNanoEnv(frame_skip=8)  # Always headless; no visual assets are loaded.
-observation = env.reset(seed=7)
-result = env.step_joint({
-    TeamColor.BLUE: (MoveAction(TeamColor.BLUE, (600, 400)),),
-    TeamColor.RED: (NoOpAction(),),
-})
-env.close()
-```
 
 ## Core controls
 
@@ -128,6 +139,7 @@ runs rendering with SDL's dummy video driver, and reports a fast benchmark smoke
 ## Project guides
 
 - [Architecture](ARCHITECTURE.md)
+- [Watching bot matches](docs/BOT_SPECTATOR.md)
 - [Map schema](MAP_SCHEMA.md)
 - [MapSpec v3 authoring](docs/MAP_AUTHORING.md)
 - [Competitive map review](docs/reviews/COMPETITIVE_MAPS_REVIEW.md)
@@ -139,6 +151,7 @@ runs rendering with SDL's dummy video driver, and reports a fast benchmark smoke
 - [Game-core readiness plan](EXECUTIVE_PLAN_05_CORE_READINESS.md)
 - [Expanded faction tech-tree plan](EXECUTIVE_PLAN_06_EXPANDED_FACTION_TECH_TREES.md)
 - [RL environment foundation plan](EXECUTIVE_PLAN_07_RL_ENVIRONMENT_FOUNDATION.md)
+- [Bot spectator plan](EXECUTIVE_PLAN_09_BOT_SPECTATOR.md)
 
 Tensor schemas, curriculum maps, vector environments, AI policies, automated balance work, reward
 design, Gymnasium/PyTorch adapters, and RL training remain deferred to the next milestone.

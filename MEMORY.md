@@ -17,4 +17,11 @@ historical Polish document last changed in June 2026, outside the recent transla
 This closes the bounded game stage, not a competitive-balance certification or ML integration.
 The scope excludes preparing an API for ML, new content, and RL training. The existing environment
 received only the C3 compatibility wiring needed to preserve its prior episode-limit semantics.
+The user subsequently authorized an additional two-bot spectator mode with deliberate planning.
+`EXECUTIVE_PLAN_09_BOT_SPECTATOR.md` records its three sprints. The Pygame-free `MatchController`
+owns participants/lifecycle; presentation-owned `MatchView` supplies All/Blue/Red visibility and
+read-only inspection. Bots keep separate knowledge. The S3 acceptance exposed repeated identical
+failed scout searches; one bounded failed-request cache avoids those retries while preserving the
+existing strategy and recorded gameplay. See `docs/BOT_SPECTATOR.md` and the S3 review for operation
+and evidence. Default Play mode and frozen simulation rules remain available.
 Wait for the user's next scope decision; do not infer authorization for the remaining ML backlog.

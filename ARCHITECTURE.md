@@ -68,10 +68,26 @@ panels, projectiles, click markers, and other visual effects. Rendering reads si
 events but does not change gameplay state.
 
 `main.py` owns Pygame startup, window/fullscreen creation, the outer event loop, and presentation
-composition. `headless.py` constructs the same `GameSession` without importing Pygame or SDL.
+composition. Typed launch options select Play (default) or Spectate. The Pygame-free
+`application/MatchController` composes one Red bot or Blue/Red bots, advances their decisions in
+stable order before one shared tick, and guards both decisions and simulation at pause/result.
+`headless.py` constructs the same `GameSession` without importing Pygame or SDL.
 Match restart is also an application-shell responsibility: a fresh `GameSession` is created from a
 deep copy of the original map settings, while renderer-owned asset caches are retained and only
-match-local presentation effects are cleared.
+match-local presentation effects are cleared. `MatchController.restart()` additionally recreates
+all bots and preserves participant mode.
+
+`PresentationState` owns a `MatchView` policy, separate from participants and simulation state.
+Player mode delegates to the existing player-target rule. Spectate uses All or separate Blue/Red
+presentation exploration grids for drawing, effects, minimap, and inspection. It never shares those
+grids with `ScriptedAI`. Read-only input is enforced before gameplay hotkey/click dispatch; the
+renderer replaces gameplay command cards with observer help. Mode and view are composed once at
+startup, and view/exploration resets at restart. See [Watching bot matches](docs/BOT_SPECTATOR.md).
+
+`ScriptedAI` retains at most one unchanged failed ground-scout request. The fingerprint contains
+scout identity/position/radius, destination, order/queue, building revision, and immutable terrain
+geometry. Potential entity targets bypass reuse. This bounds repeated failed planning without
+choosing a different goal, storing entity references, or changing game rules; a fresh bot clears it.
 
 ## Tick order
 
